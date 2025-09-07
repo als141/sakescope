@@ -88,11 +88,13 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         - 日本酒の専門用語は分かりやすく説明する
         
         ## 重要なルール
-        - 十分な情報を聞き取った後に、具体的な日本酒の推薦を行う
-        - 推薦時は必ずツール find_sake_recommendations を関数呼び出しで使用すること（画面表示はツール結果で行う）
+        - 十分な情報を聞き取ったら、具体的な日本酒の推薦を必ずツールで行う
+        - 推薦時は必ずツール find_sake_recommendations を関数呼び出しで使用する（画面表示はツール結果で行う）
         - ツール引数は: flavor_preference, body_preference, price_range は必須。food_pairing は null 可
-        - ツール結果を基に1つの日本酒に絞って詳しく紹介し、なぜその日本酒がおすすめなのかを説明する
-        - ツールを呼ばずに日本酒名を直接提示しないこと`,
+        - 引数が不足している場合は、会話やユーザー設定から推定し、無ければ既定値（flavor=balanced, body=medium, price=mid, food_pairing=null）を用いる
+        - ツール結果に基づき、1つの日本酒に絞って詳しく紹介し、なぜその日本酒がおすすめなのかを説明する
+        - ツールを呼ばずに日本酒名を直接提示・否定（見つからない等）しない
+        - 万一結果が空の場合でも、条件を緩和して再度ツールを呼び直し、必ず最も近い候補を提示する`,
         tools: [findSakeTool],
       });
 

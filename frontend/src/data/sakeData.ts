@@ -206,32 +206,50 @@ export const getSakeRecommendations = (preferences: {
   price_range?: 'budget' | 'mid' | 'premium';
   food_pairing?: string[];
 }) => {
-  let filtered = [...mockSakeData];
+  // Always return at least one recommendation by scoring closeness
+  const targetSweetness = (() => {
+    if (preferences.flavor_preference === 'dry') return 1.5;
+    if (preferences.flavor_preference === 'sweet') return 4.5;
+    return 3; // balanced or undefined
+  })();
 
-  if (preferences.flavor_preference) {
-    filtered = filtered.filter(sake => {
-      if (preferences.flavor_preference === 'dry') return sake.flavor_profile.sweetness <= 2;
-      if (preferences.flavor_preference === 'sweet') return sake.flavor_profile.sweetness >= 4;
-      return sake.flavor_profile.sweetness === 3;
-    });
-  }
+  const targetLightness = (() => {
+    if (preferences.body_preference === 'light') return 4;
+    if (preferences.body_preference === 'rich') return 2;
+    return 3; // medium or undefined
+  })();
 
-  if (preferences.body_preference) {
-    filtered = filtered.filter(sake => {
-      if (preferences.body_preference === 'light') return sake.flavor_profile.lightness >= 3;
-      if (preferences.body_preference === 'rich') return sake.flavor_profile.lightness <= 2;
-      return true;
-    });
-  }
+  const targetPrice = (() => {
+    if (preferences.price_range === 'budget') return 1500;
+    if (preferences.price_range === 'premium') return 5000;
+    return 3000; // mid or undefined
+  })();
 
-  if (preferences.price_range) {
-    filtered = filtered.filter(sake => {
-      const priceNum = parseInt(sake.price_range.match(/¥(\d+),?(\d+)/)?.[1] || '0');
-      if (preferences.price_range === 'budget') return priceNum <= 2000;
-      if (preferences.price_range === 'premium') return priceNum >= 4000;
-      return priceNum > 2000 && priceNum < 4000;
-    });
-  }
+  const parsePriceAvg = (range: string) => {
+    // e.g. "¥3,000-5,000" or "¥1,500-2,500"
+    const m = range.match(/¥([\d,]+)(?:-(\d[\d,]*))?/);
+    if (!m) return 3000;
+    const low = parseInt(m[1].replace(/,/g, ''), 10);
+    const high = m[2] ? parseInt(m[2].replace(/,/g, ''), 10) : low;
+    return Math.round((low + high) / 2);
+  };
 
-  return filtered.slice(0, 3); // Return top 3 recommendations
+  const hasFoodHit = (sake: SakeData, foods?: string[]) => {
+    if (!foods || foods.length === 0) return false;
+    const set = new Set(sake.food_pairing.map((f) => f.toLowerCase()));
+    return foods.some((f) => set.has(f.toLowerCase()));
+  };
+
+  const scored = mockSakeData.map((sake) => {
+    const sSweet = 1 - Math.min(1, Math.abs(sake.flavor_profile.sweetness - targetSweetness) / 4);
+    const sBody = 1 - Math.min(1, Math.abs(sake.flavor_profile.lightness - targetLightness) / 4);
+    const priceAvg = parsePriceAvg(sake.price_range);
+    const sPrice = 1 - Math.min(1, Math.abs(priceAvg - targetPrice) / 4000);
+    const sFood = hasFoodHit(sake, preferences.food_pairing) ? 0.15 : 0; // small bonus
+    const score = sSweet * 0.4 + sBody * 0.3 + sPrice * 0.3 + sFood;
+    return { sake, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map((x) => x.sake);
 };
