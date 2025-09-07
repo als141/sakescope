@@ -26,6 +26,7 @@
 
 ### バックエンド
  - openai-realtime api(https://platform.openai.com/docs/models/gpt-realtime)
+ - モデル名：gpt-realtime-2025-08-28
  - ReActループアーキテクチャ
  - RAG(Retrieval-Augmented Generation)
  - 日本酒オープンデータ(とりあえずモックデータ)
@@ -53,3 +54,4 @@
 
 ### データベース
  - Supabase
+ 
