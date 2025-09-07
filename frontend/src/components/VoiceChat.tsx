@@ -12,9 +12,15 @@ interface VoiceChatProps {
   isRecording: boolean;
   setIsRecording: (recording: boolean) => void;
   onSakeRecommended: (sake: SakeData) => void;
+  preferences?: {
+    flavor_preference?: 'dry' | 'sweet' | 'balanced';
+    body_preference?: 'light' | 'medium' | 'rich';
+    price_range?: 'budget' | 'mid' | 'premium';
+    food_pairing?: string[];
+  };
 }
 
-export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommended }: VoiceChatProps) {
+export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommended, preferences }: VoiceChatProps) {
   const [session, setSession] = useState<RealtimeSession | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -83,8 +89,10 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         
         ## 重要なルール
         - 十分な情報を聞き取った後に、具体的な日本酒の推薦を行う
-        - 推薦する際は、なぜその日本酒がおすすめなのかを説明する
-        - 1つの日本酒に絞って詳しく紹介する`,
+        - 推薦時は必ずツール find_sake_recommendations を関数呼び出しで使用すること（画面表示はツール結果で行う）
+        - ツール引数は: flavor_preference, body_preference, price_range は必須。food_pairing は null 可
+        - ツール結果を基に1つの日本酒に絞って詳しく紹介し、なぜその日本酒がおすすめなのかを説明する
+        - ツールを呼ばずに日本酒名を直接提示しないこと`,
         tools: [findSakeTool],
       });
 
@@ -163,6 +171,16 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       });
       // Ensure we are unmuted when starting
       session.mute(false);
+
+      // Provide saved preferences to the model as context so it can call the tool easily
+      if (preferences) {
+        const prefText = `ユーザー設定: 味=${preferences.flavor_preference ?? '未設定'}, ボディ=${preferences.body_preference ?? '未設定'}, 価格帯=${preferences.price_range ?? '未設定'}, 料理=${preferences.food_pairing?.join(' / ') ?? '未設定'}`;
+        session.sendMessage({
+          type: 'message',
+          role: 'user',
+          content: [{ type: 'input_text', text: prefText }],
+        });
+      }
 
       setIsConnected(true);
       setIsLoading(false);

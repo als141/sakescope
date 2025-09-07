@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Settings, Volume2 } from 'lucide-react';
+import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
 import { SakeData } from '@/data/sakeData';
@@ -10,7 +11,27 @@ import { SakeData } from '@/data/sakeData';
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recommendedSake, setRecommendedSake] = useState<SakeData | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
+  const [preferences, setPreferences] = useState<{
+    flavor_preference?: 'dry' | 'sweet' | 'balanced';
+    body_preference?: 'light' | 'medium' | 'rich';
+    price_range?: 'budget' | 'mid' | 'premium';
+    food_pairing?: string[];
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('sakePreferences');
+      if (v) {
+        const p = JSON.parse(v);
+        setPreferences({
+          flavor_preference: p.flavor_preference,
+          body_preference: p.body_preference,
+          price_range: p.price_range,
+          food_pairing: Array.isArray(p.food_pairing) ? p.food_pairing : undefined,
+        });
+      }
+    } catch {}
+  }, []);
 
   // Deterministic RNG to avoid hydration mismatches
   function mulberry32(a: number) {
@@ -95,14 +116,15 @@ export default function Home() {
             Sakescope
           </motion.h1>
           
-          <motion.button
-            onClick={() => setShowSettings(!showSettings)}
-            className="p-3 rounded-full glass hover:bg-gray-700/50 transition-colors"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <Settings className="w-6 h-6 text-amber-400" />
-          </motion.button>
+          <Link href="/settings">
+            <motion.span
+              className="p-3 rounded-full glass hover:bg-gray-700/50 transition-colors inline-flex"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Settings className="w-6 h-6 text-amber-400" />
+            </motion.span>
+          </Link>
         </motion.header>
 
         {/* Main Interface */}
@@ -138,6 +160,7 @@ export default function Home() {
                 isRecording={isRecording}
                 setIsRecording={setIsRecording}
                 onSakeRecommended={setRecommendedSake}
+                preferences={preferences || undefined}
               />
 
               {/* Instructions */}
