@@ -71,14 +71,15 @@ export async function POST(request: NextRequest) {
                   description: "価格帯: budget(お手頃), mid(中価格帯), premium(高級)"
                 },
                 food_pairing: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  },
-                  description: "一緒に楽しむ料理のリスト"
+                  // Required but nullable to satisfy GA schema constraints
+                  anyOf: [
+                    { type: "array", items: { type: "string" } },
+                    { type: "null" }
+                  ],
+                  description: "一緒に楽しむ料理のリスト（null可）"
                 }
               },
-              required: ["flavor_preference", "body_preference", "price_range"]
+              required: ["flavor_preference", "body_preference", "price_range", "food_pairing"]
             }
           }
         ],

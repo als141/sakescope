@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, MessageSquare, Loader } from 'lucide-react';
-import { RealtimeAgent, RealtimeSession } from '@openai/agents/realtime';
+import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents/realtime';
+import { z } from 'zod';
 import { SakeData } from '@/data/sakeData';
+import { getSakeRecommendations } from '@/data/sakeData';
 
 interface VoiceChatProps {
   isRecording: boolean;
@@ -24,6 +26,35 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
   useEffect(() => {
     const initializeAgent = async () => {
       if (agentRef.current) return;
+
+      // Define a function tool the model can call to fetch sake recommendations
+      const findSakeTool = tool({
+        name: 'find_sake_recommendations',
+        description: 'お客様の好みに基づいて日本酒を推薦します',
+        parameters: z.object({
+          flavor_preference: z.enum(['dry', 'sweet', 'balanced']),
+          body_preference: z.enum(['light', 'medium', 'rich']),
+          price_range: z.enum(['budget', 'mid', 'premium']),
+          // Optional fields are not supported by the API; use nullable required field instead
+          food_pairing: z.array(z.string()).nullable(),
+        }),
+        async execute(input) {
+          const prefs = input as {
+            flavor_preference: 'dry'|'sweet'|'balanced';
+            body_preference: 'light'|'medium'|'rich';
+            price_range: 'budget'|'mid'|'premium';
+            food_pairing: string[] | null;
+          };
+          const recs = getSakeRecommendations({
+            flavor_preference: prefs.flavor_preference,
+            body_preference: prefs.body_preference,
+            price_range: prefs.price_range,
+            food_pairing: prefs.food_pairing ?? undefined,
+          });
+          // Return structured JSON the model can use to explain
+          return JSON.stringify({ recommendations: recs });
+        }
+      });
 
       const agent = new RealtimeAgent({
         name: '日本酒ソムリエ',
@@ -53,7 +84,8 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         ## 重要なルール
         - 十分な情報を聞き取った後に、具体的な日本酒の推薦を行う
         - 推薦する際は、なぜその日本酒がおすすめなのかを説明する
-        - 1つの日本酒に絞って詳しく紹介する`
+        - 1つの日本酒に絞って詳しく紹介する`,
+        tools: [findSakeTool],
       });
 
       agentRef.current = agent;
@@ -78,34 +110,20 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
           if (texts) {
             setTranscript(prev => [...prev, `AI: ${texts}`]);
 
-            const textLower = texts.toLowerCase();
-            if (textLower.includes('獺祭') || textLower.includes('だっさい')) {
-              const mockSake = {
-                id: "sake-001",
-                name: "獺祭 純米大吟醸磨き三割九分",
-                brewery: "旭酒造",
-                region: "山口県",
-                type: "純米大吟醸",
-                alcohol: 16.0,
-                sakeValue: 6,
-                acidity: 1.1,
-                flavor_profile: {
-                  sweetness: 3,
-                  lightness: 4,
-                  complexity: 4,
-                  fruitiness: 4
-                },
-                tasting_notes: ["華やかな吟醸香", "上品な甘み", "クリアな後味", "洋梨のような香り"],
-                food_pairing: ["刺身", "寿司", "白身魚の料理", "軽い前菜"],
-                serving_temp: ["冷酒", "常温"],
-                price_range: "¥3,000-5,000",
-                description: "山田錦を39%まで磨いた贅沢な純米大吟醸。フルーティーで華やかな香りと、透明感のある味わいが特徴的な逸品。",
-                image_url: "/images/sake-dassai.jpg"
-              };
-              setTimeout(() => onSakeRecommended(mockSake), 1000);
-            }
+            // Presentation is triggered when tool completes (see below)
           }
         }
+      });
+
+      // When the tool finishes, update the UI with the top recommendation
+      newSession.on('agent_tool_end', (_ctx: any, _agent: any, _tool: any, result: string) => {
+        try {
+          const parsed = JSON.parse(result);
+          const recs = parsed?.recommendations as SakeData[] | undefined;
+          if (recs && recs.length > 0) {
+            onSakeRecommended(recs[0]);
+          }
+        } catch {}
       });
 
       newSession.on('error', (event: any) => {
