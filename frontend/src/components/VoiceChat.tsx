@@ -133,9 +133,22 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       });
 
       newSession.on('error', (event: any) => {
+        // Extract readable message if present
+        const rawMsg = typeof event === 'string'
+          ? event
+          : event?.error?.message || event?.message || (event?.error ? String(event.error) : '');
+
+        // Known benign noise seen in browsers with Realtime: ignore gracefully
+        const isBenign = rawMsg && /Unable to add filesystem/i.test(rawMsg);
+
+        if (isBenign) {
+          console.warn('[Realtime] Ignored benign error:', rawMsg);
+          return; // Do not surface to UI or drop connection
+        }
+
         console.error('Session error:', event);
-        setError('Connection error occurred');
-        setIsConnected(false);
+        setError(rawMsg || 'Connection error occurred');
+        // Do not force disconnect on transient errors; keep session unless transport actually closes
         setIsLoading(false);
       });
     };
