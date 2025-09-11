@@ -24,7 +24,8 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
   const [session, setSession] = useState<RealtimeSession | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [transcript, setTranscript] = useState<string[]>([]);
+  // Only store assistant text outputs (no user transcripts)
+  const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const agentRef = useRef<RealtimeAgent | null>(null);
 
@@ -100,28 +101,23 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
 
       agentRef.current = agent;
       
-      const newSession = new RealtimeSession(agent);
-      setSession(newSession);
-
-      // Listen to raw transport events for finalized user input transcription
-      newSession.on('transport_event', (event: any) => {
-        if (event?.type === 'conversation.item.input_audio_transcription.completed' && event.transcript) {
-          setTranscript(prev => [...prev, `You: ${event.transcript}`]);
+      // Request both audio and text so we can render assistant text reliably
+      const newSession = new RealtimeSession(agent, {
+        config: {
+          outputModalities: ['audio', 'text']
         }
       });
+      setSession(newSession);
 
-      // Track history additions to capture assistant text outputs
-      newSession.on('history_added', (item: any) => {
-        if (item?.type === 'message' && item.role === 'assistant') {
-          const texts = (item.content || [])
-            .filter((c: any) => c?.type === 'output_text' && typeof c.text === 'string')
-            .map((c: any) => c.text)
-            .join('');
-          if (texts) {
-            setTranscript(prev => [...prev, `AI: ${texts}`]);
+      // Do not store or render user speech transcripts — UI shows only AI output
+      newSession.on('transport_event', (_event: any) => {
+        // Intentionally ignore finalized user input transcription events
+      });
 
-            // Presentation is triggered when tool completes (see below)
-          }
+      // Append assistant's final text per turn (from output_text or audio transcript)
+      newSession.on('agent_end', (_ctx: any, _agent: any, finalText: string) => {
+        if (typeof finalText === 'string' && finalText.trim()) {
+          setAiMessages(prev => [...prev, finalText.trim()]);
         }
       });
 
@@ -317,26 +313,29 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       </motion.div>
 
       {/* Conversation History */}
-      {transcript.length > 0 && (
+      {aiMessages.length > 0 && (
         <motion.div
-          className="w-full max-w-2xl space-y-2 max-h-60 overflow-y-auto"
+          className="w-full max-w-2xl space-y-3 max-h-64 overflow-y-auto px-2"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           transition={{ duration: 0.5 }}
+          aria-live="polite"
         >
-          {transcript.map((message, index) => (
+          {aiMessages.map((message, index) => (
             <motion.div
               key={index}
-              className={`p-3 rounded-lg glass ${
-                message.startsWith('You:') 
-                  ? 'ml-8 bg-gray-700/30' 
-                  : 'mr-8 bg-orange-500/20'
-              }`}
-              initial={{ opacity: 0, x: message.startsWith('You:') ? 20 : -20 }}
+              className="flex items-start gap-3 mr-8"
+              initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: Math.min(index * 0.05, 0.3) }}
             >
-              <p className="text-sm text-gray-200">{message}</p>
+              <div className="shrink-0 mt-1 rounded-full bg-orange-500/20 p-2">
+                <MessageSquare className="w-4 h-4 text-orange-300" />
+              </div>
+              <div className="flex-1 rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-400/10 border border-orange-400/20 p-4 shadow-sm">
+                <div className="mb-1 text-xs uppercase tracking-wider text-orange-300/80">AIソムリエ</div>
+                <p className="text-sm leading-relaxed text-gray-100 whitespace-pre-wrap">{message}</p>
+              </div>
             </motion.div>
           ))}
         </motion.div>
