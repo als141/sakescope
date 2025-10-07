@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Settings, Volume2 } from 'lucide-react';
+import { Mic, Settings, Volume2 } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';

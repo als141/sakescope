@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Thermometer, Wine, Star, DollarSign, Utensils } from 'lucide-react';
+import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils } from 'lucide-react';
 import { SakeData } from '@/data/sakeData';
 
 interface SakeDisplayProps {

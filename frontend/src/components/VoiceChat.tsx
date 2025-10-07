@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, MessageSquare, Loader, PhoneOff } from 'lucide-react';
 import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents/realtime';
+import type { RealtimeSessionEventTypes, TransportEvent } from '@openai/agents/realtime';
 import { z } from 'zod';
 import { SakeData } from '@/data/sakeData';
 import { getSakeRecommendations } from '@/data/sakeData';
@@ -67,6 +68,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
   useEffect(() => {
     const initializeAgent = async () => {
       if (agentRef.current) return;
+      type SessionEvents = RealtimeSessionEventTypes;
 
       // Define a function tool the model can call to fetch sake recommendations
       const findSakeTool = tool({
@@ -144,19 +146,20 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       setSession(newSession);
 
       // Do not store or render user speech transcripts — UI shows only AI output
-      newSession.on('transport_event', (_event: any) => {
-        // Intentionally ignore finalized user input transcription events
+      newSession.on('transport_event', (event: TransportEvent) => {
+        void event; // Intentionally ignore finalized user input transcription events
       });
 
       // Append assistant's final text per turn (from output_text or audio transcript)
-      newSession.on('agent_end', (_ctx: any, _agent: any, finalText: string) => {
+      newSession.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
         if (typeof finalText === 'string' && finalText.trim()) {
           setAiMessages(prev => [...prev, finalText.trim()]);
         }
       });
 
       // When the tool finishes, update the UI with the top recommendation
-      newSession.on('agent_tool_end', (_ctx: any, _agent: any, _tool: any, result: string) => {
+      newSession.on('agent_tool_end', (...args: SessionEvents['agent_tool_end']) => {
+        const [, , , result] = args;
         try {
           const parsed = JSON.parse(result);
           const recs = parsed?.recommendations as SakeData[] | undefined;
@@ -166,7 +169,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         } catch {}
       });
 
-      newSession.on('error', (event: any) => {
+      newSession.on('error', (event: SessionEvents['error'][0]) => {
         // Extract readable message if present
         const rawMsg = extractErrorMessage(event);
 
@@ -203,7 +206,9 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         },
       });
 
-      const data = await response.json().catch(() => null);
+      const data = await response.json().catch(() => null) as
+        | { value?: string; error?: unknown; details?: unknown }
+        | null;
       if (!response.ok || !data?.value) {
         const details = (data && (data.error || data.details)) || 'Failed to get client secret';
         throw new Error(typeof details === 'string' ? details : JSON.stringify(details));
@@ -228,9 +233,11 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       setIsConnected(true);
       setIsLoading(false);
       setIsRecording(true);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to connect:', error);
-      setError(error?.message || 'Failed to connect to AI assistant');
+      const message =
+        error instanceof Error ? error.message : 'Failed to connect to AI assistant';
+      setError(message || 'Failed to connect to AI assistant');
       setIsLoading(false);
     }
   };

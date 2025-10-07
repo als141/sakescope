@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Ensure no caching and Node runtime for external fetch
 export const dynamic = 'force-dynamic';
@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
       { error: 'OpenAI API key not configured' },
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await response.json();
+    const data: Record<string, unknown> = await response.json();
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error creating client secret:', error);
