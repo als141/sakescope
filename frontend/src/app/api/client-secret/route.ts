@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const sessionConfig = {
       session: {
         type: "realtime",
-        model: "gpt-realtime",
+        model: "gpt-realtime-mini",
         instructions: `あなたは日本酒の専門知識を持つ親しみやすいAIソムリエです。
         
         ## あなたの役割

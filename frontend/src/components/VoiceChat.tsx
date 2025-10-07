@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, MessageSquare, Loader } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, Loader, PhoneOff } from 'lucide-react';
 import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents/realtime';
 import { z } from 'zod';
 import { SakeData } from '@/data/sakeData';
@@ -18,6 +18,40 @@ interface VoiceChatProps {
     price_range?: 'budget' | 'mid' | 'premium';
     food_pairing?: string[];
   };
+}
+
+function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string | undefined {
+  if (input == null) return undefined;
+  if (typeof input === 'string') return input;
+  if (typeof input === 'number' || typeof input === 'boolean') {
+    return String(input);
+  }
+  if (typeof input !== 'object') return undefined;
+  if (seen.has(input)) return undefined;
+  seen.add(input);
+
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      const msg = extractErrorMessage(item, seen);
+      if (msg) return msg;
+    }
+    return undefined;
+  }
+
+  const record = input as Record<string, unknown>;
+  for (const key of ['message', 'error', 'details', 'reason']) {
+    if (key in record) {
+      const msg = extractErrorMessage(record[key], seen);
+      if (msg) return msg;
+    }
+  }
+
+  for (const value of Object.values(record)) {
+    const msg = extractErrorMessage(value, seen);
+    if (msg) return msg;
+  }
+
+  return undefined;
 }
 
 export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommended, preferences }: VoiceChatProps) {
@@ -101,10 +135,10 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
 
       agentRef.current = agent;
       
-      // Request both audio and text so we can render assistant text reliably
+      // Request audio output; transcript text is still received via session events
       const newSession = new RealtimeSession(agent, {
         config: {
-          outputModalities: ['audio', 'text']
+          outputModalities: ['audio']
         }
       });
       setSession(newSession);
@@ -134,9 +168,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
 
       newSession.on('error', (event: any) => {
         // Extract readable message if present
-        const rawMsg = typeof event === 'string'
-          ? event
-          : event?.error?.message || event?.message || (event?.error ? String(event.error) : '');
+        const rawMsg = extractErrorMessage(event);
 
         // Known benign noise seen in browsers with Realtime: ignore gracefully
         const isBenign = rawMsg && /Unable to add filesystem/i.test(rawMsg);
@@ -146,7 +178,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
           return; // Do not surface to UI or drop connection
         }
 
-        console.error('Session error:', event);
+        console.error('Session error:', rawMsg ?? event);
         setError(rawMsg || 'Connection error occurred');
         // Do not force disconnect on transient errors; keep session unless transport actually closes
         setIsLoading(false);
@@ -208,24 +240,38 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       session.close();
       setIsConnected(false);
       setIsRecording(false);
+      setIsLoading(false);
+      setError(null);
     }
   };
 
-  const toggleRecording = () => {
-    if (!isConnected) {
-      connectToSession();
+  const handleStartConversation = () => {
+    if (isLoading || isConnected) return;
+    connectToSession();
+  };
+
+  const handleStopConversation = () => {
+    if (!isConnected) return;
+    disconnectFromSession();
+  };
+
+  const handleToggleMute = () => {
+    if (!isConnected || !session) return;
+    const nextRecordingState = !isRecording;
+    try {
+      session.mute(!nextRecordingState);
+    } catch (err) {
+      console.error('Failed to toggle mute:', err);
+      setError('マイクのミュート切り替えに失敗しました');
       return;
     }
-    if (!session) return;
-
-    if (isRecording) {
-      session.mute(true);
-      setIsRecording(false);
-    } else {
-      session.mute(false);
-      setIsRecording(true);
+    if (error === 'マイクのミュート切り替えに失敗しました') {
+      setError(null);
     }
+    setIsRecording(nextRecordingState);
   };
+
+  const isMuted = isConnected && !isRecording;
 
   // Clean up on unmount
   useEffect(() => {
@@ -238,62 +284,94 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
 
   return (
     <div className="flex flex-col items-center space-y-6">
-      {/* Microphone Button */}
-      <div className="relative">
-        {/* Pulse rings for active recording */}
-        <AnimatePresence>
-          {isRecording && (
-            <>
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-amber-400"
-                initial={{ scale: 1, opacity: 1 }}
-                animate={{ scale: 2, opacity: 0 }}
-                exit={{ scale: 1, opacity: 1 }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeOut'
-                }}
-              />
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-orange-400"
-                initial={{ scale: 1, opacity: 1 }}
-                animate={{ scale: 2.5, opacity: 0 }}
-                exit={{ scale: 1, opacity: 1 }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: 'easeOut',
-                  delay: 0.5
-                }}
-              />
-            </>
-          )}
-        </AnimatePresence>
+      {/* Controls */}
+      <div className="flex flex-col items-center gap-4">
+        {!isConnected ? (
+          <motion.button
+            onClick={handleStartConversation}
+            className={`
+              relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300
+              ${isLoading
+                ? 'bg-gray-600'
+                : 'bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/50'
+              }
+            `}
+            whileHover={{ scale: isLoading ? 1 : 1.05 }}
+            whileTap={{ scale: isLoading ? 1 : 0.95 }}
+            disabled={isLoading}
+            aria-label="会話を開始"
+          >
+            {isLoading ? (
+              <Loader className="w-10 h-10 text-white animate-spin" />
+            ) : (
+              <Mic className="w-10 h-10 text-white" />
+            )}
+          </motion.button>
+        ) : (
+          <div className="flex items-center gap-6">
+            <motion.button
+              onClick={handleStopConversation}
+              className="w-20 h-20 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/40 transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              aria-label="会話を終了"
+            >
+              <PhoneOff className="w-8 h-8 text-white" />
+            </motion.button>
 
-        <motion.button
-          onClick={toggleRecording}
-          className={`
-            relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300
-            ${isRecording 
-              ? 'bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/50' 
-              : isConnected 
-                ? 'bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/50'
-                : 'bg-gray-700 hover:bg-gray-600 shadow-lg'
-            }
-          `}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <Loader className="w-8 h-8 text-white animate-spin" />
-          ) : isRecording ? (
-            <MicOff className="w-8 h-8 text-white" />
-          ) : (
-            <Mic className="w-8 h-8 text-white" />
-          )}
-        </motion.button>
+            <div className="relative">
+              <AnimatePresence>
+                {isRecording && (
+                  <>
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-2 border-amber-400"
+                      initial={{ scale: 1, opacity: 1 }}
+                      animate={{ scale: 2, opacity: 0 }}
+                      exit={{ scale: 1, opacity: 1 }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'easeOut'
+                      }}
+                    />
+                    <motion.div
+                      className="absolute inset-0 rounded-full border-2 border-orange-400"
+                      initial={{ scale: 1, opacity: 1 }}
+                      animate={{ scale: 2.5, opacity: 0 }}
+                      exit={{ scale: 1, opacity: 1 }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: 'easeOut',
+                        delay: 0.5
+                      }}
+                    />
+                  </>
+                )}
+              </AnimatePresence>
+
+              <motion.button
+                onClick={handleToggleMute}
+                className={`
+                  relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300
+                  ${isMuted
+                    ? 'bg-gray-600 hover:bg-gray-500 shadow-lg shadow-gray-600/40'
+                    : 'bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/40'
+                  }
+                `}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label={isMuted ? 'ミュートを解除' : 'ミュートする'}
+              >
+                {isMuted ? (
+                  <MicOff className="w-8 h-8 text-white" />
+                ) : (
+                  <Mic className="w-8 h-8 text-white" />
+                )}
+              </motion.button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status Text */}
@@ -304,13 +382,13 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         transition={{ delay: 0.3 }}
       >
         <p className="text-lg font-medium text-white">
-          {isLoading 
+          {isLoading
             ? 'AIソムリエに接続中...'
-            : isRecording 
-              ? 'お話しください 🎤'
-              : isConnected
-                ? 'AIソムリエと接続済み'
-                : 'マイクボタンを押してスタート'
+            : !isConnected
+              ? 'マイクボタンを押してスタート'
+              : isMuted
+                ? 'ミュート中（AIには聞こえていません）'
+                : 'お話しください 🎤'
           }
         </p>
         
