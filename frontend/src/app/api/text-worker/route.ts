@@ -169,42 +169,6 @@ const isLikelyImageUrl = (url: string): boolean => {
   return false;
 };
 
-const normalizeImageCandidate = (
-  raw: unknown,
-  baseCandidates: string[],
-): string | null => {
-  if (typeof raw !== 'string') {
-    return null;
-  }
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-  
-  let candidate: string | null = null;
-  
-  if (HTTP_URL_PATTERN.test(trimmed)) {
-    candidate = trimmed;
-  } else if (trimmed.startsWith('//')) {
-    candidate = `https:${trimmed}`;
-  } else {
-    for (const base of baseCandidates) {
-      const resolved = tryResolveWithBase(trimmed, base);
-      if (resolved) {
-        candidate = resolved;
-        break;
-      }
-    }
-  }
-  
-  // 画像URLらしいかチェック
-  if (candidate && isLikelyImageUrl(candidate)) {
-    return candidate;
-  }
-  
-  return null;
-};
-
 const uniqueStrings = (values: unknown[]): string[] => {
   const seen = new Set<string>();
   const result: string[] = [];

@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, Info, ExternalLink, Sparkles, ChevronDown } from 'lucide-react';
+import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles } from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Accordion,
   AccordionContent,
