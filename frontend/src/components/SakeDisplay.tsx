@@ -121,48 +121,89 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                       )}
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed line-clamp-3">
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                     {sake.description ?? '詳細データを取得しています。'}
                   </p>
                 </motion.div>
 
-                {/* Technical Specs */}
+                {/* Technical Specs - Compact */}
                 {(sake.alcohol || sake.sakeValue || sake.acidity) && (
                   <motion.div
-                    className="grid grid-cols-3 gap-3"
+                    className="flex gap-2"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3, duration: 0.5 }}
                   >
                     {sake.alcohol && (
-                      <Card className="text-center p-3 sm:p-4 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-                        <div className="text-xl sm:text-2xl font-bold text-primary mb-1">
-                          {sake.alcohol}%
-                        </div>
-                        <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                          アルコール
-                        </div>
-                      </Card>
+                      <div className="text-xs bg-primary/10 border border-primary/20 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span className="font-bold text-primary">{sake.alcohol}%</span>
+                        <span className="text-muted-foreground">度数</span>
+                      </div>
                     )}
                     {sake.sakeValue && (
-                      <Card className="text-center p-3 sm:p-4 bg-gradient-to-br from-blue-500/5 to-blue-500/10 border-blue-500/20">
-                        <div className="text-xl sm:text-2xl font-bold text-blue-500 mb-1">
-                          {sake.sakeValue}
-                        </div>
-                        <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                          日本酒度
-                        </div>
-                      </Card>
+                      <div className="text-xs bg-blue-500/10 border border-blue-500/20 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span className="font-bold text-blue-500">{sake.sakeValue}</span>
+                        <span className="text-muted-foreground">日本酒度</span>
+                      </div>
                     )}
                     {sake.acidity && (
-                      <Card className="text-center p-3 sm:p-4 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 border-emerald-500/20">
-                        <div className="text-xl sm:text-2xl font-bold text-emerald-500 mb-1">
-                          {sake.acidity}
-                        </div>
-                        <div className="text-[10px] sm:text-xs font-medium text-muted-foreground">
-                          酸度
-                        </div>
-                      </Card>
+                      <div className="text-xs bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span className="font-bold text-emerald-500">{sake.acidity}</span>
+                        <span className="text-muted-foreground">酸度</span>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Purchase Information */}
+                {offer && (
+                  <motion.div
+                    className="space-y-3 pt-2"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4, duration: 0.5 }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-semibold">購入情報</h3>
+                    </div>
+
+                    {offer.summary && (
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {offer.summary}
+                      </p>
+                    )}
+
+                    {purchaseShops.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {purchaseShops.map((shop) => (
+                          <a
+                            key={`${shop.retailer}-${shop.url}`}
+                            href={shop.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block"
+                          >
+                            <Card className="h-full hover:border-primary/50 hover:bg-accent/50 transition-all cursor-pointer">
+                              <CardContent className="p-3">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="font-semibold text-sm text-primary">{shop.retailer}</span>
+                                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                </div>
+                                <div className="text-base sm:text-lg font-bold mb-1">
+                                  {shop.price ? formatPrice(shop.price) : shop.priceText ?? '価格を確認'}
+                                </div>
+                                {shop.availability && (
+                                  <p className="text-xs text-muted-foreground">在庫: {shop.availability}</p>
+                                )}
+                                {shop.deliveryEstimate && (
+                                  <p className="text-xs text-muted-foreground">配送: {shop.deliveryEstimate}</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </a>
+                        ))}
+                      </div>
                     )}
                   </motion.div>
                 )}
@@ -288,64 +329,6 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                 </AccordionItem>
               )}
 
-              {/* Purchase Accordion */}
-              {offer && (
-                <AccordionItem value="purchase">
-                  <AccordionTrigger className="text-base sm:text-lg font-semibold hover:no-underline">
-                    <div className="flex items-center gap-2">
-                      <ShoppingBag className="h-5 w-5 text-primary" />
-                      <span>購入情報</span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      <Alert className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
-                        <Info className="h-4 w-4 text-primary" />
-                        <AlertDescription className="ml-0 mt-2 space-y-2">
-                          <div className="space-y-1">
-                            <h4 className="font-semibold text-sm text-foreground">ソムリエのリサーチ</h4>
-                            <p className="text-xs leading-relaxed">{offer.summary}</p>
-                          </div>
-                        </AlertDescription>
-                      </Alert>
-
-                      {purchaseShops.length > 0 ? (
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-semibold">購入先</h4>
-                          <div className="space-y-2">
-                            {purchaseShops.map((shop) => (
-                              <a
-                                key={`${shop.retailer}-${shop.url}`}
-                                href={shop.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block"
-                              >
-                                <Card className="hover:border-primary/50 hover:bg-accent/50 transition-all cursor-pointer">
-                                  <CardContent className="p-3">
-                                    <div className="flex justify-between items-start mb-1">
-                                      <span className="font-semibold text-sm text-primary">{shop.retailer}</span>
-                                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </div>
-                                    <div className="text-lg font-bold">
-                                      {shop.price ? formatPrice(shop.price) : shop.priceText ?? '価格を確認'}
-                                    </div>
-                                    {shop.availability && (
-                                      <p className="text-xs text-muted-foreground mt-1">在庫: {shop.availability}</p>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">販売先情報を取得中です。</p>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
             </Accordion>
 
             {/* CTA */}
