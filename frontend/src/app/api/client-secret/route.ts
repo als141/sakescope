@@ -30,7 +30,6 @@ function buildToolManifest(): ToolManifest[] {
         properties: {},
         required: [],
       }) as unknown as Record<string, unknown>,
-      strict: tool.strict ? true : undefined,
     }));
 }
 
