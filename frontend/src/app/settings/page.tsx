@@ -3,6 +3,21 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { ArrowLeft, Save, Check, Settings as SettingsIcon, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Flavor = 'dry' | 'sweet' | 'balanced';
 type Body = 'light' | 'medium' | 'rich';
@@ -60,88 +75,293 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden px-4 sm:px-6 lg:px-8">
-      <header className="flex items-center justify-between py-6">
-        <Link href="/" className="text-gray-300 hover:text-white transition-colors">
-          ← 戻る
-        </Link>
-        <h1 className="text-xl font-semibold text-white">設定</h1>
-        <div />
-      </header>
+    <div className="min-h-screen relative overflow-hidden bg-background">
+      {/* Background Effects */}
+      <div className="fixed inset-0 -z-10">
+        <motion.div
+          className="absolute inset-0 opacity-20"
+          animate={{
+            background: [
+              'radial-gradient(circle at 20% 80%, oklch(0.68 0.15 70) 0%, transparent 50%)',
+              'radial-gradient(circle at 80% 20%, oklch(0.78 0.12 60) 0%, transparent 50%)',
+            ],
+          }}
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
+        />
+      </div>
 
-      <motion.div
-        className="max-w-2xl mx-auto glass p-6 rounded-xl space-y-6"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="space-y-2">
-          <label className="block text-sm text-gray-300">味の好み</label>
-          <select
-            className="w-full bg-gray-800 text-white p-3 rounded-lg"
-            value={prefs.flavor_preference}
-            onChange={(e) =>
-              setPrefs((p) => ({ ...p, flavor_preference: e.target.value as Flavor }))
-            }
-          >
-            <option value="dry">辛口</option>
-            <option value="sweet">甘口</option>
-            <option value="balanced">バランス型</option>
-          </select>
-        </div>
+      <div className="relative z-10 w-full px-6 sm:px-8 lg:px-12 xl:px-16 py-10 sm:py-14 lg:py-16">
+        {/* Header */}
+        <header className="w-full max-w-4xl mx-auto mb-10 sm:mb-12">
+          <Link href="/">
+            <Button variant="ghost" size="lg" className="mb-6 sm:mb-8 group">
+              <ArrowLeft className="mr-2 sm:mr-2.5 h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
+              戻る
+            </Button>
+          </Link>
+          
+          <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 mb-4 sm:mb-5">
+            <div className="rounded-2xl bg-primary/10 p-3 sm:p-4 border border-primary/20">
+              <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold gradient-text tracking-tight">設定</h1>
+          </div>
+          <p className="text-muted-foreground text-base sm:text-lg lg:text-xl leading-relaxed font-light">
+            あなたの好みを設定して、より精度の高いレコメンドを受け取りましょう
+          </p>
+        </header>
 
-        <div className="space-y-2">
-          <label className="block text-sm text-gray-300">ボディ</label>
-          <select
-            className="w-full bg-gray-800 text-white p-3 rounded-lg"
-            value={prefs.body_preference}
-            onChange={(e) =>
-              setPrefs((p) => ({ ...p, body_preference: e.target.value as Body }))
-            }
-          >
-            <option value="light">軽快</option>
-            <option value="medium">中程度</option>
-            <option value="rich">濃厚</option>
-          </select>
-        </div>
+        {/* Settings Card */}
+        <motion.div
+          className="w-full max-w-4xl mx-auto"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <Card className="shadow-2xl border-border/40">
+            <CardHeader className="p-6 sm:p-8 space-y-2.5 sm:space-y-3">
+              <CardTitle className="text-2xl sm:text-3xl">好みの設定</CardTitle>
+              <CardDescription className="text-sm sm:text-base leading-relaxed">
+                AIソムリエが参考にする、あなたの日本酒の好みを設定します
+              </CardDescription>
+            </CardHeader>
 
-        <div className="space-y-2">
-          <label className="block text-sm text-gray-300">価格帯</label>
-          <select
-            className="w-full bg-gray-800 text-white p-3 rounded-lg"
-            value={prefs.price_range}
-            onChange={(e) =>
-              setPrefs((p) => ({ ...p, price_range: e.target.value as Price }))
-            }
-          >
-            <option value="budget">お手頃</option>
-            <option value="mid">中価格帯</option>
-            <option value="premium">高級</option>
-          </select>
-        </div>
+            <Separator />
 
-        <div className="space-y-2">
-          <label className="block text-sm text-gray-300">一緒に楽しむ料理（カンマ区切り）</label>
-          <input
-            className="w-full bg-gray-800 text-white p-3 rounded-lg"
-            placeholder="刺身, 天ぷら など"
-            value={foodPairingText}
-            onChange={(e) => setFoodPairingText(e.target.value)}
-          />
-        </div>
+            <CardContent className="p-6 sm:p-8 pt-8 sm:pt-10 space-y-8 sm:space-y-10">
+              {/* Flavor Preference */}
+              <div className="space-y-4">
+                <Label htmlFor="flavor" className="text-lg font-semibold">
+                  味の好み
+                </Label>
+                <Select
+                  value={prefs.flavor_preference}
+                  onValueChange={(value) =>
+                    setPrefs((p) => ({ ...p, flavor_preference: value as Flavor }))
+                  }
+                >
+                  <SelectTrigger 
+                    id="flavor" 
+                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="dry" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">辛口</span>
+                        <Badge variant="outline" size="sm">
+                          キレのある
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="sweet" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">甘口</span>
+                        <Badge variant="outline" size="sm">
+                          まろやか
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="balanced" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">バランス型</span>
+                        <Badge variant="outline" size="sm">
+                          どちらも楽しめる
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  日本酒の味わいの甘辛度を選択してください
+                </p>
+              </div>
 
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={save}
-            className="px-5 py-3 rounded-lg bg-orange-500 hover:bg-orange-600 text-white"
-          >
-            保存
-          </button>
-          {saved && (
-            <span className="text-green-400 self-center text-sm">保存しました</span>
-          )}
-        </div>
-      </motion.div>
+              <Separator className="opacity-50" />
+
+              {/* Body Preference */}
+              <div className="space-y-4">
+                <Label htmlFor="body" className="text-lg font-semibold">
+                  ボディ
+                </Label>
+                <Select
+                  value={prefs.body_preference}
+                  onValueChange={(value) =>
+                    setPrefs((p) => ({ ...p, body_preference: value as Body }))
+                  }
+                >
+                  <SelectTrigger 
+                    id="body" 
+                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="light" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">軽快</span>
+                        <Badge variant="outline" size="sm">
+                          すっきり
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="medium" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">中程度</span>
+                        <Badge variant="outline" size="sm">
+                          バランス良い
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="rich" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">濃厚</span>
+                        <Badge variant="outline" size="sm">
+                          しっかり
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  日本酒の口当たりや厚みを選択してください
+                </p>
+              </div>
+
+              <Separator className="opacity-50" />
+
+              {/* Price Range */}
+              <div className="space-y-4">
+                <Label htmlFor="price" className="text-lg font-semibold">
+                  価格帯
+                </Label>
+                <Select
+                  value={prefs.price_range}
+                  onValueChange={(value) =>
+                    setPrefs((p) => ({ ...p, price_range: value as Price }))
+                  }
+                >
+                  <SelectTrigger 
+                    id="price" 
+                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="budget" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">お手頃</span>
+                        <Badge variant="outline" size="sm">
+                          〜¥2,000
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="mid" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">中価格帯</span>
+                        <Badge variant="outline" size="sm">
+                          ¥2,000〜¥5,000
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="premium" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">高級</span>
+                        <Badge variant="outline" size="sm">
+                          ¥5,000〜
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  普段購入する価格帯を選択してください
+                </p>
+              </div>
+
+              <Separator className="opacity-50" />
+
+              {/* Food Pairing */}
+              <div className="space-y-4">
+                <Label htmlFor="food" className="text-lg font-semibold">
+                  一緒に楽しむ料理
+                </Label>
+                <Input
+                  id="food"
+                  placeholder="刺身, 天ぷら, 焼き鳥 など"
+                  value={foodPairingText}
+                  onChange={(e) => setFoodPairingText(e.target.value)}
+                  className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                />
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  カンマ区切りで入力してください（例: 刺身, 天ぷら, 焼き鳥）
+                </p>
+                {foodPairingText && (
+                  <div className="flex flex-wrap gap-2 pt-3">
+                    {foodPairingText.split(',').map((food, i) => {
+                      const trimmed = food.trim();
+                      return trimmed ? (
+                        <Badge key={i} variant="secondary" size="lg">
+                          {trimmed}
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+
+            <Separator />
+
+            {/* Save Button */}
+            <CardContent className="pt-8 pb-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <p className="text-base text-muted-foreground leading-relaxed">
+                  設定は自動的にローカルに保存されます
+                </p>
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <motion.div
+                    initial={false}
+                    animate={saved ? { scale: [0, 1.2, 1], opacity: [0, 1, 1] } : {}}
+                    transition={{ duration: 0.4 }}
+                  >
+                    {saved && (
+                      <div className="flex items-center gap-2.5 text-base text-emerald-500 font-medium">
+                        <Check className="h-5 w-5" />
+                        <span>保存しました</span>
+                      </div>
+                    )}
+                  </motion.div>
+                  <Button
+                    onClick={save}
+                    size="lg"
+                    className="w-full sm:w-auto"
+                  >
+                    <Save className="h-5 w-5" />
+                    保存
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Info Alert */}
+          <Alert className="mt-8 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 backdrop-blur-sm shadow-lg">
+            <Sparkles className="h-6 w-6 text-primary" />
+            <AlertDescription className="ml-0 mt-3">
+              <p className="text-base leading-relaxed">
+                <strong className="text-foreground font-semibold">ヒント:</strong> これらの設定はAIソムリエへの初期情報として使用されます。
+                会話の中でさらに詳しい好みを伝えることで、より精度の高いレコメンドが得られます。
+              </p>
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      </div>
     </div>
   );
 }
-

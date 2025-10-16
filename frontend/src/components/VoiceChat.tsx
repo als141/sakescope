@@ -1,25 +1,75 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, MessageSquare, Loader, PhoneOff } from 'lucide-react';
-import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents/realtime';
-import type { RealtimeSessionEventTypes, TransportEvent } from '@openai/agents/realtime';
-import { z } from 'zod';
-import { SakeData } from '@/data/sakeData';
-import { getSakeRecommendations } from '@/data/sakeData';
+import {
+  Mic,
+  MicOff,
+  MessageSquare,
+  Loader2,
+  PhoneOff,
+  Activity,
+} from 'lucide-react';
+import type {
+  RealtimeSession,
+  RealtimeSessionEventTypes,
+  TransportEvent,
+} from '@openai/agents-realtime';
+import { Sake, PurchaseOffer } from '@/domain/sake/types';
+import {
+  createRealtimeVoiceBundle,
+  type VoiceAgentBundle,
+} from '@/infrastructure/openai/realtime/sessionFactory';
+import type {
+  AgentRuntimeContext,
+  AgentUserPreferences,
+} from '@/infrastructure/openai/agents/context';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface VoiceChatProps {
   isRecording: boolean;
   setIsRecording: (recording: boolean) => void;
-  onSakeRecommended: (sake: SakeData) => void;
+  onSakeRecommended: (sake: Sake) => void;
+  onOfferReady?: (offer: PurchaseOffer) => void;
   preferences?: {
-    flavor_preference?: 'dry' | 'sweet' | 'balanced';
-    body_preference?: 'light' | 'medium' | 'rich';
-    price_range?: 'budget' | 'mid' | 'premium';
+    flavor_preference?: string | null;
+    body_preference?: string | null;
+    price_range?: string | null;
     food_pairing?: string[];
+    notes?: string | null;
   };
+  variant?: 'full' | 'compact';
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
 }
+
+const preferenceValueLabels: Record<string, string> = {
+  dry: '辛口',
+  sweet: '甘口',
+  balanced: 'バランス型',
+  light: '軽やか',
+  medium: '中程度',
+  rich: '濃厚',
+  budget: '手頃な価格帯',
+  mid: '標準的な価格帯',
+  premium: '高級帯',
+};
+
+const describePreferenceValue = (value?: string | null): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return preferenceValueLabels[trimmed] ?? trimmed;
+};
 
 function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string | undefined {
   if (input == null) return undefined;
@@ -55,150 +105,231 @@ function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string 
   return undefined;
 }
 
-export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommended, preferences }: VoiceChatProps) {
-  const [session, setSession] = useState<RealtimeSession | null>(null);
+export default function VoiceChat({
+  isRecording,
+  setIsRecording,
+  onSakeRecommended,
+  onOfferReady,
+  preferences,
+  variant = 'full',
+  isMinimized = false,
+  onToggleMinimize,
+}: VoiceChatProps) {
+  const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // Only store assistant text outputs (no user transcripts)
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const agentRef = useRef<RealtimeAgent | null>(null);
+  const [isDelegating, setIsDelegating] = useState(false);
 
-  // Initialize agent and create session
+  const bundleRef = useRef<VoiceAgentBundle | null>(null);
+  const onSakeRecommendedRef = useRef(onSakeRecommended);
+  const onOfferReadyRef = useRef(onOfferReady);
+  const latestSakeRef = useRef<Sake | null>(null);
+  const preferencesRef = useRef(preferences);
+  const assistantMessageIdsRef = useRef<Set<string>>(new Set());
+  const isCompact = variant === 'compact';
+
   useEffect(() => {
-    const initializeAgent = async () => {
-      if (agentRef.current) return;
-      type SessionEvents = RealtimeSessionEventTypes;
-
-      // Define a function tool the model can call to fetch sake recommendations
-      const findSakeTool = tool({
-        name: 'find_sake_recommendations',
-        description: 'お客様の好みに基づいて日本酒を推薦します',
-        parameters: z.object({
-          flavor_preference: z.enum(['dry', 'sweet', 'balanced']),
-          body_preference: z.enum(['light', 'medium', 'rich']),
-          price_range: z.enum(['budget', 'mid', 'premium']),
-          // Optional fields are not supported by the API; use nullable required field instead
-          food_pairing: z.array(z.string()).nullable(),
-        }),
-        async execute(input) {
-          const prefs = input as {
-            flavor_preference: 'dry'|'sweet'|'balanced';
-            body_preference: 'light'|'medium'|'rich';
-            price_range: 'budget'|'mid'|'premium';
-            food_pairing: string[] | null;
-          };
-          const recs = getSakeRecommendations({
-            flavor_preference: prefs.flavor_preference,
-            body_preference: prefs.body_preference,
-            price_range: prefs.price_range,
-            food_pairing: prefs.food_pairing ?? undefined,
-          });
-          // Return structured JSON the model can use to explain
-          return JSON.stringify({ recommendations: recs });
-        }
-      });
-
-      const agent = new RealtimeAgent({
-        name: '日本酒ソムリエ',
-        instructions: `あなたは日本酒の専門知識を持つ親しみやすいAIソムリエです。
-        
-        ## あなたの役割
-        - 日本酒を愛する情熱的なソムリエとして、お客様の好みや要望を聞き取る
-        - 対話を通じてお客様の好みを理解し、最適な日本酒を推薦する
-        - 日本酒の知識を分かりやすく、楽しく伝える
-        
-        ## 対話の流れ
-        1. まず挨拶をして、お客様がどのような日本酒をお探しかを尋ねる
-        2. 以下の項目について質問して好みを把握する：
-           - 味の好み（辛口・甘口・バランス型）
-           - ボディの好み（軽快・中程度・濃厚）
-           - 価格帯（お手頃・中価格帯・高級）
-           - 一緒に楽しむ料理
-           - 飲む場面・シーン
-        3. 情報が十分集まったら、日本酒を推薦する
-        
-        ## 話し方
-        - 親しみやすく、専門知識を持ちながらも堅苦しくない
-        - 日本酒の魅力を伝える情熱を持って話す
-        - 相手の話をよく聞き、質問を通じて理解を深める
-        - 日本酒の専門用語は分かりやすく説明する
-        
-        ## 重要なルール
-        - 十分な情報を聞き取ったら、具体的な日本酒の推薦を必ずツールで行う
-        - 推薦時は必ずツール find_sake_recommendations を関数呼び出しで使用する（画面表示はツール結果で行う）
-        - ツール引数は: flavor_preference, body_preference, price_range は必須。food_pairing は null 可
-        - 引数が不足している場合は、会話やユーザー設定から推定し、無ければ既定値（flavor=balanced, body=medium, price=mid, food_pairing=null）を用いる
-        - ツール結果に基づき、1つの日本酒に絞って詳しく紹介し、なぜその日本酒がおすすめなのかを説明する
-        - ツールを呼ばずに日本酒名を直接提示・否定（見つからない等）しない
-        - 万一結果が空の場合でも、条件を緩和して再度ツールを呼び直し、必ず最も近い候補を提示する`,
-        tools: [findSakeTool],
-      });
-
-      agentRef.current = agent;
-      
-      // Request audio output; transcript text is still received via session events
-      const newSession = new RealtimeSession(agent, {
-        config: {
-          outputModalities: ['audio']
-        }
-      });
-      setSession(newSession);
-
-      // Do not store or render user speech transcripts — UI shows only AI output
-      newSession.on('transport_event', (event: TransportEvent) => {
-        void event; // Intentionally ignore finalized user input transcription events
-      });
-
-      // Append assistant's final text per turn (from output_text or audio transcript)
-      newSession.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
-        if (typeof finalText === 'string' && finalText.trim()) {
-          setAiMessages(prev => [...prev, finalText.trim()]);
-        }
-      });
-
-      // When the tool finishes, update the UI with the top recommendation
-      newSession.on('agent_tool_end', (...args: SessionEvents['agent_tool_end']) => {
-        const [, , , result] = args;
-        try {
-          const parsed = JSON.parse(result);
-          const recs = parsed?.recommendations as SakeData[] | undefined;
-          if (recs && recs.length > 0) {
-            onSakeRecommended(recs[0]);
-          }
-        } catch {}
-      });
-
-      newSession.on('error', (event: SessionEvents['error'][0]) => {
-        // Extract readable message if present
-        const rawMsg = extractErrorMessage(event);
-
-        // Known benign noise seen in browsers with Realtime: ignore gracefully
-        const isBenign = rawMsg && /Unable to add filesystem/i.test(rawMsg);
-
-        if (isBenign) {
-          console.warn('[Realtime] Ignored benign error:', rawMsg);
-          return; // Do not surface to UI or drop connection
-        }
-
-        console.error('Session error:', rawMsg ?? event);
-        setError(rawMsg || 'Connection error occurred');
-        // Do not force disconnect on transient errors; keep session unless transport actually closes
-        setIsLoading(false);
-      });
-    };
-
-    initializeAgent();
+    onSakeRecommendedRef.current = onSakeRecommended;
   }, [onSakeRecommended]);
 
+  useEffect(() => {
+    onOfferReadyRef.current = onOfferReady;
+  }, [onOfferReady]);
+
+  useEffect(() => {
+    preferencesRef.current = preferences;
+  }, [preferences]);
+
+  useEffect(() => {
+    if (bundleRef.current) {
+      return;
+    }
+
+    const pushSakeUpdate = (update: Sake) => {
+      const current = latestSakeRef.current ?? null;
+      const merged: Sake = {
+        ...(current ?? {}),
+        ...update,
+        flavorProfile: update.flavorProfile ?? current?.flavorProfile,
+        tastingNotes: update.tastingNotes ?? current?.tastingNotes,
+        foodPairing: update.foodPairing ?? current?.foodPairing,
+        servingTemperature: update.servingTemperature ?? current?.servingTemperature,
+        originSources: update.originSources ?? current?.originSources,
+        priceRange: update.priceRange ?? current?.priceRange,
+        imageUrl: update.imageUrl ?? current?.imageUrl,
+      } as Sake;
+      latestSakeRef.current = merged;
+      onSakeRecommendedRef.current(merged);
+    };
+
+    const bundle = createRealtimeVoiceBundle({
+      onSakeProfile: (sake) => {
+        pushSakeUpdate(sake);
+      },
+      onShopsUpdated: () => {
+        setIsDelegating(true);
+      },
+      onOfferReady: (offer) => {
+        pushSakeUpdate(offer.sake);
+        setIsDelegating(false);
+        onOfferReadyRef.current?.(offer);
+      },
+      onError: (message) => {
+        setError(message);
+        setIsDelegating(false);
+      },
+    });
+
+    bundleRef.current = bundle;
+    sessionRef.current = bundle.session;
+
+    const prefSeed = preferencesRef.current;
+    if (prefSeed) {
+      const normalizedPrefs: AgentUserPreferences = {
+        flavorPreference: prefSeed.flavor_preference ?? null,
+        bodyPreference: prefSeed.body_preference ?? null,
+        priceRange: prefSeed.price_range ?? null,
+        foodPairing: prefSeed.food_pairing ?? null,
+        notes: prefSeed.notes ?? null,
+      };
+      const runtimeContext = bundle.session.context.context as AgentRuntimeContext;
+      runtimeContext.session.userPreferences = normalizedPrefs;
+    }
+
+    type SessionEvents = RealtimeSessionEventTypes<AgentRuntimeContext>;
+
+    bundle.session.on('transport_event', (event: TransportEvent) => {
+      void event;
+    });
+
+    const extractAssistantTranscript = (item: unknown): string | null => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+      const record = item as Record<string, unknown>;
+      if (record.type !== 'message' || record.role !== 'assistant') {
+        return null;
+      }
+      const rawContent = record.content;
+      const content = Array.isArray(rawContent)
+        ? (rawContent as Array<Record<string, unknown>>)
+        : [];
+      const snippets = content
+        .map((piece) => {
+          if (!piece || typeof piece !== 'object') {
+            return null;
+          }
+          if (piece.type === 'output_text' && typeof piece.text === 'string') {
+            return piece.text;
+          }
+          if (
+            piece.type === 'output_audio' &&
+            typeof piece.transcript === 'string'
+          ) {
+            return piece.transcript;
+          }
+          return null;
+        })
+        .filter((text): text is string => Boolean(text && text.trim()));
+      if (snippets.length === 0) {
+        return null;
+      }
+      return snippets.join('\n').trim();
+    };
+
+    bundle.session.on('history_added', (item) => {
+      const text = extractAssistantTranscript(item);
+      if (!text) {
+        return;
+      }
+      const rawId =
+        item && typeof item === 'object' && 'itemId' in item
+          ? (item as { itemId?: unknown }).itemId
+          : null;
+      if (typeof rawId === 'string') {
+        const seen = assistantMessageIdsRef.current;
+        if (seen.has(rawId)) {
+          return;
+        }
+        seen.add(rawId);
+      }
+      setAiMessages((prev) => {
+        const last = prev.length > 0 ? prev[prev.length - 1] : null;
+        if (last && last.trim() === text) {
+          return prev;
+        }
+        return [...prev, text];
+      });
+    });
+
+    bundle.session.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
+      if (typeof finalText !== 'string') {
+        return;
+      }
+      const trimmed = finalText.trim();
+      if (!trimmed) {
+        return;
+      }
+      setAiMessages((prev) => {
+        const last = prev.length > 0 ? prev[prev.length - 1] : null;
+        if (last && last.trim() === trimmed) {
+          return prev;
+        }
+        return [...prev, trimmed];
+      });
+    });
+
+    bundle.session.on('agent_handoff', () => {
+      setIsDelegating(true);
+    });
+
+    bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
+      if (tool.name === 'recommend_sake') {
+        setIsDelegating(true);
+      }
+    });
+
+    bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
+      if (tool.name === 'recommend_sake') {
+        setIsDelegating(false);
+      }
+    });
+
+    bundle.session.on('error', (event: SessionEvents['error'][0]) => {
+      const rawMsg = extractErrorMessage(event);
+      const isBenign =
+        rawMsg && /Unable to add filesystem/i.test(rawMsg);
+      if (isBenign) {
+        console.warn('[Realtime] Ignored benign error:', rawMsg);
+        return;
+      }
+      console.error('Session error:', rawMsg ?? event);
+      setError(rawMsg || 'Connection error occurred');
+      setIsLoading(false);
+    });
+
+    return () => {
+      try {
+        bundle.session.close();
+      } catch (err) {
+        console.warn('Error closing session', err);
+      }
+      bundleRef.current = null;
+      sessionRef.current = null;
+    };
+  }, []);
+
   const connectToSession = async () => {
-    if (!session) return;
-    
+    const currentSession = sessionRef.current;
+    if (!currentSession) return;
+
     setIsLoading(true);
     setError(null);
+    setIsDelegating(false);
 
     try {
-      // Get client secret from our API
       const response = await fetch('/api/client-secret', {
         method: 'POST',
         headers: {
@@ -206,24 +337,39 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         },
       });
 
-      const data = await response.json().catch(() => null) as
+      const data = (await response.json().catch(() => null)) as
         | { value?: string; error?: unknown; details?: unknown }
         | null;
       if (!response.ok || !data?.value) {
-        const details = (data && (data.error || data.details)) || 'Failed to get client secret';
-        throw new Error(typeof details === 'string' ? details : JSON.stringify(details));
+        const details =
+          (data && (data.error || data.details)) || 'Failed to get client secret';
+        throw new Error(
+          typeof details === 'string' ? details : JSON.stringify(details)
+        );
       }
-      
-      await session.connect({
-        apiKey: data.value
-      });
-      // Ensure we are unmuted when starting
-      session.mute(false);
 
-      // Provide saved preferences to the model as context so it can call the tool easily
-      if (preferences) {
-        const prefText = `ユーザー設定: 味=${preferences.flavor_preference ?? '未設定'}, ボディ=${preferences.body_preference ?? '未設定'}, 価格帯=${preferences.price_range ?? '未設定'}, 料理=${preferences.food_pairing?.join(' / ') ?? '未設定'}`;
-        session.sendMessage({
+      await currentSession.connect({
+        apiKey: data.value,
+      });
+      currentSession.mute(false);
+
+      const prefs = preferencesRef.current;
+      if (prefs) {
+        const flavorText = describePreferenceValue(prefs.flavor_preference);
+        const bodyText = describePreferenceValue(prefs.body_preference);
+        const priceText = describePreferenceValue(prefs.price_range);
+        const prefParts = [
+          flavorText ? `味わい=${flavorText}` : null,
+          bodyText ? `ボディ=${bodyText}` : null,
+          priceText ? `価格帯=${priceText}` : null,
+          prefs.food_pairing?.length ? `料理=${prefs.food_pairing.join(' / ')}` : null,
+          prefs.notes ? `メモ=${prefs.notes}` : null,
+        ].filter(Boolean);
+        const prefText =
+          prefParts.length > 0
+            ? `ユーザー設定: ${prefParts.join('、 ')}`
+            : 'ユーザー設定: 特になし';
+        currentSession.sendMessage({
           type: 'message',
           role: 'user',
           content: [{ type: 'input_text', text: prefText }],
@@ -233,28 +379,33 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       setIsConnected(true);
       setIsLoading(false);
       setIsRecording(true);
-    } catch (error) {
-      console.error('Failed to connect:', error);
+      assistantMessageIdsRef.current.clear();
+      setAiMessages([]);
+    } catch (err) {
+      console.error('Failed to connect:', err);
       const message =
-        error instanceof Error ? error.message : 'Failed to connect to AI assistant';
+        err instanceof Error ? err.message : 'Failed to connect to AI assistant';
       setError(message || 'Failed to connect to AI assistant');
       setIsLoading(false);
     }
   };
 
   const disconnectFromSession = () => {
-    if (session) {
-      session.close();
-      setIsConnected(false);
-      setIsRecording(false);
-      setIsLoading(false);
-      setError(null);
+    if (sessionRef.current) {
+      sessionRef.current.close();
     }
+    setIsConnected(false);
+    setIsRecording(false);
+    setIsLoading(false);
+    setError(null);
+    setIsDelegating(false);
+    latestSakeRef.current = null;
+    assistantMessageIdsRef.current.clear();
   };
 
   const handleStartConversation = () => {
     if (isLoading || isConnected) return;
-    connectToSession();
+    void connectToSession();
   };
 
   const handleStopConversation = () => {
@@ -263,10 +414,11 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
   };
 
   const handleToggleMute = () => {
-    if (!isConnected || !session) return;
+    const currentSession = sessionRef.current;
+    if (!isConnected || !currentSession) return;
     const nextRecordingState = !isRecording;
     try {
-      session.mute(!nextRecordingState);
+      currentSession.mute(!nextRecordingState);
     } catch (err) {
       console.error('Failed to toggle mute:', err);
       setError('マイクのミュート切り替えに失敗しました');
@@ -280,128 +432,140 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
 
   const isMuted = isConnected && !isRecording;
 
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      try {
-        session?.close();
-      } catch {}
-    };
-  }, [session]);
+  useEffect(() => () => {
+    try {
+      sessionRef.current?.close();
+    } catch {}
+  }, []);
 
-  return (
-    <div className="flex flex-col items-center space-y-6">
-      {/* Controls */}
-      <div className="flex flex-col items-center gap-4">
+  // Full variant (大画面表示)
+  const fullContent = (
+    <div className="flex flex-col items-center space-y-8 sm:space-y-10 lg:space-y-12">
+      <div className="flex flex-col items-center gap-5 sm:gap-6">
         {!isConnected ? (
-          <motion.button
-            onClick={handleStartConversation}
-            className={`
-              relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300
-              ${isLoading
-                ? 'bg-gray-600'
-                : 'bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/50'
-              }
-            `}
-            whileHover={{ scale: isLoading ? 1 : 1.05 }}
-            whileTap={{ scale: isLoading ? 1 : 0.95 }}
-            disabled={isLoading}
-            aria-label="会話を開始"
-          >
-            {isLoading ? (
-              <Loader className="w-10 h-10 text-white animate-spin" />
-            ) : (
-              <Mic className="w-10 h-10 text-white" />
-            )}
-          </motion.button>
+          <motion.div className="relative">
+            <Button
+              onClick={handleStartConversation}
+              disabled={isLoading}
+              size="xl"
+              className={cn(
+                "relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0",
+                "bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600",
+                "shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
+                "hover:scale-105 active:scale-100",
+                "transition-all duration-300",
+                "border-4 border-primary-200/20",
+                "disabled:opacity-70"
+              )}
+            >
+              <motion.div
+                animate={isLoading ? { rotate: 360 } : {}}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+                ) : (
+                  <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+                )}
+              </motion.div>
+            </Button>
+          </motion.div>
         ) : (
-          <div className="flex items-center gap-6">
-            <motion.button
-              onClick={handleStopConversation}
-              className="w-20 h-20 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/40 transition-all duration-300"
+          <div className="flex items-center gap-6 sm:gap-8 lg:gap-10">
+            <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              aria-label="会話を終了"
             >
-              <PhoneOff className="w-8 h-8 text-white" />
-            </motion.button>
+              <Button
+                onClick={handleStopConversation}
+                size="xl"
+                variant="destructive"
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
+              >
+                <PhoneOff className="h-7 w-7 sm:h-9 sm:w-9" />
+              </Button>
+            </motion.div>
 
-            <div className="relative">
+            <motion.div className="relative">
               <AnimatePresence>
                 {isRecording && (
                   <>
+                    {/* パルスリング1 */}
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-amber-400"
-                      initial={{ scale: 1, opacity: 1 }}
-                      animate={{ scale: 2, opacity: 0 }}
-                      exit={{ scale: 1, opacity: 1 }}
+                      className="absolute inset-0 rounded-full bg-primary/20 blur-md"
+                      initial={{ scale: 1, opacity: 0.8 }}
+                      animate={{ scale: 2.2, opacity: 0 }}
+                      exit={{ scale: 1, opacity: 0.8 }}
                       transition={{
                         duration: 2,
                         repeat: Infinity,
-                        ease: 'easeOut'
+                        ease: "easeOut",
                       }}
                     />
+                    {/* パルスリング2 */}
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-orange-400"
-                      initial={{ scale: 1, opacity: 1 }}
+                      className="absolute inset-0 rounded-full bg-primary/30 blur-sm"
+                      initial={{ scale: 1, opacity: 0.6 }}
                       animate={{ scale: 2.5, opacity: 0 }}
-                      exit={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 1, opacity: 0.6 }}
                       transition={{
                         duration: 2,
                         repeat: Infinity,
-                        ease: 'easeOut',
-                        delay: 0.5
+                        ease: "easeOut",
+                        delay: 0.5,
                       }}
                     />
                   </>
                 )}
               </AnimatePresence>
 
-              <motion.button
+              <Button
                 onClick={handleToggleMute}
-                className={`
-                  relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300
-                  ${isMuted
-                    ? 'bg-gray-600 hover:bg-gray-500 shadow-lg shadow-gray-600/40'
-                    : 'bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/40'
-                  }
-                `}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label={isMuted ? 'ミュートを解除' : 'ミュートする'}
-              >
-                {isMuted ? (
-                  <MicOff className="w-8 h-8 text-white" />
-                ) : (
-                  <Mic className="w-8 h-8 text-white" />
+                size="xl"
+                variant={isMuted ? "secondary" : "default"}
+                className={cn(
+                  "relative h-18 w-18 sm:h-20 sm:w-20 lg:h-24 lg:w-24 rounded-full p-0 shadow-xl transition-all duration-300",
+                  !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:shadow-emerald-500/50",
+                  "hover:scale-105 active:scale-100"
                 )}
-              </motion.button>
-            </div>
+              >
+                <motion.div
+                  animate={isRecording ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  {isMuted ? (
+                    <MicOff className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+                  ) : (
+                    <Mic className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+                  )}
+                </motion.div>
+              </Button>
+            </motion.div>
           </div>
         )}
       </div>
 
-      {/* Status Text */}
       <motion.div
-        className="text-center space-y-2"
+        className="text-center space-y-2 sm:space-y-3 px-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.2 }}
       >
-        <p className="text-lg font-medium text-white">
+        <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
           {isLoading
             ? 'AIソムリエに接続中...'
             : !isConnected
               ? 'マイクボタンを押してスタート'
               : isMuted
                 ? 'ミュート中（AIには聞こえていません）'
-                : 'お話しください 🎤'
-          }
-        </p>
-        
+                : isDelegating
+                  ? '購入情報を調査中です…'
+                  : 'お話しください 🎤'}
+        </h3>
+
         {error && (
-          <motion.p 
-            className="text-red-400 text-sm"
+          <motion.p
+            className="text-destructive text-base font-medium"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
@@ -410,44 +574,214 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         )}
       </motion.div>
 
-      {/* Conversation History */}
-      {aiMessages.length > 0 && (
-        <motion.div
-          className="w-full max-w-2xl space-y-3 max-h-64 overflow-y-auto px-2"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.5 }}
-          aria-live="polite"
-        >
-          {aiMessages.map((message, index) => (
-            <motion.div
-              key={index}
-              className="flex items-start gap-3 mr-8"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: Math.min(index * 0.05, 0.3) }}
-            >
-              <div className="shrink-0 mt-1 rounded-full bg-orange-500/20 p-2">
-                <MessageSquare className="w-4 h-4 text-orange-300" />
-              </div>
-              <div className="flex-1 rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-400/10 border border-orange-400/20 p-4 shadow-sm">
-                <div className="mb-1 text-xs uppercase tracking-wider text-orange-300/80">AIソムリエ</div>
-                <p className="text-sm leading-relaxed text-gray-100 whitespace-pre-wrap">{message}</p>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {isDelegating && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <Badge variant="secondary" className="gap-2 py-2 px-4">
+              <Activity className="h-4 w-4 animate-pulse" />
+              <span>テキストエージェントが購入候補を調査しています</span>
+            </Badge>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Connection Status Indicator */}
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <div 
-          className={`w-2 h-2 rounded-full ${
-            isConnected ? 'bg-green-400' : 'bg-red-400'
-          }`}
-        />
-        {isConnected ? '接続中' : '未接続'}
-      </div>
+      {aiMessages.length > 0 && (
+        <Card className="w-full max-w-2xl shadow-2xl border-border/30">
+          <CardContent className="p-0">
+            <ScrollArea className="h-48 sm:h-56 p-5 sm:p-6">
+              <div className="space-y-3 sm:space-y-4">
+                {aiMessages.map((message, index) => (
+                  <motion.div
+                    key={`${index}-${message}`}
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: Math.min(index * 0.05, 0.3) }}
+                  >
+                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-primary/30 shadow-sm">
+                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                        <MessageSquare className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary">
+                        AIソムリエ
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                        {message}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
+
+  // Minimized variant (最小化表示 - 右下に固定)
+  if (variant === 'compact' && isMinimized) {
+    return (
+      <motion.button
+        onClick={onToggleMinimize}
+        className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 h-14 w-14 rounded-full shadow-2xl glass border-border/30 flex items-center justify-center hover:scale-110 transition-all duration-300"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        exit={{ scale: 0 }}
+      >
+        <div className="relative">
+          {isConnected && isRecording && (
+            <motion.div
+              className="absolute inset-0 rounded-full bg-primary/30"
+              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+          )}
+          <MessageSquare className={cn(
+            "h-6 w-6",
+            isConnected ? "text-primary" : "text-muted-foreground"
+          )} />
+        </div>
+        {isConnected && (
+          <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
+        )}
+      </motion.button>
+    );
+  }
+
+  // Compact variant (コンパクト表示)
+  const compactContent = (
+    <Card className="glass w-full shadow-2xl border-border/30">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9 border-2 border-primary/30 shadow-sm">
+              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                <MessageSquare className="h-4 w-4" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-base font-semibold">音声アシスト</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {onToggleMinimize && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleMinimize}
+                className="h-8 w-8 hover:bg-primary/10"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-muted-foreground"
+                >
+                  <polyline points="4 14 10 14 10 20"></polyline>
+                  <polyline points="20 10 14 10 14 4"></polyline>
+                  <line x1="14" y1="10" x2="21" y2="3"></line>
+                  <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
+              </Button>
+            )}
+            {isDelegating && (
+              <Activity className="h-5 w-5 text-primary animate-pulse" />
+            )}
+            <div
+              className={cn(
+                "h-3 w-3 rounded-full shadow-sm",
+                isConnected ? "bg-emerald-500 animate-pulse" : "bg-muted"
+              )}
+            />
+          </div>
+        </div>
+
+        <p className={cn(
+          "text-sm mb-4 leading-relaxed",
+          error ? "text-destructive font-medium" : "text-muted-foreground"
+        )}>
+          {error ?? (isLoading
+            ? 'AIソムリエに接続中...'
+            : !isConnected
+              ? '準備完了です。スタートで会話を始めましょう。'
+              : isDelegating
+                ? 'テキストエージェントが購入候補を更新しています'
+                : isMuted
+                  ? 'ミュート中（AIには聞こえていません）'
+                  : '会話中です。ご希望を追加してください。')}
+        </p>
+
+        {aiMessages.length > 0 && !error && (
+          <div className="mb-4 rounded-xl border border-border/50 bg-gradient-to-br from-muted/50 to-muted/30 p-4 text-sm text-foreground line-clamp-2 leading-relaxed shadow-sm">
+            {aiMessages[aiMessages.length - 1]}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          {!isConnected ? (
+            <Button
+              onClick={handleStartConversation}
+              disabled={isLoading}
+              className="flex-1 h-11"
+              size="default"
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+              開始
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handleToggleMute}
+                variant={isMuted ? "secondary" : "default"}
+                className={cn(
+                  "flex-1 h-11",
+                  !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:via-emerald-500 hover:to-emerald-600"
+                )}
+                size="default"
+              >
+                {isMuted ? (
+                  <>
+                    <MicOff className="h-5 w-5" />
+                    ミュート解除
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-5 w-5" />
+                    ミュート
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleStopConversation}
+                variant="destructive"
+                size="icon-lg"
+                className="h-11 w-11"
+              >
+                <PhoneOff className="h-5 w-5" />
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return isCompact ? compactContent : fullContent;
 }

@@ -1,262 +1,351 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils } from 'lucide-react';
-import { SakeData } from '@/data/sakeData';
+import Image from 'next/image';
+import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles } from 'lucide-react';
+import type { Sake, PurchaseOffer } from '@/domain/sake/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
 
 interface SakeDisplayProps {
-  sake: SakeData;
+  sake: Sake;
+  offer: PurchaseOffer | null;
   onReset: () => void;
 }
 
-export default function SakeDisplay({ sake, onReset }: SakeDisplayProps) {
-  const getFlavorIcon = (value: number) => {
-    const icons = ['😐', '🙂', '😊', '😋', '🤤'];
-    return icons[Math.max(0, Math.min(4, value - 1))];
-  };
-
-  const getTemperatureColor = (temp: string) => {
-    const colors: { [key: string]: string } = {
-      '冷酒': 'text-blue-400',
-      '常温': 'text-green-400',
-      'ぬる燗': 'text-orange-400',
-      '熱燗': 'text-red-400'
-    };
-    return colors[temp] || 'text-gray-400';
-  };
+export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) {
+  const [imageError, setImageError] = useState(false);
+  const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
+  const purchaseShops = offer?.shops ?? [];
+  const flavorProfile = sake.flavorProfile ?? null;
+  const tastingNotes = sake.tastingNotes ?? [];
+  const servingTemperatures = sake.servingTemperature ?? [];
+  const foodPairing = sake.foodPairing ?? [];
 
   return (
     <motion.div
-      className="w-full max-w-4xl mx-auto"
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.6 }}
+      className="w-full h-screen flex flex-col px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 lg:pt-32 pb-6 sm:pb-8 overflow-hidden"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
-      {/* Back Button */}
-      <motion.button
-        onClick={onReset}
-        className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-        whileHover={{ scale: 1.05, x: -5 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span>他の日本酒を探す</span>
-      </motion.button>
-
-      {/* Main Card */}
-      <motion.div
-        className="glass rounded-2xl overflow-hidden"
-        layoutId="sake-card"
-      >
-        {/* Header Section */}
-        <div className="relative p-8 pb-0">
-          {/* Sake Bottle Illustration Placeholder */}
-          <div className="flex flex-col lg:flex-row gap-8 items-start">
-            <motion.div
-              className="flex-shrink-0 w-full lg:w-80 h-80 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-xl flex items-center justify-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <div className="text-center space-y-4">
-                <Wine className="w-16 h-16 text-amber-400 mx-auto" />
-                <div className="text-2xl font-bold text-amber-400">{sake.name}</div>
-                <div className="text-lg text-gray-300">{sake.brewery}</div>
-              </div>
-            </motion.div>
-
-            {/* Sake Information */}
-            <div className="flex-1 space-y-6">
+      {/* Main Card - Scrollable */}
+      <Card className="overflow-hidden shadow-2xl border-border/40 flex-1 flex flex-col min-h-0 max-w-7xl mx-auto w-full">
+        <div className="overflow-y-auto flex-1">
+          {/* Header Section */}
+          <CardHeader className="p-6 sm:p-8 pb-6">
+            <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
+              {/* Image */}
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
+                className="relative flex-shrink-0 w-full lg:w-80 h-64 sm:h-80 lg:h-96 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-border/50"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.1, duration: 0.5 }}
               >
-                <h1 className="text-4xl font-bold gradient-text mb-2">
-                  {sake.name}
-                </h1>
-                <div className="flex flex-wrap items-center gap-4 text-gray-300 mb-4">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span>{sake.region}</span>
-                  </div>
-                  <div className="px-3 py-1 bg-amber-600/20 rounded-full text-amber-400 text-sm font-medium">
-                    {sake.type}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" />
-                    <span>{sake.price_range}</span>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  {sake.description}
-                </p>
-              </motion.div>
-
-              {/* Technical Specs */}
-              <motion.div
-                className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                  <div className="text-2xl font-bold text-amber-400">{sake.alcohol}%</div>
-                  <div className="text-sm text-gray-400">アルコール度数</div>
-                </div>
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-400">{sake.sakeValue}</div>
-                  <div className="text-sm text-gray-400">日本酒度</div>
-                </div>
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-400">{sake.acidity}</div>
-                  <div className="text-sm text-gray-400">酸度</div>
-                </div>
-                <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-400">{sake.brewery}</div>
-                  <div className="text-sm text-gray-400">酒蔵</div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-
-        {/* Flavor Profile Section */}
-        <motion.div
-          className="p-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <h3 className="text-2xl font-semibold mb-6 gradient-text">味わいの特徴</h3>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Flavor Bars */}
-            <div className="space-y-6">
-              {[
-                { label: '甘み', value: sake.flavor_profile.sweetness, color: 'bg-pink-500', icon: getFlavorIcon(sake.flavor_profile.sweetness) },
-                { label: '軽やかさ', value: sake.flavor_profile.lightness, color: 'bg-blue-500', icon: getFlavorIcon(sake.flavor_profile.lightness) },
-                { label: '複雑さ', value: sake.flavor_profile.complexity, color: 'bg-purple-500', icon: getFlavorIcon(sake.flavor_profile.complexity) },
-                { label: 'フルーティさ', value: sake.flavor_profile.fruitiness, color: 'bg-green-500', icon: getFlavorIcon(sake.flavor_profile.fruitiness) }
-              ].map((flavor, index) => (
-                <div key={flavor.label} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-300 font-medium flex items-center gap-2">
-                      <span className="text-xl">{flavor.icon}</span>
-                      {flavor.label}
-                    </span>
-                    <span className="text-white font-bold">{flavor.value}/5</span>
-                  </div>
-                  <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <motion.div
-                      className={`h-full ${flavor.color} rounded-full`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(flavor.value / 5) * 100}%` }}
-                      transition={{ delay: 0.6 + index * 0.1, duration: 0.8, ease: 'easeOut' }}
+                {sake.imageUrl && !imageError ? (
+                  <>
+                    <Image
+                      src={sake.imageUrl}
+                      alt={`${sake.name}のイメージ`}
+                      fill
+                      className="object-cover"
+                      sizes="(min-width: 1024px) 20rem, 100vw"
+                      priority
+                      onError={() => setImageError(true)}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 space-y-2">
+                      {sake.type && (
+                        <Badge variant="default" size="default" className="backdrop-blur-md bg-white/20 border-white/30 text-white shadow-lg">
+                          {sake.type}
+                        </Badge>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center space-y-4 p-6">
+                    <div className="rounded-full bg-primary/10 p-8">
+                      <Wine className="h-16 w-16 sm:h-20 sm:w-20 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-lg font-bold text-foreground mb-1">
+                        {sake.name}
+                      </h3>
+                      {sake.brewery && (
+                        <p className="text-sm text-muted-foreground">
+                          {sake.brewery}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </motion.div>
 
-            {/* Tasting Notes */}
-            <div className="space-y-4">
-              <h4 className="text-xl font-semibold text-white">テイスティングノート</h4>
-              <div className="flex flex-wrap gap-2">
-                {sake.tasting_notes.map((note, index) => (
-                  <motion.span
-                    key={index}
-                    className="px-3 py-1 bg-amber-600/20 text-amber-300 rounded-full text-sm"
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7 + index * 0.1 }}
-                  >
-                    {note}
-                  </motion.span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.div>
+              {/* Sake Information */}
+              <div className="flex-1 space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
+                  <div className="space-y-3 mb-4">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text leading-tight">
+                      {sake.name}
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      {sake.region && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          <span className="font-medium">{sake.region}</span>
+                        </div>
+                      )}
+                      {sake.type && (
+                        <Badge variant="secondary" size="default">
+                          {sake.type}
+                        </Badge>
+                      )}
+                      {sake.priceRange && (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <DollarSign className="h-4 w-4" />
+                          <span className="font-medium">{sake.priceRange}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                    {sake.description ?? '詳細データを取得しています。'}
+                  </p>
+                </motion.div>
 
-        {/* Serving & Pairing Section */}
-        <motion.div
-          className="p-8 pt-0"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Serving Temperature */}
-            <div>
-              <h4 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Thermometer className="w-5 h-5" />
-                おすすめ飲み方
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {sake.serving_temp.map((temp, index) => (
-                  <motion.span
-                    key={index}
-                    className={`px-4 py-2 bg-gray-700/50 rounded-lg font-medium ${getTemperatureColor(temp)}`}
-                    initial={{ opacity: 0, y: 10 }}
+                {/* Technical Specs - Compact */}
+                {(sake.alcohol || sake.sakeValue || sake.acidity) && (
+                  <motion.div
+                    className="flex gap-2"
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 + index * 0.1 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
                   >
-                    {temp}
-                  </motion.span>
-                ))}
-              </div>
-            </div>
+                    {sake.alcohol && (
+                      <div className="text-xs bg-primary/10 border border-primary/20 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span className="font-bold text-primary">{sake.alcohol}%</span>
+                        <span className="text-muted-foreground">度数</span>
+                      </div>
+                    )}
+                    {sake.sakeValue && (
+                      <div className="text-xs bg-blue-500/10 border border-blue-500/20 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span className="font-bold text-blue-500">{sake.sakeValue}</span>
+                        <span className="text-muted-foreground">日本酒度</span>
+                      </div>
+                    )}
+                    {sake.acidity && (
+                      <div className="text-xs bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span className="font-bold text-emerald-500">{sake.acidity}</span>
+                        <span className="text-muted-foreground">酸度</span>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
 
-            {/* Food Pairing */}
-            <div>
-              <h4 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Utensils className="w-5 h-5" />
-                相性の良い料理
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {sake.food_pairing.map((food, index) => (
-                  <motion.span
-                    key={index}
-                    className="px-4 py-2 bg-green-600/20 text-green-300 rounded-lg font-medium"
-                    initial={{ opacity: 0, y: 10 }}
+                {/* Purchase Information */}
+                {offer && (
+                  <motion.div
+                    className="space-y-3 pt-2"
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.0 + index * 0.1 }}
+                    transition={{ delay: 0.4, duration: 0.5 }}
                   >
-                    {food}
-                  </motion.span>
-                ))}
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-semibold">購入情報</h3>
+                    </div>
+
+                    {offer.summary && (
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {offer.summary}
+                      </p>
+                    )}
+
+                    {purchaseShops.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {purchaseShops.map((shop) => (
+                          <a
+                            key={`${shop.retailer}-${shop.url}`}
+                            href={shop.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block"
+                          >
+                            <Card className="h-full hover:border-primary/50 hover:bg-accent/50 transition-all cursor-pointer">
+                              <CardContent className="p-3">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="font-semibold text-sm text-primary">{shop.retailer}</span>
+                                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                </div>
+                                <div className="text-base sm:text-lg font-bold mb-1">
+                                  {shop.price ? formatPrice(shop.price) : shop.priceText ?? '価格を確認'}
+                                </div>
+                                {shop.availability && (
+                                  <p className="text-xs text-muted-foreground">在庫: {shop.availability}</p>
+                                )}
+                                {shop.deliveryEstimate && (
+                                  <p className="text-xs text-muted-foreground">配送: {shop.deliveryEstimate}</p>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
               </div>
             </div>
-          </div>
-        </motion.div>
+          </CardHeader>
 
-        {/* Call to Action */}
-        <motion.div
-          className="p-8 pt-0"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2 }}
-        >
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <motion.button
-              className="px-8 py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold rounded-lg shadow-lg transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              この日本酒を詳しく見る
-            </motion.button>
-            <motion.button
-              onClick={onReset}
-              className="px-8 py-3 border-2 border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white font-semibold rounded-lg transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              他の日本酒も見る
-            </motion.button>
-          </div>
-        </motion.div>
-      </motion.div>
+          <Separator />
+
+          <CardContent className="p-6 sm:p-8 pt-4 sm:pt-6 space-y-4">
+            {/* Accordion for detailed information */}
+            <Accordion type="multiple" className="w-full">
+              {/* Flavor Profile Accordion */}
+              {(flavorProfile || tastingNotes.length > 0) && (
+                <AccordionItem value="flavor">
+                  <AccordionTrigger className="text-base sm:text-lg font-semibold hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      <span>味わいの特徴</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-6 pt-2">
+                      {flavorProfile && (
+                        <div className="space-y-4">
+                          {[
+                            { label: '甘み', value: flavorProfile?.sweetness, color: 'pink', emoji: '🍬' },
+                            { label: '軽やかさ', value: flavorProfile?.lightness, color: 'blue', emoji: '💨' },
+                            { label: '複雑さ', value: flavorProfile?.complexity, color: 'purple', emoji: '🌟' },
+                            { label: 'フルーティさ', value: flavorProfile?.fruitiness, color: 'green', emoji: '🍇' },
+                          ]
+                            .filter((entry) => typeof entry.value === 'number')
+                            .map((flavor, index) => (
+                              <div key={flavor.label} className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-semibold flex items-center gap-2">
+                                    <span className="text-lg">{flavor.emoji}</span>
+                                    <span>{flavor.label}</span>
+                                  </span>
+                                  <span className="text-sm font-bold text-foreground">
+                                    {(flavor.value as number).toFixed(1)}
+                                    <span className="text-xs text-muted-foreground ml-1">/5.0</span>
+                                  </span>
+                                </div>
+                                <div className="relative h-2 bg-muted/50 rounded-full overflow-hidden border border-border/50">
+                                  <motion.div
+                                    className={cn(
+                                      "h-full rounded-full relative overflow-hidden",
+                                      flavor.color === 'pink' && "bg-gradient-to-r from-pink-400 to-pink-600",
+                                      flavor.color === 'blue' && "bg-gradient-to-r from-blue-400 to-blue-600",
+                                      flavor.color === 'purple' && "bg-gradient-to-r from-purple-400 to-purple-600",
+                                      flavor.color === 'green' && "bg-gradient-to-r from-green-400 to-green-600"
+                                    )}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${(((flavor.value as number) ?? 0) / 5) * 100}%` }}
+                                    transition={{ delay: 0.5 + index * 0.1, duration: 1, ease: [0.4, 0, 0.2, 1] }}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                      {tastingNotes.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold">テイスティングノート</h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {tastingNotes.map((note, index) => (
+                              <Badge key={index} variant="secondary" size="sm">
+                                {note}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {/* Serving & Pairing Accordion */}
+              {(servingTemperatures.length > 0 || foodPairing.length > 0) && (
+                <AccordionItem value="pairing">
+                  <AccordionTrigger className="text-base sm:text-lg font-semibold hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <Utensils className="h-5 w-5 text-primary" />
+                      <span>楽しみ方</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-2">
+                      {servingTemperatures.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <Thermometer className="h-4 w-4 text-primary" />
+                            おすすめ飲み方
+                          </h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {servingTemperatures.map((temp, index) => (
+                              <Badge key={index} variant="outline" size="sm">
+                                {temp}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {foodPairing.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <Utensils className="h-4 w-4 text-primary" />
+                            相性の良い料理
+                          </h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {foodPairing.map((food, index) => (
+                              <Badge key={index} variant="outline" size="sm">
+                                {food}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+            </Accordion>
+
+            {/* CTA */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <Button
+                onClick={onReset}
+                variant="outline"
+                size="lg"
+                className="w-full"
+              >
+                他の日本酒も見る
+              </Button>
+            </div>
+          </CardContent>
+        </div>
+      </Card>
     </motion.div>
   );
 }
