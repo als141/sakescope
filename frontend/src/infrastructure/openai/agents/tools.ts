@@ -57,7 +57,8 @@ const sakePayloadSchema = z.object({
   tasting_notes: z.array(z.string()).nullable(),
   food_pairing: z.array(z.string()).nullable(),
   serving_temperature: z.array(z.string()).nullable(),
-  image_url: z.string().nullable(),
+  // NOTE: ツール parameters に `format` 指定は不可。URL 検証は実行時に行う。
+  image_url: z.string().min(1).describe('Absolute HTTP(S) URL'),
   origin_sources: z.array(z.string()).nullable(),
   price_range: z.string().nullable(),
   flavor_profile: flavorProfileSchema,
@@ -79,7 +80,7 @@ function mapSakePayload(payload: SakePayload): Sake {
     tastingNotes: payload.tasting_notes ?? undefined,
     foodPairing: payload.food_pairing ?? undefined,
     servingTemperature: payload.serving_temperature ?? undefined,
-    imageUrl: payload.image_url ?? undefined,
+    imageUrl: payload.image_url,
     originSources: payload.origin_sources ?? undefined,
     priceRange: payload.price_range ?? undefined,
     flavorProfile: payload.flavor_profile
@@ -401,10 +402,10 @@ function buildProfileHint(
 
   return formatPreferenceHint(payload);
 }
-export const delegateToSakeAgentTool = tool({
-  name: 'delegate_to_sake_agent',
+export const recommendSakeTool = tool({
+  name: 'recommend_sake',
   description:
-    'ヒアリング内容を自然言語でまとめてテキストエージェントへ渡し、最新の推薦と購入候補を取得します。購入や在庫に関する要望が出たときも迷わず呼び出してください。',
+    '雑談で引き出した要望をまとめてテキストエージェントに渡し、日本酒の推薦JSONを取得します。購入や在庫の確認もこのツールを使ってください。',
   parameters: z.object({
     handoff_summary: z
       .string()
@@ -576,12 +577,12 @@ export const delegateToSakeAgentTool = tool({
       const rawPayload = await response.json();
       const parsedPayload = agentResponseSchema.parse(rawPayload);
 
-      const submissionResult = await handleRecommendationSubmission(
+      await handleRecommendationSubmission(
         parsedPayload,
         runContext as RuntimeRunContext,
       );
 
-      return JSON.stringify(submissionResult);
+      return JSON.stringify(parsedPayload);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';

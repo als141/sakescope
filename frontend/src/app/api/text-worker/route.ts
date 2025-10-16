@@ -3,6 +3,7 @@ import { Agent, Runner, tool } from '@openai/agents';
 import { OpenAIResponsesModel, webSearchTool } from '@openai/agents-openai';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import { extractPrimaryImageUrl } from '@/server/extractPrimaryImageUrl';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
@@ -28,7 +29,7 @@ const flavorProfileSchema = z
   })
   .nullable();
 
-const sakeSchema = z.object({
+const sakeSchemaInput = z.object({
   id: z.string().nullable(),
   name: z.string(),
   brewery: z.string().nullable(),
@@ -41,14 +42,36 @@ const sakeSchema = z.object({
   tasting_notes: z.array(z.string()).nullable(),
   food_pairing: z.array(z.string()).nullable(),
   serving_temperature: z.array(z.string()).nullable(),
-  image_url: z.string().nullable(),
+  // NOTE: Agents/Structured-Outputs は JSON Schema の `format` 未対応。
+  // z.string().url() は `format: "uri"` を付けるため 400 になる。
+  // ここは string にして、実行時に ensurePayloadImages() で正規化する。
+  image_url: z.string().min(1).describe('Absolute HTTP(S) URL (validated at runtime)'),
   origin_sources: z.array(z.string()).nullable(),
   price_range: z.string().nullable(),
   flavor_profile: flavorProfileSchema,
 });
 
-const recommendationSchema = z.object({
-  sake: sakeSchema,
+const sakeSchemaOutput = z.object({
+  id: z.string().nullable(),
+  name: z.string(),
+  brewery: z.string().nullable(),
+  region: z.string().nullable(),
+  type: z.string().nullable(),
+  alcohol: z.number().nullable(),
+  sake_value: z.number().nullable(),
+  acidity: z.number().nullable(),
+  description: z.string().nullable(),
+  tasting_notes: z.array(z.string()).nullable(),
+  food_pairing: z.array(z.string()).nullable(),
+  serving_temperature: z.array(z.string()).nullable(),
+  image_url: z.string().url(),
+  origin_sources: z.array(z.string()).nullable(),
+  price_range: z.string().nullable(),
+  flavor_profile: flavorProfileSchema,
+});
+
+const recommendationSchemaInput = z.object({
+  sake: sakeSchemaInput,
   summary: z.string(),
   reasoning: z.string(),
   tasting_highlights: z.array(z.string()).nullable(),
@@ -56,8 +79,22 @@ const recommendationSchema = z.object({
   shops: z.array(shopSchema).min(1),
 });
 
-const finalPayloadSchema = recommendationSchema.extend({
-  alternatives: z.array(recommendationSchema).nullable(),
+const recommendationSchemaOutput = z.object({
+  sake: sakeSchemaOutput,
+  summary: z.string(),
+  reasoning: z.string(),
+  tasting_highlights: z.array(z.string()).nullable(),
+  serving_suggestions: z.array(z.string()).nullable(),
+  shops: z.array(shopSchema).min(1),
+});
+
+const finalPayloadInputSchema = recommendationSchemaInput.extend({
+  alternatives: z.array(recommendationSchemaInput).nullable(),
+  follow_up_prompt: z.string().nullable(),
+});
+
+const finalPayloadOutputSchema = recommendationSchemaOutput.extend({
+  alternatives: z.array(recommendationSchemaOutput).nullable(),
   follow_up_prompt: z.string().nullable(),
 });
 
@@ -95,6 +132,149 @@ const handoffRequestSchema = z.object({
   user_profile: z.unknown().optional(),
   current_sake: z.unknown().optional(),
 });
+
+const HTTP_URL_PATTERN = /^https?:\/\//i;
+const DEFAULT_IMAGE_URL =
+  'https://dummyimage.com/480x640/1f2937/ffffff&text=Sake';
+
+const imageExtractionCache = new Map<string, string | null>();
+
+const toTrimmed = (value: unknown): string | null =>
+  typeof value === 'string' ? value.trim() || null : null;
+
+const tryResolveWithBase = (value: string | null, base: string): string | null => {
+  if (!value) {
+    return null;
+  }
+  try {
+    return new URL(value, base).toString();
+  } catch {
+    return null;
+  }
+};
+
+const normalizeImageCandidate = (
+  raw: unknown,
+  baseCandidates: string[],
+): string | null => {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (HTTP_URL_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  for (const base of baseCandidates) {
+    const resolved = tryResolveWithBase(trimmed, base);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+};
+
+const uniqueStrings = (values: unknown[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = toTrimmed(value);
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      result.push(trimmed);
+    }
+  }
+  return result;
+};
+
+const collectBaseUrls = (entry: Record<string, unknown>): string[] => {
+  const candidates: unknown[] = [];
+
+  const shopsRaw = (entry as { shops?: unknown }).shops;
+  const shops = Array.isArray(shopsRaw) ? shopsRaw : [];
+  for (const shop of shops) {
+    if (shop && typeof shop === 'object') {
+      const candidate = toTrimmed((shop as { url?: unknown }).url);
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    }
+  }
+
+  const sakeRaw = (entry as { sake?: unknown }).sake;
+  const originSources = Array.isArray(
+    (sakeRaw as { origin_sources?: unknown })?.origin_sources,
+  )
+    ? ((sakeRaw as { origin_sources?: unknown[] })?.origin_sources as unknown[])
+    : [];
+  candidates.push(...originSources);
+
+  return uniqueStrings(candidates);
+};
+
+const resolveImageFromPage = async (pageUrl: string): Promise<string | null> => {
+  if (!pageUrl || !HTTP_URL_PATTERN.test(pageUrl)) {
+    return null;
+  }
+  if (imageExtractionCache.has(pageUrl)) {
+    return imageExtractionCache.get(pageUrl) ?? null;
+  }
+  const result = await extractPrimaryImageUrl(pageUrl);
+  imageExtractionCache.set(pageUrl, result);
+  return result;
+};
+
+const ensureRecommendationImage = async (
+  entry: Record<string, unknown>,
+): Promise<void> => {
+  const sakeRaw = (entry as { sake?: unknown }).sake;
+  const sake =
+    sakeRaw && typeof sakeRaw === 'object'
+      ? (sakeRaw as Record<string, unknown>)
+      : null;
+  if (!sake) {
+    return;
+  }
+
+  const baseCandidates = collectBaseUrls(entry);
+  const normalized = normalizeImageCandidate(sake.image_url, baseCandidates);
+  if (normalized) {
+    sake.image_url = normalized;
+    return;
+  }
+
+  for (const base of baseCandidates) {
+    const resolved = await resolveImageFromPage(base);
+    if (resolved) {
+      sake.image_url = resolved;
+      return;
+    }
+  }
+
+  sake.image_url = DEFAULT_IMAGE_URL;
+};
+
+const ensurePayloadImages = async (payload: unknown): Promise<void> => {
+  if (!payload || typeof payload !== 'object') {
+    return;
+  }
+  const rec = payload as Record<string, unknown>;
+  await ensureRecommendationImage(rec);
+
+  const alternatives = Array.isArray(rec.alternatives)
+    ? (rec.alternatives as unknown[])
+    : [];
+  for (const alternative of alternatives) {
+    if (alternative && typeof alternative === 'object') {
+      await ensureRecommendationImage(alternative as Record<string, unknown>);
+    }
+  }
+};
 
 function describeValue(
   value: unknown,
@@ -161,7 +341,7 @@ const finalizeRecommendationTool = tool({
   name: 'finalize_recommendation',
   description:
     '調査結果を構造化JSONとして確定します。必ず最終回答時に一度だけ呼び出してください。',
-  parameters: finalPayloadSchema,
+  parameters: finalPayloadInputSchema,
   strict: true,
   async execute(input) {
     return input;
@@ -251,7 +431,7 @@ export async function POST(req: NextRequest) {
   const agent = new Agent({
     name: 'Sake Purchase Research Worker',
     model,
-    outputType: finalPayloadSchema,
+    outputType: finalPayloadInputSchema,
     tools: [
       webSearchTool({
         searchContextSize: 'high',
@@ -372,6 +552,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const payload = finalPayloadSchema.parse(finalOutput);
+  await ensurePayloadImages(finalOutput);
+
+  const payload = finalPayloadOutputSchema.parse(finalOutput);
   return NextResponse.json(payload);
 }

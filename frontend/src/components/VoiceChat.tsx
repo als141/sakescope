@@ -204,7 +204,7 @@ export default function VoiceChat({
     });
 
     bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
-      if (tool.name === 'submit_purchase_recommendation') {
+      if (tool.name === 'recommend_sake') {
         setIsDelegating(false);
       }
     });
