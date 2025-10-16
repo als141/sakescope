@@ -45,7 +45,7 @@ const sakeSchemaInput = z.object({
   // NOTE: Agents/Structured-Outputs は JSON Schema の `format` 未対応。
   // z.string().url() は `format: "uri"` を付けるため 400 になる。
   // ここは string にして、実行時に ensurePayloadImages() で正規化する。
-  image_url: z.string().min(1).describe('Absolute HTTP(S) URL (validated at runtime)'),
+  image_url: z.string().min(1).describe('Direct image URL (e.g., https://example.com/image.jpg) - must be an actual image file, not a product page'),
   origin_sources: z.array(z.string()).nullable(),
   price_range: z.string().nullable(),
   flavor_profile: flavorProfileSchema,
@@ -153,6 +153,22 @@ const tryResolveWithBase = (value: string | null, base: string): string | null =
   }
 };
 
+const isLikelyImageUrl = (url: string): boolean => {
+  // 画像拡張子をチェック
+  if (/\.(jpg|jpeg|png|webp|gif|svg|bmp|ico)(\?.*)?$/i.test(url)) {
+    return true;
+  }
+  // HTMLページは画像ではない
+  if (/\.(html?|php|asp|jsp)(\?.*)?$/i.test(url)) {
+    return false;
+  }
+  // CDNやcloud画像サービスのパターン
+  if (/\/cdn\/|cloudinary|imgix|cloudflare|amazonaws\.com\/.*\/(images?|photos?)/i.test(url)) {
+    return true;
+  }
+  return false;
+};
+
 const normalizeImageCandidate = (
   raw: unknown,
   baseCandidates: string[],
@@ -164,18 +180,28 @@ const normalizeImageCandidate = (
   if (!trimmed) {
     return null;
   }
+  
+  let candidate: string | null = null;
+  
   if (HTTP_URL_PATTERN.test(trimmed)) {
-    return trimmed;
-  }
-  if (trimmed.startsWith('//')) {
-    return `https:${trimmed}`;
-  }
-  for (const base of baseCandidates) {
-    const resolved = tryResolveWithBase(trimmed, base);
-    if (resolved) {
-      return resolved;
+    candidate = trimmed;
+  } else if (trimmed.startsWith('//')) {
+    candidate = `https:${trimmed}`;
+  } else {
+    for (const base of baseCandidates) {
+      const resolved = tryResolveWithBase(trimmed, base);
+      if (resolved) {
+        candidate = resolved;
+        break;
+      }
     }
   }
+  
+  // 画像URLらしいかチェック
+  if (candidate && isLikelyImageUrl(candidate)) {
+    return candidate;
+  }
+  
   return null;
 };
 
@@ -242,20 +268,29 @@ const ensureRecommendationImage = async (
   }
 
   const baseCandidates = collectBaseUrls(entry);
-  const normalized = normalizeImageCandidate(sake.image_url, baseCandidates);
-  if (normalized) {
-    sake.image_url = normalized;
+  const rawImageUrl = toTrimmed(sake.image_url);
+  
+  // エージェントから画像URLが返されている場合
+  if (rawImageUrl && isLikelyImageUrl(rawImageUrl)) {
+    sake.image_url = rawImageUrl;
+    console.log(`[Image] Using agent-provided image: ${rawImageUrl}`);
     return;
   }
-
+  
+  // フォールバック: エージェントが画像URLを取得できなかった場合のみ抽出を試みる
+  console.log(`[Image] Agent did not provide valid image URL, attempting extraction...`);
+  
+  // 商品ページURLから画像を抽出
   for (const base of baseCandidates) {
     const resolved = await resolveImageFromPage(base);
     if (resolved) {
       sake.image_url = resolved;
+      console.log(`[Image] Fallback: Extracted from ${base}: ${resolved}`);
       return;
     }
   }
 
+  console.log(`[Image] No image found, using default`);
   sake.image_url = DEFAULT_IMAGE_URL;
 };
 
@@ -433,6 +468,21 @@ export async function POST(req: NextRequest) {
     TEXT_MODEL,
   );
 
+  const extractImageUrlTool = tool({
+    name: 'extract_image_url',
+    description: 'Extract product image URL from a product page URL. Returns the direct image file URL (.jpg, .png, .webp etc.)',
+    parameters: z.object({
+      page_url: z.string().describe('Product page URL to extract image from'),
+    }),
+    execute: async ({ page_url }) => {
+      const imageUrl = await extractPrimaryImageUrl(page_url);
+      if (imageUrl) {
+        return { success: true, image_url: imageUrl, message: `Found image: ${imageUrl}` };
+      }
+      return { success: false, image_url: null, message: 'No image found on this page' };
+    },
+  });
+
   const agent = new Agent({
     name: 'Sake Purchase Research Worker',
     model,
@@ -446,6 +496,7 @@ export async function POST(req: NextRequest) {
           timezone: 'Asia/Tokyo',
         },
       }),
+      extractImageUrlTool,
       finalizeRecommendationTool,
     ],
     toolUseBehavior: {
@@ -462,8 +513,9 @@ export async function POST(req: NextRequest) {
 ### 手順
 1. 'web_search' ツールで最新情報を収集し、必要に応じて追加検索で補完する
 2. 推薦する日本酒の香味・造り・相性・提供温度などを要約する。可能なら味わいを 1〜5 のスコアで "flavor_profile" に入れる
-3. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記
-4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する
+3. **画像URL取得**: 商品ページのURLが見つかったら、'extract_image_url' ツールを使用して画像URLを抽出する。"image_url" には画像ファイルの直接URL（.jpg, .png, .webpなど）を入れること
+4. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記
+5. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する
 
 ### 出力
 - 最終的な回答は必ず一度だけ 'finalize_recommendation' を呼び出し、JSONを返す

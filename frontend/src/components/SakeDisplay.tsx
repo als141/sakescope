@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, Info, ExternalLink, Sparkles, ChevronDown } from 'lucide-react';
@@ -24,22 +25,28 @@ interface SakeDisplayProps {
 }
 
 export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) {
+  const [imageError, setImageError] = useState(false);
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
   const purchaseShops = offer?.shops ?? [];
   const flavorProfile = sake.flavorProfile ?? null;
   const tastingNotes = sake.tastingNotes ?? [];
   const servingTemperatures = sake.servingTemperature ?? [];
   const foodPairing = sake.foodPairing ?? [];
+  
+  // 有効な画像URLかチェック
+  const isValidImageUrl = sake.imageUrl && 
+    !sake.imageUrl.includes('.html') && 
+    /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(sake.imageUrl);
 
   return (
     <motion.div
-      className="w-full h-screen flex flex-col px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 lg:pt-32 pb-6 sm:pb-8"
+      className="w-full h-screen flex flex-col px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 lg:pt-32 pb-6 sm:pb-8 overflow-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
       {/* Main Card - Scrollable */}
-      <Card className="overflow-hidden shadow-2xl border-border/40 flex-1 flex flex-col min-h-0">
+      <Card className="overflow-hidden shadow-2xl border-border/40 flex-1 flex flex-col min-h-0 max-w-7xl mx-auto w-full">
         <div className="overflow-y-auto flex-1">
           {/* Header Section */}
           <CardHeader className="p-6 sm:p-8 pb-6">
@@ -51,15 +58,16 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
               >
-                {sake.imageUrl ? (
+                {isValidImageUrl && !imageError ? (
                   <>
                     <Image
-                      src={sake.imageUrl}
+                      src={sake.imageUrl!}
                       alt={`${sake.name}のイメージ`}
                       fill
                       className="object-cover"
                       sizes="(min-width: 1024px) 20rem, 100vw"
                       priority
+                      onError={() => setImageError(true)}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
                     <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6 space-y-2">
@@ -72,8 +80,18 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                   </>
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center space-y-4 p-6">
-                    <div className="rounded-full bg-primary/10 p-6">
-                      <Wine className="h-16 w-16 text-primary" />
+                    <div className="rounded-full bg-primary/10 p-8">
+                      <Wine className="h-16 w-16 sm:h-20 sm:w-20 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-lg font-bold text-foreground mb-1">
+                        {sake.name}
+                      </h3>
+                      {sake.brewery && (
+                        <p className="text-sm text-muted-foreground">
+                          {sake.brewery}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
