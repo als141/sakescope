@@ -6,7 +6,7 @@ import {
   Mic,
   MicOff,
   MessageSquare,
-  Loader,
+  Loader2,
   PhoneOff,
   Activity,
 } from 'lucide-react';
@@ -24,6 +24,11 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from '@/infrastructure/openai/agents/context';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface VoiceChatProps {
   isRecording: boolean;
@@ -428,48 +433,45 @@ export default function VoiceChat({
     } catch {}
   }, []);
 
+  // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center space-y-6">
-      <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center space-y-8">
+      <div className="flex flex-col items-center gap-6">
         {!isConnected ? (
-          <motion.button
+          <Button
             onClick={handleStartConversation}
-            className={`
-              relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300
-              ${isLoading
-                ? 'bg-gray-600'
-                : 'bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/50'
-              }
-            `}
-            whileHover={{ scale: isLoading ? 1 : 1.05 }}
-            whileTap={{ scale: isLoading ? 1 : 0.95 }}
             disabled={isLoading}
-            aria-label="会話を開始"
+            size="lg"
+            className={cn(
+              "relative h-24 w-24 rounded-full p-0 shadow-2xl transition-all duration-300",
+              "bg-gradient-to-br from-primary via-primary/90 to-primary/80",
+              "hover:shadow-primary/50 hover:scale-105",
+              "disabled:opacity-70"
+            )}
           >
             {isLoading ? (
-              <Loader className="w-10 h-10 text-white animate-spin" />
+              <Loader2 className="h-10 w-10 animate-spin" />
             ) : (
-              <Mic className="w-10 h-10 text-white" />
+              <Mic className="h-10 w-10" />
             )}
-          </motion.button>
+          </Button>
         ) : (
-          <div className="flex items-center gap-6">
-            <motion.button
+          <div className="flex items-center gap-8">
+            <Button
               onClick={handleStopConversation}
-              className="w-20 h-20 rounded-full flex items-center justify-center bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/40 transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              aria-label="会話を終了"
+              size="lg"
+              variant="destructive"
+              className="h-20 w-20 rounded-full p-0 shadow-xl hover:shadow-destructive/50 hover:scale-105 transition-all"
             >
-              <PhoneOff className="w-8 h-8 text-white" />
-            </motion.button>
+              <PhoneOff className="h-8 w-8" />
+            </Button>
 
             <div className="relative">
               <AnimatePresence>
                 {isRecording && (
                   <>
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-amber-400"
+                      className="absolute inset-0 rounded-full border-2 border-primary/60"
                       initial={{ scale: 1, opacity: 1 }}
                       animate={{ scale: 2, opacity: 0 }}
                       exit={{ scale: 1, opacity: 1 }}
@@ -480,7 +482,7 @@ export default function VoiceChat({
                       }}
                     />
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-orange-400"
+                      className="absolute inset-0 rounded-full border-2 border-primary/40"
                       initial={{ scale: 1, opacity: 1 }}
                       animate={{ scale: 2.5, opacity: 0 }}
                       exit={{ scale: 1, opacity: 1 }}
@@ -495,37 +497,34 @@ export default function VoiceChat({
                 )}
               </AnimatePresence>
 
-              <motion.button
+              <Button
                 onClick={handleToggleMute}
-                className={`
-                  relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300
-                  ${isMuted
-                    ? 'bg-gray-600 hover:bg-gray-500 shadow-lg shadow-gray-600/40'
-                    : 'bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/40'
-                  }
-                `}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                aria-label={isMuted ? 'ミュートを解除' : 'ミュートする'}
+                size="lg"
+                variant={isMuted ? "secondary" : "default"}
+                className={cn(
+                  "relative h-20 w-20 rounded-full p-0 shadow-xl transition-all",
+                  !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:shadow-emerald-500/50",
+                  "hover:scale-105"
+                )}
               >
                 {isMuted ? (
-                  <MicOff className="w-8 h-8 text-white" />
+                  <MicOff className="h-8 w-8" />
                 ) : (
-                  <Mic className="w-8 h-8 text-white" />
+                  <Mic className="h-8 w-8" />
                 )}
-              </motion.button>
+              </Button>
             </div>
           </div>
         )}
       </div>
 
       <motion.div
-        className="text-center space-y-2"
+        className="text-center space-y-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.2 }}
       >
-        <p className="text-lg font-medium text-white">
+        <h3 className="text-xl font-medium text-foreground">
           {isLoading
             ? 'AIソムリエに接続中...'
             : !isConnected
@@ -535,11 +534,11 @@ export default function VoiceChat({
                 : isDelegating
                   ? '購入情報を調査中です…'
                   : 'お話しください 🎤'}
-        </p>
+        </h3>
 
         {error && (
           <motion.p
-            className="text-red-400 text-sm"
+            className="text-destructive text-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
@@ -551,158 +550,157 @@ export default function VoiceChat({
       <AnimatePresence>
         {isDelegating && (
           <motion.div
-            className="flex items-center gap-2 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-full px-4 py-2"
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
           >
-            <Activity className="w-4 h-4 animate-pulse" />
-            <span>テキストエージェントが購入候補を調査しています</span>
+            <Badge variant="secondary" className="gap-2 py-2 px-4">
+              <Activity className="h-4 w-4 animate-pulse" />
+              <span>テキストエージェントが購入候補を調査しています</span>
+            </Badge>
           </motion.div>
         )}
       </AnimatePresence>
 
       {aiMessages.length > 0 && (
-        <motion.div
-          className="w-full max-w-2xl space-y-3 max-h-64 overflow-y-auto px-2"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.5 }}
-          aria-live="polite"
-        >
-          {aiMessages.map((message, index) => (
-            <motion.div
-              key={`${index}-${message}`}
-              className="flex items-start gap-3 mr-8"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: Math.min(index * 0.05, 0.3) }}
-            >
-              <div className="shrink-0 mt-1 rounded-full bg-orange-500/20 p-2">
-                <MessageSquare className="w-4 h-4 text-orange-300" />
+        <Card className="w-full max-w-2xl shadow-xl border-border/50">
+          <CardContent className="p-0">
+            <ScrollArea className="h-64 p-4">
+              <div className="space-y-3">
+                {aiMessages.map((message, index) => (
+                  <motion.div
+                    key={`${index}-${message}`}
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: Math.min(index * 0.05, 0.3) }}
+                  >
+                    <div className="shrink-0 mt-1 rounded-full bg-primary/20 p-2">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 rounded-xl bg-muted/50 border border-border/50 p-4">
+                      <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                        AIソムリエ
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                        {message}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-              <div className="flex-1 rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-400/10 border border-orange-400/20 p-4 shadow-sm">
-                <div className="mb-1 text-xs uppercase tracking-wider text-orange-300/80">
-                  AIソムリエ
-                </div>
-                <p className="text-sm leading-relaxed text-gray-100 whitespace-pre-wrap">
-                  {message}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="flex items-center gap-2 text-sm text-gray-400">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <div
-          className={`w-2 h-2 rounded-full ${
-            isConnected ? 'bg-green-400' : 'bg-red-400'
-          }`}
+          className={cn(
+            "h-2 w-2 rounded-full",
+            isConnected ? "bg-emerald-500" : "bg-destructive"
+          )}
         />
         {isConnected ? '接続中' : '未接続'}
       </div>
     </div>
   );
 
-  const hasError = Boolean(error);
-  const statusText =
-    error ??
-    (isLoading
-      ? 'AIソムリエに接続中...'
-      : !isConnected
-        ? '準備完了です。スタートで会話を始めましょう。'
-        : isDelegating
-          ? 'テキストエージェントが購入候補を更新しています'
-          : isMuted
-            ? 'ミュート中（AIには聞こえていません）'
-            : '会話中です。ご希望を追加してください。');
-  const latestMessage =
-    aiMessages.length > 0 ? aiMessages[aiMessages.length - 1] : null;
-
+  // Compact variant (コンパクト表示)
   const compactContent = (
-    <div className="glass w-full rounded-xl border border-orange-500/20 bg-black/40 p-4 text-sm text-white shadow-lg backdrop-blur">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-amber-300" />
-          <span className="text-sm font-semibold text-white">音声アシスト</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {isDelegating ? (
-            <Activity className="w-4 h-4 text-amber-300 animate-pulse" />
-          ) : null}
-          <span
-            className={`inline-flex h-2.5 w-2.5 rounded-full ${
-              isConnected ? 'bg-emerald-400' : 'bg-gray-400'
-            }`}
-            aria-hidden
-          />
-        </div>
-      </div>
-      <p
-        className={`mt-2 text-xs ${
-          hasError ? 'text-red-300' : 'text-gray-200'
-        }`}
-      >
-        {statusText}
-      </p>
-      {latestMessage && !hasError ? (
-        <div className="mt-2 rounded-lg border border-white/10 bg-white/5 p-2 text-xs text-gray-300 line-clamp-2">
-          {latestMessage}
-        </div>
-      ) : null}
-      <div className="mt-3 flex items-center gap-2">
-        {!isConnected ? (
-          <button
-            onClick={handleStartConversation}
-            disabled={isLoading}
-            className="flex-1 inline-flex items-center justify-center rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
-            aria-label="会話を開始"
-          >
-            {isLoading ? (
-              <Loader className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <Mic className="mr-2 h-4 w-4" />
-                開始
-              </>
+    <Card className="glass w-full shadow-2xl border-border/30">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">音声アシスト</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isDelegating && (
+              <Activity className="h-4 w-4 text-primary animate-pulse" />
             )}
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={handleToggleMute}
-              className={`flex-1 inline-flex items-center justify-center rounded-lg border border-white/10 px-3 py-2 text-sm transition-colors ${
-                isMuted
-                  ? 'bg-gray-700/70 text-gray-200 hover:bg-gray-600/70'
-                  : 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
-              }`}
-              aria-label={isMuted ? 'ミュートを解除' : 'ミュートする'}
-            >
-              {isMuted ? (
-                <>
-                  <MicOff className="mr-2 h-4 w-4" />
-                  ミュート解除
-                </>
-              ) : (
-                <>
-                  <Mic className="mr-2 h-4 w-4" />
-                  ミュート
-                </>
+            <div
+              className={cn(
+                "h-2.5 w-2.5 rounded-full",
+                isConnected ? "bg-emerald-500" : "bg-muted"
               )}
-            </button>
-            <button
-              onClick={handleStopConversation}
-              className="inline-flex items-center justify-center rounded-lg bg-red-500/80 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600/80"
-              aria-label="会話を終了"
-            >
-              <PhoneOff className="mr-2 h-4 w-4" />
-              終了
-            </button>
-          </>
+            />
+          </div>
+        </div>
+
+        <p className={cn(
+          "text-xs mb-3",
+          error ? "text-destructive" : "text-muted-foreground"
+        )}>
+          {error ?? (isLoading
+            ? 'AIソムリエに接続中...'
+            : !isConnected
+              ? '準備完了です。スタートで会話を始めましょう。'
+              : isDelegating
+                ? 'テキストエージェントが購入候補を更新しています'
+                : isMuted
+                  ? 'ミュート中（AIには聞こえていません）'
+                  : '会話中です。ご希望を追加してください。')}
+        </p>
+
+        {aiMessages.length > 0 && !error && (
+          <div className="mb-3 rounded-lg border border-border/50 bg-muted/30 p-2 text-xs text-foreground line-clamp-2">
+            {aiMessages[aiMessages.length - 1]}
+          </div>
         )}
-      </div>
-    </div>
+
+        <div className="flex items-center gap-2">
+          {!isConnected ? (
+            <Button
+              onClick={handleStartConversation}
+              disabled={isLoading}
+              className="flex-1 h-9"
+              size="sm"
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mic className="mr-2 h-4 w-4" />
+              )}
+              開始
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handleToggleMute}
+                variant={isMuted ? "secondary" : "default"}
+                className={cn(
+                  "flex-1 h-9",
+                  !isMuted && "bg-emerald-600 hover:bg-emerald-700"
+                )}
+                size="sm"
+              >
+                {isMuted ? (
+                  <>
+                    <MicOff className="mr-2 h-4 w-4" />
+                    ミュート解除
+                  </>
+                ) : (
+                  <>
+                    <Mic className="mr-2 h-4 w-4" />
+                    ミュート
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleStopConversation}
+                variant="destructive"
+                size="sm"
+                className="h-9 px-3"
+              >
+                <PhoneOff className="mr-2 h-4 w-4" />
+                終了
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 
   return isCompact ? compactContent : fullContent;

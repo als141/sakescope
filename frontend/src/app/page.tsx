@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Settings, Volume2 } from 'lucide-react';
+import { Mic, Settings, Volume2, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
 import SakeHistory from '@/components/SakeHistory';
 import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
@@ -68,20 +70,21 @@ export default function Home() {
     : 'pointer-events-auto relative mt-12 w-full max-w-2xl mx-auto';
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden bg-background">
       {/* Animated Background */}
       <div className="fixed inset-0 -z-10">
+        {/* Gradient Overlay */}
         <motion.div
-          className="absolute inset-0 opacity-10"
+          className="absolute inset-0 opacity-30"
           animate={{
             background: [
-              'radial-gradient(circle at 20% 80%, #d97706 0%, transparent 50%)',
-              'radial-gradient(circle at 80% 20%, #fbbf24 0%, transparent 50%)',
-              'radial-gradient(circle at 40% 40%, #d97706 0%, transparent 50%)',
+              'radial-gradient(circle at 20% 80%, oklch(0.68 0.15 70) 0%, transparent 50%)',
+              'radial-gradient(circle at 80% 20%, oklch(0.78 0.12 60) 0%, transparent 50%)',
+              'radial-gradient(circle at 40% 40%, oklch(0.68 0.15 70) 0%, transparent 50%)',
             ],
           }}
           transition={{
-            duration: 10,
+            duration: 15,
             repeat: Infinity,
             ease: 'linear',
           }}
@@ -91,7 +94,7 @@ export default function Home() {
         {orbs.map((o, i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full bg-gradient-to-r from-orange-400 to-amber-400 opacity-20"
+            className="absolute rounded-full bg-gradient-to-br from-primary/20 to-primary/10 blur-3xl"
             style={{
               width: o.width,
               height: o.height,
@@ -110,6 +113,16 @@ export default function Home() {
             }}
           />
         ))}
+
+        {/* Grid Pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `linear-gradient(to right, currentColor 1px, transparent 1px),
+                            linear-gradient(to bottom, currentColor 1px, transparent 1px)`,
+            backgroundSize: '4rem 4rem',
+          }}
+        />
       </div>
 
       {/* Main Content */}
@@ -122,28 +135,32 @@ export default function Home() {
             setCurrentHistoryId(item.id);
           }}
         />
+
         {/* Header */}
         <motion.header
           className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
         >
-          <motion.h1 
-            className="text-2xl sm:text-3xl font-bold gradient-text"
-            whileHover={{ scale: 1.05 }}
+          <motion.div
+            className="flex items-center gap-2"
+            whileHover={{ scale: 1.02 }}
           >
-            Sakescope
-          </motion.h1>
+            <Sparkles className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-bold gradient-text">
+              Sakescope
+            </h1>
+          </motion.div>
           
           <Link href="/settings">
-            <motion.span
-              className="p-3 rounded-full glass hover:bg-gray-700/50 transition-colors inline-flex"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full h-11 w-11 shadow-lg hover:shadow-xl transition-all"
             >
-              <Settings className="w-6 h-6 text-amber-400" />
-            </motion.span>
+              <Settings className="h-5 w-5" />
+            </Button>
           </Link>
         </motion.header>
 
@@ -152,44 +169,61 @@ export default function Home() {
           {!recommendedSake ? (
             <motion.div
               key="voice-interface"
-              className="text-center space-y-8 max-w-2xl"
-              initial={{ opacity: 0, scale: 0.8 }}
+              className="text-center space-y-12 max-w-3xl"
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.6 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.4 }}
             >
               {/* Welcome Message */}
               <motion.div
-                className="space-y-4"
+                className="space-y-6"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.6 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
               >
-                <h2 className="text-4xl sm:text-6xl font-bold gradient-text float">
-                  最高の一杯を
-                  <br />
-                  一緒に見つけましょう
+                <motion.div
+                  className="inline-flex"
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Badge variant="secondary" className="px-4 py-1.5 text-sm">
+                    <Sparkles className="mr-2 h-3.5 w-3.5" />
+                    AI搭載の日本酒ソムリエ
+                  </Badge>
+                </motion.div>
+
+                <h2 className="text-4xl sm:text-6xl lg:text-7xl font-bold leading-tight">
+                  <span className="gradient-text block">最高の一杯を</span>
+                  <span className="gradient-text block">一緒に見つけましょう</span>
                 </h2>
-                <p className="text-lg sm:text-xl text-gray-300 max-w-xl mx-auto">
-                  AIソムリエとの音声対話を通じて、あなたの好みにぴったりの日本酒をお探しします。
-                  画面下部の音声コントロールから話しかけてください。
+
+                <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                  AIソムリエとの音声対話を通じて、<br className="hidden sm:inline" />
+                  あなたの好みにぴったりの日本酒をお探しします
                 </p>
               </motion.div>
 
-              {/* Instructions */}
+              {/* Features */}
               <motion.div
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-gray-400"
+                className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-muted-foreground"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.8, duration: 0.6 }}
+                transition={{ delay: 0.6, duration: 0.5 }}
               >
-                <div className="flex items-center gap-2">
-                  <Mic className="w-4 h-4" />
+                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
+                  <Mic className="h-4 w-4 text-primary" />
                   <span>音声で対話</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Volume2 className="w-4 h-4" />
+                <div className="hidden sm:block h-1 w-1 rounded-full bg-muted-foreground/30" />
+                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
+                  <Volume2 className="h-4 w-4 text-primary" />
                   <span>AIが応答</span>
+                </div>
+                <div className="hidden sm:block h-1 w-1 rounded-full bg-muted-foreground/30" />
+                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>最適な日本酒を提案</span>
                 </div>
               </motion.div>
             </motion.div>
@@ -231,9 +265,9 @@ export default function Home() {
           className="absolute bottom-0 left-0 right-0 p-6 text-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.6 }}
+          transition={{ delay: 0.8, duration: 0.5 }}
         >
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground/70">
             Powered by OpenAI Realtime API • 日本酒の新しい体験
           </p>
         </motion.footer>
