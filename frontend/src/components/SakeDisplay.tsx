@@ -11,9 +11,12 @@ interface SakeDisplayProps {
 }
 
 export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) {
-  const getFlavorIcon = (value: number) => {
+  const getFlavorIcon = (value?: number | null) => {
     const icons = ['😐', '🙂', '😊', '😋', '🤤'];
-    return icons[Math.max(0, Math.min(4, value - 1))];
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return '🙂';
+    }
+    return icons[Math.max(0, Math.min(4, Math.round(value) - 1))];
   };
 
   const getTemperatureColor = (temp: string) => {
@@ -28,7 +31,7 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
 
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
   const purchaseShops = offer?.shops ?? [];
-  const flavorProfile = sake.flavorProfile;
+  const flavorProfile = sake.flavorProfile ?? null;
   const tastingNotes = sake.tastingNotes ?? [];
   const servingTemperatures = sake.servingTemperature ?? [];
   const foodPairing = sake.foodPairing ?? [];
@@ -155,29 +158,39 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
               {flavorProfile && (
                 <div className="space-y-6">
                   {[
-                    { label: '甘み', value: flavorProfile.sweetness, color: 'bg-pink-500', icon: getFlavorIcon(flavorProfile.sweetness) },
-                    { label: '軽やかさ', value: flavorProfile.lightness, color: 'bg-blue-500', icon: getFlavorIcon(flavorProfile.lightness) },
-                    { label: '複雑さ', value: flavorProfile.complexity, color: 'bg-purple-500', icon: getFlavorIcon(flavorProfile.complexity) },
-                    { label: 'フルーティさ', value: flavorProfile.fruitiness, color: 'bg-green-500', icon: getFlavorIcon(flavorProfile.fruitiness) }
-                  ].map((flavor, index) => (
-                    <div key={flavor.label} className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-300 font-medium flex items-center gap-2">
-                          <span className="text-xl">{flavor.icon}</span>
-                          {flavor.label}
-                        </span>
-                        <span className="text-white font-bold">{flavor.value}/5</span>
+                    { label: '甘み', value: flavorProfile?.sweetness, color: 'bg-pink-500' },
+                    { label: '軽やかさ', value: flavorProfile?.lightness, color: 'bg-blue-500' },
+                    { label: '複雑さ', value: flavorProfile?.complexity, color: 'bg-purple-500' },
+                    { label: 'フルーティさ', value: flavorProfile?.fruitiness, color: 'bg-green-500' },
+                  ]
+                    .filter((entry) => typeof entry.value === 'number')
+                    .map((flavor, index) => (
+                      <div key={flavor.label} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-300 font-medium flex items-center gap-2">
+                            <span className="text-xl">{getFlavorIcon(flavor.value)}</span>
+                            {flavor.label}
+                          </span>
+                          <span className="text-white font-bold">{(flavor.value as number).toFixed(1)}/5</span>
+                        </div>
+                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                          <motion.div
+                            className={`h-full ${flavor.color} rounded-full`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(((flavor.value as number) ?? 0) / 5) * 100}%` }}
+                            transition={{ delay: 0.6 + index * 0.1, duration: 0.8, ease: 'easeOut' }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                        <motion.div
-                          className={`h-full ${flavor.color} rounded-full`}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(flavor.value / 5) * 100}%` }}
-                          transition={{ delay: 0.6 + index * 0.1, duration: 0.8, ease: 'easeOut' }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  {(!flavorProfile.sweetness &&
+                    !flavorProfile.lightness &&
+                    !flavorProfile.complexity &&
+                    !flavorProfile.fruitiness) && (
+                      <p className="text-sm text-gray-400">
+                        味わいの詳細データは現在取得中です。
+                      </p>
+                  )}
                 </div>
               )}
 
@@ -286,6 +299,20 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                 </div>
               )}
               <div className="text-xs text-gray-400">最終更新: {new Date(offer.updatedAt).toLocaleString()}</div>
+              {sake.originSources && sake.originSources.length > 0 && (
+                <div className="text-xs text-gray-400 space-y-1">
+                  <span className="font-semibold text-gray-300">参考リンク:</span>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {sake.originSources.map((src) => (
+                      <li key={src}>
+                        <a href={src} target="_blank" rel="noreferrer" className="text-amber-200 underline">
+                          {src}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="mb-6 flex items-center gap-3">
@@ -321,7 +348,59 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                   </div>
                 </motion.a>
               ))}
+              {purchaseShops.length === 0 && (
+                <div className="rounded-xl border border-gray-700/40 bg-gray-900/40 p-4 text-sm text-gray-300">
+                  信頼できる販売先を確認できませんでした。別の条件でもう一度調査するようリクエストしてみてください。
+                </div>
+              )}
             </div>
+
+            {offer.alternatives && offer.alternatives.length > 0 && (
+              <div className="mb-6 rounded-xl border border-amber-400/10 bg-gray-800/40 p-5">
+                <h5 className="text-lg font-semibold text-white mb-4">他の候補</h5>
+                <div className="space-y-4">
+                  {offer.alternatives.map((alt, index) => (
+                    <div
+                      key={`${alt.sake.name}-${index}`}
+                      className="rounded-lg border border-gray-700/40 bg-gray-900/40 p-4"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div>
+                          <div className="text-amber-200 font-semibold">{alt.sake.name}</div>
+                          {alt.sake.brewery && (
+                            <div className="text-xs text-gray-400">{alt.sake.brewery}</div>
+                          )}
+                        </div>
+                        {alt.shops[0] && (
+                          <a
+                            href={alt.shops[0].url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-amber-300 underline"
+                          >
+                            最安値を見る
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-200 mb-2">{alt.summary}</p>
+                      <p className="text-xs text-gray-400 mb-3">{alt.reasoning}</p>
+                      <div className="flex flex-wrap gap-2 text-xs text-gray-300">
+                        {alt.tastingHighlights?.map((note) => (
+                          <span key={note} className="px-2 py-1 bg-amber-600/10 rounded-md">
+                            {note}
+                          </span>
+                        ))}
+                        {alt.servingSuggestions?.map((note) => (
+                          <span key={note} className="px-2 py-1 bg-green-600/10 rounded-md">
+                            {note}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {offer.links && offer.links.length > 0 && (
               <div className="rounded-xl bg-gray-800/60 border border-gray-700/40 p-4">
@@ -336,6 +415,12 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {offer.followUpPrompt && (
+              <div className="rounded-xl border border-dashed border-amber-300/40 bg-amber-500/5 p-4 text-sm text-gray-200">
+                💡 {offer.followUpPrompt}
               </div>
             )}
           </motion.div>

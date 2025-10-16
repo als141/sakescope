@@ -20,7 +20,10 @@ import {
   createRealtimeVoiceBundle,
   type VoiceAgentBundle,
 } from '@/infrastructure/openai/realtime/sessionFactory';
-import type { AgentRuntimeContext } from '@/infrastructure/openai/agents/context';
+import type {
+  AgentRuntimeContext,
+  AgentUserPreferences,
+} from '@/infrastructure/openai/agents/context';
 
 interface VoiceChatProps {
   isRecording: boolean;
@@ -28,12 +31,36 @@ interface VoiceChatProps {
   onSakeRecommended: (sake: Sake) => void;
   onOfferReady?: (offer: PurchaseOffer) => void;
   preferences?: {
-    flavor_preference?: 'dry' | 'sweet' | 'balanced';
-    body_preference?: 'light' | 'medium' | 'rich';
-    price_range?: 'budget' | 'mid' | 'premium';
+    flavor_preference?: string | null;
+    body_preference?: string | null;
+    price_range?: string | null;
     food_pairing?: string[];
+    notes?: string | null;
   };
 }
+
+const preferenceValueLabels: Record<string, string> = {
+  dry: '辛口',
+  sweet: '甘口',
+  balanced: 'バランス型',
+  light: '軽やか',
+  medium: '中程度',
+  rich: '濃厚',
+  budget: '手頃な価格帯',
+  mid: '標準的な価格帯',
+  premium: '高級帯',
+};
+
+const describePreferenceValue = (value?: string | null): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return preferenceValueLabels[trimmed] ?? trimmed;
+};
 
 function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string | undefined {
   if (input == null) return undefined;
@@ -116,18 +143,14 @@ export default function VoiceChat({
         foodPairing: update.foodPairing ?? current?.foodPairing,
         servingTemperature: update.servingTemperature ?? current?.servingTemperature,
         originSources: update.originSources ?? current?.originSources,
+        priceRange: update.priceRange ?? current?.priceRange,
+        imageUrl: update.imageUrl ?? current?.imageUrl,
       } as Sake;
       latestSakeRef.current = merged;
       onSakeRecommendedRef.current(merged);
     };
 
     const bundle = createRealtimeVoiceBundle({
-      onRecommendations: (recommendations) => {
-        if (recommendations.length > 0) {
-          const top = recommendations[0].sake;
-          pushSakeUpdate(top);
-        }
-      },
       onSakeProfile: (sake) => {
         pushSakeUpdate(sake);
       },
@@ -141,11 +164,25 @@ export default function VoiceChat({
       },
       onError: (message) => {
         setError(message);
+        setIsDelegating(false);
       },
     });
 
     bundleRef.current = bundle;
     sessionRef.current = bundle.session;
+
+    const prefSeed = preferencesRef.current;
+    if (prefSeed) {
+      const normalizedPrefs: AgentUserPreferences = {
+        flavorPreference: prefSeed.flavor_preference ?? null,
+        bodyPreference: prefSeed.body_preference ?? null,
+        priceRange: prefSeed.price_range ?? null,
+        foodPairing: prefSeed.food_pairing ?? null,
+        notes: prefSeed.notes ?? null,
+      };
+      const runtimeContext = bundle.session.context.context as AgentRuntimeContext;
+      runtimeContext.session.userPreferences = normalizedPrefs;
+    }
 
     type SessionEvents = RealtimeSessionEventTypes<AgentRuntimeContext>;
 
@@ -227,7 +264,20 @@ export default function VoiceChat({
 
       const prefs = preferencesRef.current;
       if (prefs) {
-        const prefText = `ユーザー設定: 味=${prefs.flavor_preference ?? '未設定'}, ボディ=${prefs.body_preference ?? '未設定'}, 価格帯=${prefs.price_range ?? '未設定'}, 料理=${prefs.food_pairing?.join(' / ') ?? '未設定'}`;
+        const flavorText = describePreferenceValue(prefs.flavor_preference);
+        const bodyText = describePreferenceValue(prefs.body_preference);
+        const priceText = describePreferenceValue(prefs.price_range);
+        const prefParts = [
+          flavorText ? `味わい=${flavorText}` : null,
+          bodyText ? `ボディ=${bodyText}` : null,
+          priceText ? `価格帯=${priceText}` : null,
+          prefs.food_pairing?.length ? `料理=${prefs.food_pairing.join(' / ')}` : null,
+          prefs.notes ? `メモ=${prefs.notes}` : null,
+        ].filter(Boolean);
+        const prefText =
+          prefParts.length > 0
+            ? `ユーザー設定: ${prefParts.join('、 ')}`
+            : 'ユーザー設定: 特になし';
         currentSession.sendMessage({
           type: 'message',
           role: 'user',

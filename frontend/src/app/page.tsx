@@ -13,10 +13,11 @@ export default function Home() {
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [preferences, setPreferences] = useState<{
-    flavor_preference?: 'dry' | 'sweet' | 'balanced';
-    body_preference?: 'light' | 'medium' | 'rich';
-    price_range?: 'budget' | 'mid' | 'premium';
+    flavor_preference?: string | null;
+    body_preference?: string | null;
+    price_range?: string | null;
     food_pairing?: string[];
+    notes?: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function Home() {
           body_preference: p.body_preference,
           price_range: p.price_range,
           food_pairing: Array.isArray(p.food_pairing) ? p.food_pairing : undefined,
+          notes: typeof p.notes === 'string' ? p.notes : undefined,
         });
       }
     } catch {}

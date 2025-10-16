@@ -1,24 +1,19 @@
-export type FlavorPreference = 'dry' | 'sweet' | 'balanced';
-export type BodyPreference = 'light' | 'medium' | 'rich';
-export type PriceRangePreference = 'budget' | 'mid' | 'premium';
-
-export type FoodPairingPreference = string[];
-
-export type UserPreferenceProfile = {
-  flavorPreference: FlavorPreference;
-  bodyPreference: BodyPreference;
-  priceRange: PriceRangePreference;
-  foodPairing?: FoodPairingPreference | null;
-};
+export interface UserPreferenceProfile {
+  flavorPreference?: string | null;
+  bodyPreference?: string | null;
+  priceRange?: string | null;
+  foodPairing?: string[] | null;
+  notes?: string | null;
+}
 
 export type SakeId = string;
 
-export type FlavorProfile = {
-  sweetness: number;
-  lightness: number;
-  complexity: number;
-  fruitiness: number;
-};
+export interface FlavorProfile {
+  sweetness?: number;
+  lightness?: number;
+  complexity?: number;
+  fruitiness?: number;
+}
 
 export interface Sake {
   id?: SakeId;
@@ -70,10 +65,13 @@ export interface SakeWithLinks {
   links: PurchaseLink[];
 }
 
-export interface SakeRecommendation {
+export interface AlternativeRecommendation {
   sake: Sake;
-  score: number;
-  rationale: string;
+  summary: string;
+  reasoning: string;
+  shops: ShopListing[];
+  tastingHighlights?: string[];
+  servingSuggestions?: string[];
 }
 
 export interface PurchaseOffer {
@@ -85,4 +83,6 @@ export interface PurchaseOffer {
   shops: ShopListing[];
   links?: PurchaseLink[]; // legacy fallback
   updatedAt: string;
+  alternatives?: AlternativeRecommendation[];
+  followUpPrompt?: string;
 }
