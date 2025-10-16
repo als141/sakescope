@@ -94,45 +94,45 @@ export default function SettingsPage() {
         />
       </div>
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-12 py-12 sm:py-16">
+      <div className="relative z-10 w-full px-6 sm:px-8 lg:px-12 xl:px-16 py-10 sm:py-14 lg:py-16">
         {/* Header */}
-        <header className="max-w-3xl mx-auto mb-12">
+        <header className="w-full max-w-4xl mx-auto mb-10 sm:mb-12">
           <Link href="/">
-            <Button variant="ghost" size="lg" className="mb-8 -ml-2 group">
-              <ArrowLeft className="mr-2.5 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+            <Button variant="ghost" size="lg" className="mb-6 sm:mb-8 group">
+              <ArrowLeft className="mr-2 sm:mr-2.5 h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
               戻る
             </Button>
           </Link>
           
-          <div className="flex items-center gap-5 mb-5">
-            <div className="rounded-2xl bg-primary/10 p-4 border border-primary/20">
-              <SettingsIcon className="h-7 w-7 text-primary" />
+          <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 mb-4 sm:mb-5">
+            <div className="rounded-2xl bg-primary/10 p-3 sm:p-4 border border-primary/20">
+              <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold gradient-text tracking-tight">設定</h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold gradient-text tracking-tight">設定</h1>
           </div>
-          <p className="text-muted-foreground text-lg sm:text-xl leading-relaxed font-light">
+          <p className="text-muted-foreground text-base sm:text-lg lg:text-xl leading-relaxed font-light">
             あなたの好みを設定して、より精度の高いレコメンドを受け取りましょう
           </p>
         </header>
 
         {/* Settings Card */}
         <motion.div
-          className="max-w-3xl mx-auto"
+          className="w-full max-w-4xl mx-auto"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <Card className="shadow-2xl border-border/30">
-            <CardHeader className="space-y-3">
-              <CardTitle className="text-3xl">好みの設定</CardTitle>
-              <CardDescription className="text-base leading-relaxed">
+          <Card className="shadow-2xl border-border/40">
+            <CardHeader className="p-6 sm:p-8 space-y-2.5 sm:space-y-3">
+              <CardTitle className="text-2xl sm:text-3xl">好みの設定</CardTitle>
+              <CardDescription className="text-sm sm:text-base leading-relaxed">
                 AIソムリエが参考にする、あなたの日本酒の好みを設定します
               </CardDescription>
             </CardHeader>
 
             <Separator />
 
-            <CardContent className="pt-10 space-y-10">
+            <CardContent className="p-6 sm:p-8 pt-8 sm:pt-10 space-y-8 sm:space-y-10">
               {/* Flavor Preference */}
               <div className="space-y-4">
                 <Label htmlFor="flavor" className="text-lg font-semibold">

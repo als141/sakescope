@@ -436,8 +436,8 @@ export default function VoiceChat({
 
   // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center space-y-10">
-      <div className="flex flex-col items-center gap-8">
+    <div className="flex flex-col items-center space-y-8 sm:space-y-10 lg:space-y-12">
+      <div className="flex flex-col items-center gap-6 sm:gap-8">
         {!isConnected ? (
           <motion.div className="relative">
             <Button
@@ -445,7 +445,7 @@ export default function VoiceChat({
               disabled={isLoading}
               size="xl"
               className={cn(
-                "relative h-32 w-32 rounded-full p-0",
+                "relative h-28 w-28 sm:h-32 sm:w-32 lg:h-36 lg:w-36 rounded-full p-0",
                 "bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600",
                 "shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
                 "hover:scale-105 active:scale-100",
@@ -459,15 +459,15 @@ export default function VoiceChat({
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               >
                 {isLoading ? (
-                  <Loader2 className="h-14 w-14" />
+                  <Loader2 className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
                 ) : (
-                  <Mic className="h-14 w-14" />
+                  <Mic className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
                 )}
               </motion.div>
             </Button>
           </motion.div>
         ) : (
-          <div className="flex items-center gap-10">
+          <div className="flex items-center gap-6 sm:gap-8 lg:gap-10">
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -476,9 +476,9 @@ export default function VoiceChat({
                 onClick={handleStopConversation}
                 size="xl"
                 variant="destructive"
-                className="h-20 w-20 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
+                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
               >
-                <PhoneOff className="h-9 w-9" />
+                <PhoneOff className="h-7 w-7 sm:h-9 sm:w-9" />
               </Button>
             </motion.div>
 
@@ -520,7 +520,7 @@ export default function VoiceChat({
                 size="xl"
                 variant={isMuted ? "secondary" : "default"}
                 className={cn(
-                  "relative h-24 w-24 rounded-full p-0 shadow-xl transition-all duration-300",
+                  "relative h-20 w-20 sm:h-24 sm:w-24 lg:h-28 lg:w-28 rounded-full p-0 shadow-xl transition-all duration-300",
                   !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:shadow-emerald-500/50",
                   "hover:scale-105 active:scale-100"
                 )}
@@ -530,9 +530,9 @@ export default function VoiceChat({
                   transition={{ duration: 1.5, repeat: Infinity }}
                 >
                   {isMuted ? (
-                    <MicOff className="h-10 w-10" />
+                    <MicOff className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
                   ) : (
-                    <Mic className="h-10 w-10" />
+                    <Mic className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
                   )}
                 </motion.div>
               </Button>
@@ -542,12 +542,12 @@ export default function VoiceChat({
       </div>
 
       <motion.div
-        className="text-center space-y-4"
+        className="text-center space-y-3 sm:space-y-4 px-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <h3 className="text-2xl font-semibold text-foreground tracking-tight">
+        <h3 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight">
           {isLoading
             ? 'AIソムリエに接続中...'
             : !isConnected
@@ -588,8 +588,8 @@ export default function VoiceChat({
       {aiMessages.length > 0 && (
         <Card className="w-full max-w-2xl shadow-2xl border-border/30">
           <CardContent className="p-0">
-            <ScrollArea className="h-72 p-8">
-              <div className="space-y-5">
+            <ScrollArea className="h-64 sm:h-72 lg:h-80 p-6 sm:p-8">
+              <div className="space-y-4 sm:space-y-5">
                 {aiMessages.map((message, index) => (
                   <motion.div
                     key={`${index}-${message}`}
@@ -598,16 +598,16 @@ export default function VoiceChat({
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(index * 0.05, 0.3) }}
                   >
-                    <Avatar className="h-10 w-10 border-2 border-primary/30 shadow-sm">
+                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border-2 border-primary/30 shadow-sm">
                       <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                        <MessageSquare className="h-5 w-5" />
+                        <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
                         AIソムリエ
                       </div>
-                      <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                      <p className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-wrap">
                         {message}
                       </p>
                     </div>

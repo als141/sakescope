@@ -73,14 +73,14 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
         <Button
           variant="outline"
           size="icon-lg"
-          className="fixed left-6 top-24 z-40 rounded-full shadow-xl glass border-border/50 hover:shadow-2xl hover:scale-105 hover:border-primary/50 transition-all sm:left-10 backdrop-blur-md"
+          className="fixed left-4 sm:left-6 lg:left-10 top-24 sm:top-28 z-40 rounded-full shadow-xl glass border-border/50 hover:shadow-2xl hover:scale-105 hover:border-primary/50 transition-all backdrop-blur-md"
         >
-          <History className="h-6 w-6" />
+          <History className="h-5 w-5 sm:h-6 sm:w-6" />
           {history.length > 0 && (
             <Badge
               variant="default"
               size="sm"
-              className="absolute -top-1 -right-1 h-6 w-6 flex items-center justify-center p-0 text-[10px] font-bold rounded-full shadow-md"
+              className="absolute -top-1 -right-1 h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 text-[9px] sm:text-[10px] font-bold rounded-full shadow-md"
             >
               {history.length > 9 ? '9+' : history.length}
             </Badge>
@@ -88,43 +88,43 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-full sm:max-w-md p-0 flex flex-col">
-        <SheetHeader className="px-8 py-8 border-b border-border/50">
-          <SheetTitle className="flex items-center gap-4 text-3xl">
-            <div className="rounded-2xl bg-primary/10 p-3 border border-primary/20">
-              <History className="h-6 w-6 text-primary" />
+      <SheetContent side="left" className="w-full sm:max-w-lg p-0 flex flex-col">
+        <SheetHeader className="px-6 sm:px-8 py-6 sm:py-8 border-b border-border/50">
+          <SheetTitle className="flex items-center gap-3 sm:gap-4 text-2xl sm:text-3xl">
+            <div className="rounded-2xl bg-primary/10 p-2.5 sm:p-3 border border-primary/20">
+              <History className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             </div>
             <span className="gradient-text font-bold">レコメンド履歴</span>
           </SheetTitle>
-          <SheetDescription className="text-base text-muted-foreground leading-relaxed">
+          <SheetDescription className="text-sm sm:text-base text-muted-foreground leading-relaxed">
             過去にレコメンドされた日本酒
           </SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="flex-1">
-          <div className="p-6">
+          <div className="p-5 sm:p-6">
             {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-8 px-8">
-                <div className="rounded-full bg-muted/50 p-10 border-2 border-dashed border-border/50">
-                  <Wine className="h-20 w-20 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center h-full min-h-[320px] sm:min-h-[400px] text-center space-y-6 sm:space-y-8 px-6 sm:px-8">
+                <div className="rounded-full bg-muted/50 p-8 sm:p-10 border-2 border-dashed border-border/50">
+                  <Wine className="h-16 w-16 sm:h-20 sm:w-20 text-muted-foreground" />
                 </div>
-                <div className="space-y-3">
-                  <p className="text-xl font-bold text-foreground">
+                <div className="space-y-2.5 sm:space-y-3">
+                  <p className="text-lg sm:text-xl font-bold text-foreground">
                     まだ履歴がありません
                   </p>
-                  <p className="text-base text-muted-foreground max-w-sm leading-relaxed">
+                  <p className="text-sm sm:text-base text-muted-foreground max-w-sm leading-relaxed">
                     AIソムリエと会話して日本酒を探してみましょう。レコメンドされた日本酒は自動的にここに保存されます。
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {history.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleSelectItem(item)}
                     className={cn(
-                      "group relative rounded-2xl border-2 border-border/50 bg-card p-5",
+                      "group relative rounded-2xl border-2 border-border/50 bg-card p-4 sm:p-5",
                       "cursor-pointer transition-all duration-300",
                       "hover:border-primary/50 hover:bg-accent/30 hover:shadow-lg hover:-translate-y-1",
                       "active:translate-y-0 active:scale-[0.98]",
@@ -139,27 +139,27 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
                       }
                     }}
                   >
-                    <div className="flex gap-5">
-                      {/* Image - より大きく */}
-                      <div className="flex-shrink-0 w-28 h-28 rounded-xl overflow-hidden bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-border/30 group-hover:border-primary/30 transition-colors">
+                    <div className="flex gap-4 sm:gap-5">
+                      {/* Image */}
+                      <div className="flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-border/30 group-hover:border-primary/30 transition-colors">
                         {item.sake.imageUrl ? (
                           <Image
                             src={item.sake.imageUrl}
                             alt={item.sake.name}
-                            width={112}
-                            height={112}
+                            width={120}
+                            height={120}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Wine className="h-12 w-12 text-primary/60 group-hover:text-primary transition-colors" />
+                            <Wine className="h-10 w-10 sm:h-12 sm:w-12 text-primary/60 group-hover:text-primary transition-colors" />
                           </div>
                         )}
                       </div>
 
-                      {/* Info エリア - 余白を増やす */}
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <h3 className="font-semibold text-base leading-tight group-hover:text-primary transition-colors">
+                      {/* Info エリア */}
+                      <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
+                        <h3 className="font-semibold text-sm sm:text-base leading-tight group-hover:text-primary transition-colors">
                           {item.sake.name}
                         </h3>
                         {item.sake.brewery && (
@@ -167,14 +167,14 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
                             {item.sake.brewery}
                           </p>
                         )}
-                        <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                           {item.sake.type && (
                             <Badge variant="secondary" size="sm">
                               {item.sake.type}
                             </Badge>
                           )}
-                          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5" />
+                          <span className="text-[11px] sm:text-xs text-muted-foreground flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                             {formatDate(item.timestamp)}
                           </span>
                         </div>
@@ -192,7 +192,7 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
                           "focus-visible:opacity-100"
                         )}
                       >
-                        <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                       </Button>
                     </div>
                   </div>
@@ -205,14 +205,14 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
         {history.length > 0 && (
           <>
             <Separator />
-            <SheetFooter className="p-6">
+            <SheetFooter className="p-5 sm:p-6">
               <Button
                 onClick={handleClearAll}
                 variant="destructive"
                 className="w-full"
                 size="lg"
               >
-                <Trash2 className="h-5 w-5" />
+                <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                 全ての履歴を削除
               </Button>
             </SheetFooter>
