@@ -36,32 +36,33 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
 
   return (
     <motion.div
-      className="w-full max-w-5xl mx-auto px-4 sm:px-0"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4 }}
+      className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
       {/* Back Button */}
       <Button
         onClick={onReset}
         variant="ghost"
-        className="mb-6 -ml-2 hover:bg-accent hover:scale-105 transition-all"
+        size="lg"
+        className="mb-10 -ml-2 group"
       >
-        <ArrowLeft className="mr-2 h-4 w-4" />
+        <ArrowLeft className="mr-2.5 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
         他の日本酒を探す
       </Button>
 
       {/* Main Card */}
-      <Card className="overflow-hidden shadow-2xl border-border/50 backdrop-blur-sm bg-card/95">
+      <Card className="overflow-hidden shadow-2xl border-border/30">
         {/* Header Section */}
-        <CardHeader className="pb-6">
-          <div className="flex flex-col lg:flex-row gap-6">
+        <CardHeader className="pb-10">
+          <div className="flex flex-col lg:flex-row gap-10">
             {/* Image */}
             <motion.div
-              className="relative flex-shrink-0 w-full lg:w-72 h-72 overflow-hidden rounded-xl bg-muted/30 border border-border/50"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+              className="relative flex-shrink-0 w-full lg:w-96 h-96 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-border/50"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1, duration: 0.5 }}
             >
               {sake.imageUrl ? (
                 <>
@@ -70,25 +71,46 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                     alt={`${sake.name}のイメージ`}
                     fill
                     className="object-cover"
-                    sizes="(min-width: 1024px) 18rem, 100vw"
-                    unoptimized
-                    priority={false}
+                    sizes="(min-width: 1024px) 24rem, 100vw"
+                    priority
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                  <div className="absolute inset-x-0 bottom-0 p-4 space-y-1">
-                    <h2 className="text-lg font-semibold text-white">{sake.name}</h2>
+                  {/* グラデーションオーバーレイ */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                  
+                  {/* 画像内の情報 */}
+                  <div className="absolute inset-x-0 bottom-0 p-6 space-y-2">
+                    {sake.type && (
+                      <Badge 
+                        variant="default" 
+                        size="lg"
+                        className="backdrop-blur-md bg-white/20 border-white/30 text-white shadow-lg"
+                      >
+                        {sake.type}
+                      </Badge>
+                    )}
+                    <h2 className="text-2xl font-bold text-white drop-shadow-lg">
+                      {sake.name}
+                    </h2>
                     {sake.brewery && (
-                      <p className="text-sm text-white/90">{sake.brewery}</p>
+                      <p className="text-sm text-white/90 drop-shadow">
+                        {sake.brewery}
+                      </p>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="flex h-full flex-col items-center justify-center space-y-3">
-                  <Wine className="h-16 w-16 text-primary" />
-                  <div className="text-center px-4">
-                    <h2 className="text-xl font-bold text-foreground">{sake.name}</h2>
+                <div className="flex h-full flex-col items-center justify-center space-y-4 p-6">
+                  <div className="rounded-full bg-primary/10 p-6">
+                    <Wine className="h-20 w-20 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-foreground mb-2">
+                      {sake.name}
+                    </h2>
                     {sake.brewery && (
-                      <p className="text-sm text-muted-foreground mt-1">{sake.brewery}</p>
+                      <p className="text-base text-muted-foreground">
+                        {sake.brewery}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -96,70 +118,82 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
             </motion.div>
 
             {/* Sake Information */}
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-8">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="space-y-3"
+                transition={{ delay: 0.2, duration: 0.5 }}
               >
-                <div>
-                  <h1 className="text-3xl font-bold gradient-text mb-2">
+                {/* タイトルエリア */}
+                <div className="space-y-4 mb-8">
+                  <h1 className="text-4xl lg:text-5xl font-bold gradient-text leading-tight">
                     {sake.name}
                   </h1>
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                  
+                  {/* メタ情報 */}
+                  <div className="flex flex-wrap items-center gap-4">
                     {sake.region && (
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        <span>{sake.region}</span>
+                      <div className="flex items-center gap-2 text-base text-muted-foreground">
+                        <MapPin className="h-5 w-5" />
+                        <span className="font-medium">{sake.region}</span>
                       </div>
                     )}
                     {sake.type && (
-                      <Badge variant="secondary">{sake.type}</Badge>
+                      <Badge variant="secondary" size="lg">
+                        {sake.type}
+                      </Badge>
                     )}
                     {sake.priceRange && (
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <DollarSign className="h-4 w-4" />
-                        <span>{sake.priceRange}</span>
+                      <div className="flex items-center gap-2 text-base text-muted-foreground">
+                        <DollarSign className="h-5 w-5" />
+                        <span className="font-medium">{sake.priceRange}</span>
                       </div>
                     )}
                   </div>
                 </div>
-                <p className="text-muted-foreground leading-relaxed">
+
+                {/* 説明文 */}
+                <p className="text-base lg:text-lg text-muted-foreground leading-relaxed">
                   {sake.description ?? '詳細データを取得しています。'}
                 </p>
               </motion.div>
 
               {/* Technical Specs */}
-              {(sake.alcohol || sake.sakeValue || sake.acidity || sake.brewery) && (
+              {(sake.alcohol || sake.sakeValue || sake.acidity) && (
                 <motion.div
-                  className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+                  className="grid grid-cols-2 lg:grid-cols-3 gap-4"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
                 >
                   {sake.alcohol && (
-                    <Card className="text-center p-3 bg-card/50 border-border/50">
-                      <div className="text-2xl font-bold text-primary">{sake.alcohol}%</div>
-                      <div className="text-xs text-muted-foreground mt-1">アルコール度数</div>
+                    <Card className="text-center p-5 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 hover:border-primary/40 transition-all duration-300">
+                      <div className="text-3xl font-bold text-primary mb-2">
+                        {sake.alcohol}%
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground tracking-wide">
+                        アルコール度数
+                      </div>
                     </Card>
                   )}
                   {sake.sakeValue && (
-                    <Card className="text-center p-3 bg-card/50 border-border/50">
-                      <div className="text-2xl font-bold text-blue-500">{sake.sakeValue}</div>
-                      <div className="text-xs text-muted-foreground mt-1">日本酒度</div>
+                    <Card className="text-center p-5 bg-gradient-to-br from-blue-500/5 to-blue-500/10 border-blue-500/20 hover:border-blue-500/40 transition-all duration-300">
+                      <div className="text-3xl font-bold text-blue-500 mb-2">
+                        {sake.sakeValue}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground tracking-wide">
+                        日本酒度
+                      </div>
                     </Card>
                   )}
                   {sake.acidity && (
-                    <Card className="text-center p-3 bg-card/50 border-border/50">
-                      <div className="text-2xl font-bold text-emerald-500">{sake.acidity}</div>
-                      <div className="text-xs text-muted-foreground mt-1">酸度</div>
-                    </Card>
-                  )}
-                  {sake.brewery && (
-                    <Card className="text-center p-3 bg-card/50 border-border/50">
-                      <div className="text-xl font-bold text-purple-500 truncate">{sake.brewery}</div>
-                      <div className="text-xs text-muted-foreground mt-1">酒蔵</div>
+                    <Card className="text-center p-5 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300">
+                      <div className="text-3xl font-bold text-emerald-500 mb-2">
+                        {sake.acidity}
+                      </div>
+                      <div className="text-xs font-medium text-muted-foreground tracking-wide">
+                        酸度
+                      </div>
                     </Card>
                   )}
                 </motion.div>
@@ -191,40 +225,67 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
             </TabsList>
 
             {/* Flavor Profile Tab */}
-            <TabsContent value="profile" className="mt-6">
+            <TabsContent value="profile" className="mt-8">
               {(flavorProfile || tastingNotes.length > 0) && (
-            <div className="space-y-6">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <h3 className="text-xl font-semibold gradient-text">味わいの特徴</h3>
+            <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-6 w-6 text-primary" />
+                <h3 className="text-2xl font-bold gradient-text">味わいの特徴</h3>
               </div>
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {flavorProfile && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {[
-                      { label: '甘み', value: flavorProfile?.sweetness, color: 'bg-pink-500' },
-                      { label: '軽やかさ', value: flavorProfile?.lightness, color: 'bg-blue-500' },
-                      { label: '複雑さ', value: flavorProfile?.complexity, color: 'bg-purple-500' },
-                      { label: 'フルーティさ', value: flavorProfile?.fruitiness, color: 'bg-green-500' },
+                      { label: '甘み', value: flavorProfile?.sweetness, color: 'pink', emoji: '🍬' },
+                      { label: '軽やかさ', value: flavorProfile?.lightness, color: 'blue', emoji: '💨' },
+                      { label: '複雑さ', value: flavorProfile?.complexity, color: 'purple', emoji: '🌟' },
+                      { label: 'フルーティさ', value: flavorProfile?.fruitiness, color: 'green', emoji: '🍇' },
                     ]
                       .filter((entry) => typeof entry.value === 'number')
                       .map((flavor, index) => (
-                        <div key={flavor.label} className="space-y-2">
+                        <div key={flavor.label} className="space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium flex items-center gap-2">
-                              <span className="text-xl">{getFlavorIcon(flavor.value)}</span>
-                              {flavor.label}
+                            <span className="text-base font-semibold flex items-center gap-3">
+                              <span className="text-2xl">{flavor.emoji}</span>
+                              <span>{flavor.label}</span>
                             </span>
-                            <span className="text-sm font-bold">{(flavor.value as number).toFixed(1)}/5</span>
+                            <span className="text-lg font-bold text-foreground">
+                              {(flavor.value as number).toFixed(1)}
+                              <span className="text-sm text-muted-foreground ml-1">/5.0</span>
+                            </span>
                           </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          
+                          {/* プログレスバー */}
+                          <div className="relative h-3 bg-muted/50 rounded-full overflow-hidden border border-border/50">
                             <motion.div
-                              className={cn("h-full rounded-full", flavor.color)}
+                              className={cn(
+                                "h-full rounded-full relative overflow-hidden",
+                                flavor.color === 'pink' && "bg-gradient-to-r from-pink-400 to-pink-600",
+                                flavor.color === 'blue' && "bg-gradient-to-r from-blue-400 to-blue-600",
+                                flavor.color === 'purple' && "bg-gradient-to-r from-purple-400 to-purple-600",
+                                flavor.color === 'green' && "bg-gradient-to-r from-green-400 to-green-600"
+                              )}
                               initial={{ width: 0 }}
                               animate={{ width: `${(((flavor.value as number) ?? 0) / 5) * 100}%` }}
-                              transition={{ delay: 0.5 + index * 0.1, duration: 0.8, ease: 'easeOut' }}
-                            />
+                              transition={{ 
+                                delay: 0.5 + index * 0.1, 
+                                duration: 1, 
+                                ease: [0.4, 0, 0.2, 1] 
+                              }}
+                            >
+                              {/* 光沢エフェクト */}
+                              <motion.div
+                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                                animate={{ x: ['-100%', '200%'] }}
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                  delay: index * 0.3,
+                                }}
+                              />
+                            </motion.div>
                           </div>
                         </div>
                       ))}

@@ -436,61 +436,78 @@ export default function VoiceChat({
 
   // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center space-y-8">
-      <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center space-y-10">
+      <div className="flex flex-col items-center gap-8">
         {!isConnected ? (
-          <Button
-            onClick={handleStartConversation}
-            disabled={isLoading}
-            size="lg"
-            className={cn(
-              "relative h-24 w-24 rounded-full p-0 shadow-2xl transition-all duration-300",
-              "bg-gradient-to-br from-primary via-primary/90 to-primary/80",
-              "hover:shadow-primary/50 hover:scale-105",
-              "disabled:opacity-70"
-            )}
-          >
-            {isLoading ? (
-              <Loader2 className="h-10 w-10 animate-spin" />
-            ) : (
-              <Mic className="h-10 w-10" />
-            )}
-          </Button>
-        ) : (
-          <div className="flex items-center gap-8">
+          <motion.div className="relative">
             <Button
-              onClick={handleStopConversation}
-              size="lg"
-              variant="destructive"
-              className="h-20 w-20 rounded-full p-0 shadow-xl hover:shadow-destructive/50 hover:scale-105 transition-all"
+              onClick={handleStartConversation}
+              disabled={isLoading}
+              size="xl"
+              className={cn(
+                "relative h-32 w-32 rounded-full p-0",
+                "bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600",
+                "shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
+                "hover:scale-105 active:scale-100",
+                "transition-all duration-300",
+                "border-4 border-primary-200/20",
+                "disabled:opacity-70"
+              )}
             >
-              <PhoneOff className="h-8 w-8" />
+              <motion.div
+                animate={isLoading ? { rotate: 360 } : {}}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-14 w-14" />
+                ) : (
+                  <Mic className="h-14 w-14" />
+                )}
+              </motion.div>
             </Button>
+          </motion.div>
+        ) : (
+          <div className="flex items-center gap-10">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button
+                onClick={handleStopConversation}
+                size="xl"
+                variant="destructive"
+                className="h-20 w-20 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
+              >
+                <PhoneOff className="h-9 w-9" />
+              </Button>
+            </motion.div>
 
-            <div className="relative">
+            <motion.div className="relative">
               <AnimatePresence>
                 {isRecording && (
                   <>
+                    {/* パルスリング1 */}
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-primary/60"
-                      initial={{ scale: 1, opacity: 1 }}
-                      animate={{ scale: 2, opacity: 0 }}
-                      exit={{ scale: 1, opacity: 1 }}
+                      className="absolute inset-0 rounded-full bg-primary/20 blur-md"
+                      initial={{ scale: 1, opacity: 0.8 }}
+                      animate={{ scale: 2.2, opacity: 0 }}
+                      exit={{ scale: 1, opacity: 0.8 }}
                       transition={{
                         duration: 2,
                         repeat: Infinity,
-                        ease: 'easeOut',
+                        ease: "easeOut",
                       }}
                     />
+                    {/* パルスリング2 */}
                     <motion.div
-                      className="absolute inset-0 rounded-full border-2 border-primary/40"
-                      initial={{ scale: 1, opacity: 1 }}
+                      className="absolute inset-0 rounded-full bg-primary/30 blur-sm"
+                      initial={{ scale: 1, opacity: 0.6 }}
                       animate={{ scale: 2.5, opacity: 0 }}
-                      exit={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 1, opacity: 0.6 }}
                       transition={{
                         duration: 2,
                         repeat: Infinity,
-                        ease: 'easeOut',
+                        ease: "easeOut",
                         delay: 0.5,
                       }}
                     />
@@ -500,32 +517,37 @@ export default function VoiceChat({
 
               <Button
                 onClick={handleToggleMute}
-                size="lg"
+                size="xl"
                 variant={isMuted ? "secondary" : "default"}
                 className={cn(
-                  "relative h-20 w-20 rounded-full p-0 shadow-xl transition-all",
+                  "relative h-24 w-24 rounded-full p-0 shadow-xl transition-all duration-300",
                   !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:shadow-emerald-500/50",
-                  "hover:scale-105"
+                  "hover:scale-105 active:scale-100"
                 )}
               >
-                {isMuted ? (
-                  <MicOff className="h-8 w-8" />
-                ) : (
-                  <Mic className="h-8 w-8" />
-                )}
+                <motion.div
+                  animate={isRecording ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  {isMuted ? (
+                    <MicOff className="h-10 w-10" />
+                  ) : (
+                    <Mic className="h-10 w-10" />
+                  )}
+                </motion.div>
               </Button>
-            </div>
+            </motion.div>
           </div>
         )}
       </div>
 
       <motion.div
-        className="text-center space-y-3"
+        className="text-center space-y-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <h3 className="text-xl font-medium text-foreground">
+        <h3 className="text-2xl font-semibold text-foreground tracking-tight">
           {isLoading
             ? 'AIソムリエに接続中...'
             : !isConnected
@@ -539,7 +561,7 @@ export default function VoiceChat({
 
         {error && (
           <motion.p
-            className="text-destructive text-sm"
+            className="text-destructive text-base font-medium"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
@@ -564,28 +586,28 @@ export default function VoiceChat({
       </AnimatePresence>
 
       {aiMessages.length > 0 && (
-        <Card className="w-full max-w-2xl shadow-xl border-border/50 backdrop-blur-sm bg-card/95">
+        <Card className="w-full max-w-2xl shadow-2xl border-border/30">
           <CardContent className="p-0">
-            <ScrollArea className="h-64 p-6">
-              <div className="space-y-4">
+            <ScrollArea className="h-72 p-8">
+              <div className="space-y-5">
                 {aiMessages.map((message, index) => (
                   <motion.div
                     key={`${index}-${message}`}
-                    className="flex items-start gap-3"
+                    className="flex items-start gap-4"
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(index * 0.05, 0.3) }}
                   >
-                    <Avatar className="h-8 w-8 border-2 border-primary/20">
+                    <Avatar className="h-10 w-10 border-2 border-primary/30 shadow-sm">
                       <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                        <MessageSquare className="h-4 w-4" />
+                        <MessageSquare className="h-5 w-5" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-4 shadow-sm">
-                      <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-primary/80">
+                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
                         AIソムリエ
                       </div>
-                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                      <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">
                         {message}
                       </p>
                     </div>
@@ -611,24 +633,24 @@ export default function VoiceChat({
 
   // Compact variant (コンパクト表示)
   const compactContent = (
-    <Card className="glass w-full shadow-2xl border-border/30 backdrop-blur-sm bg-card/95">
-      <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <Avatar className="h-7 w-7 border-2 border-primary/20">
+    <Card className="glass w-full shadow-2xl border-border/30">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9 border-2 border-primary/30 shadow-sm">
               <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageSquare className="h-4 w-4" />
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-semibold">音声アシスト</span>
+            <span className="text-base font-semibold">音声アシスト</span>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             {isDelegating && (
-              <Activity className="h-4 w-4 text-primary animate-pulse" />
+              <Activity className="h-5 w-5 text-primary animate-pulse" />
             )}
             <div
               className={cn(
-                "h-2.5 w-2.5 rounded-full shadow-sm",
+                "h-3 w-3 rounded-full shadow-sm",
                 isConnected ? "bg-emerald-500 animate-pulse" : "bg-muted"
               )}
             />
@@ -636,8 +658,8 @@ export default function VoiceChat({
         </div>
 
         <p className={cn(
-          "text-xs mb-3",
-          error ? "text-destructive" : "text-muted-foreground"
+          "text-sm mb-4 leading-relaxed",
+          error ? "text-destructive font-medium" : "text-muted-foreground"
         )}>
           {error ?? (isLoading
             ? 'AIソムリエに接続中...'
@@ -651,23 +673,23 @@ export default function VoiceChat({
         </p>
 
         {aiMessages.length > 0 && !error && (
-          <div className="mb-3 rounded-lg border border-border/50 bg-muted/30 p-2 text-xs text-foreground line-clamp-2">
+          <div className="mb-4 rounded-xl border border-border/50 bg-gradient-to-br from-muted/50 to-muted/30 p-4 text-sm text-foreground line-clamp-2 leading-relaxed shadow-sm">
             {aiMessages[aiMessages.length - 1]}
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {!isConnected ? (
             <Button
               onClick={handleStartConversation}
               disabled={isLoading}
-              className="flex-1 h-9"
-              size="sm"
+              className="flex-1 h-11"
+              size="default"
             >
               {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Mic className="mr-2 h-4 w-4" />
+                <Mic className="h-5 w-5" />
               )}
               開始
             </Button>
@@ -677,19 +699,19 @@ export default function VoiceChat({
                 onClick={handleToggleMute}
                 variant={isMuted ? "secondary" : "default"}
                 className={cn(
-                  "flex-1 h-9",
-                  !isMuted && "bg-emerald-600 hover:bg-emerald-700"
+                  "flex-1 h-11",
+                  !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:via-emerald-500 hover:to-emerald-600"
                 )}
-                size="sm"
+                size="default"
               >
                 {isMuted ? (
                   <>
-                    <MicOff className="mr-2 h-4 w-4" />
+                    <MicOff className="h-5 w-5" />
                     ミュート解除
                   </>
                 ) : (
                   <>
-                    <Mic className="mr-2 h-4 w-4" />
+                    <Mic className="h-5 w-5" />
                     ミュート
                   </>
                 )}
@@ -697,11 +719,10 @@ export default function VoiceChat({
               <Button
                 onClick={handleStopConversation}
                 variant="destructive"
-                size="sm"
-                className="h-9 px-3"
+                size="icon-lg"
+                className="h-11 w-11"
               >
-                <PhoneOff className="mr-2 h-4 w-4" />
-                終了
+                <PhoneOff className="h-5 w-5" />
               </Button>
             </>
           )}

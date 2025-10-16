@@ -94,23 +94,23 @@ export default function SettingsPage() {
         />
       </div>
 
-      <div className="relative z-10 px-6 sm:px-10 lg:px-12 py-10 sm:py-12">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-12 py-12 sm:py-16">
         {/* Header */}
-        <header className="max-w-3xl mx-auto mb-10">
+        <header className="max-w-3xl mx-auto mb-12">
           <Link href="/">
-            <Button variant="ghost" className="mb-6 -ml-2 hover:scale-105 transition-all">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+            <Button variant="ghost" size="lg" className="mb-8 -ml-2 group">
+              <ArrowLeft className="mr-2.5 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
               戻る
             </Button>
           </Link>
           
-          <div className="flex items-center gap-4 mb-3">
-            <div className="rounded-full bg-primary/10 p-3">
-              <SettingsIcon className="h-6 w-6 text-primary" />
+          <div className="flex items-center gap-5 mb-5">
+            <div className="rounded-2xl bg-primary/10 p-4 border border-primary/20">
+              <SettingsIcon className="h-7 w-7 text-primary" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold gradient-text">設定</h1>
+            <h1 className="text-4xl sm:text-5xl font-bold gradient-text tracking-tight">設定</h1>
           </div>
-          <p className="text-muted-foreground text-base sm:text-lg">
+          <p className="text-muted-foreground text-lg sm:text-xl leading-relaxed font-light">
             あなたの好みを設定して、より精度の高いレコメンドを受け取りましょう
           </p>
         </header>
@@ -122,20 +122,20 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <Card className="shadow-2xl border-border/50">
-            <CardHeader>
-              <CardTitle>好みの設定</CardTitle>
-              <CardDescription>
+          <Card className="shadow-2xl border-border/30">
+            <CardHeader className="space-y-3">
+              <CardTitle className="text-3xl">好みの設定</CardTitle>
+              <CardDescription className="text-base leading-relaxed">
                 AIソムリエが参考にする、あなたの日本酒の好みを設定します
               </CardDescription>
             </CardHeader>
 
             <Separator />
 
-            <CardContent className="pt-6 space-y-6">
+            <CardContent className="pt-10 space-y-10">
               {/* Flavor Preference */}
-              <div className="space-y-3">
-                <Label htmlFor="flavor" className="text-base font-medium">
+              <div className="space-y-4">
+                <Label htmlFor="flavor" className="text-lg font-semibold">
                   味の好み
                 </Label>
                 <Select
@@ -144,40 +144,49 @@ export default function SettingsPage() {
                     setPrefs((p) => ({ ...p, flavor_preference: value as Flavor }))
                   }
                 >
-                  <SelectTrigger id="flavor" className="w-full">
+                  <SelectTrigger 
+                    id="flavor" 
+                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                  >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dry">
-                      <div className="flex items-center gap-2">
-                        <span>辛口</span>
-                        <Badge variant="outline" className="text-xs">キレのある</Badge>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="dry" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">辛口</span>
+                        <Badge variant="outline" size="sm">
+                          キレのある
+                        </Badge>
                       </div>
                     </SelectItem>
-                    <SelectItem value="sweet">
-                      <div className="flex items-center gap-2">
-                        <span>甘口</span>
-                        <Badge variant="outline" className="text-xs">まろやか</Badge>
+                    <SelectItem value="sweet" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">甘口</span>
+                        <Badge variant="outline" size="sm">
+                          まろやか
+                        </Badge>
                       </div>
                     </SelectItem>
-                    <SelectItem value="balanced">
-                      <div className="flex items-center gap-2">
-                        <span>バランス型</span>
-                        <Badge variant="outline" className="text-xs">どちらも楽しめる</Badge>
+                    <SelectItem value="balanced" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">バランス型</span>
+                        <Badge variant="outline" size="sm">
+                          どちらも楽しめる
+                        </Badge>
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   日本酒の味わいの甘辛度を選択してください
                 </p>
               </div>
 
-              <Separator />
+              <Separator className="opacity-50" />
 
               {/* Body Preference */}
-              <div className="space-y-3">
-                <Label htmlFor="body" className="text-base font-medium">
+              <div className="space-y-4">
+                <Label htmlFor="body" className="text-lg font-semibold">
                   ボディ
                 </Label>
                 <Select
@@ -186,40 +195,49 @@ export default function SettingsPage() {
                     setPrefs((p) => ({ ...p, body_preference: value as Body }))
                   }
                 >
-                  <SelectTrigger id="body" className="w-full">
+                  <SelectTrigger 
+                    id="body" 
+                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                  >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">
-                      <div className="flex items-center gap-2">
-                        <span>軽快</span>
-                        <Badge variant="outline" className="text-xs">すっきり</Badge>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="light" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">軽快</span>
+                        <Badge variant="outline" size="sm">
+                          すっきり
+                        </Badge>
                       </div>
                     </SelectItem>
-                    <SelectItem value="medium">
-                      <div className="flex items-center gap-2">
-                        <span>中程度</span>
-                        <Badge variant="outline" className="text-xs">バランス良い</Badge>
+                    <SelectItem value="medium" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">中程度</span>
+                        <Badge variant="outline" size="sm">
+                          バランス良い
+                        </Badge>
                       </div>
                     </SelectItem>
-                    <SelectItem value="rich">
-                      <div className="flex items-center gap-2">
-                        <span>濃厚</span>
-                        <Badge variant="outline" className="text-xs">しっかり</Badge>
+                    <SelectItem value="rich" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">濃厚</span>
+                        <Badge variant="outline" size="sm">
+                          しっかり
+                        </Badge>
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   日本酒の口当たりや厚みを選択してください
                 </p>
               </div>
 
-              <Separator />
+              <Separator className="opacity-50" />
 
               {/* Price Range */}
-              <div className="space-y-3">
-                <Label htmlFor="price" className="text-base font-medium">
+              <div className="space-y-4">
+                <Label htmlFor="price" className="text-lg font-semibold">
                   価格帯
                 </Label>
                 <Select
@@ -228,40 +246,49 @@ export default function SettingsPage() {
                     setPrefs((p) => ({ ...p, price_range: value as Price }))
                   }
                 >
-                  <SelectTrigger id="price" className="w-full">
+                  <SelectTrigger 
+                    id="price" 
+                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                  >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="budget">
-                      <div className="flex items-center gap-2">
-                        <span>お手頃</span>
-                        <Badge variant="outline" className="text-xs">〜¥2,000</Badge>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="budget" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">お手頃</span>
+                        <Badge variant="outline" size="sm">
+                          〜¥2,000
+                        </Badge>
                       </div>
                     </SelectItem>
-                    <SelectItem value="mid">
-                      <div className="flex items-center gap-2">
-                        <span>中価格帯</span>
-                        <Badge variant="outline" className="text-xs">¥2,000〜¥5,000</Badge>
+                    <SelectItem value="mid" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">中価格帯</span>
+                        <Badge variant="outline" size="sm">
+                          ¥2,000〜¥5,000
+                        </Badge>
                       </div>
                     </SelectItem>
-                    <SelectItem value="premium">
-                      <div className="flex items-center gap-2">
-                        <span>高級</span>
-                        <Badge variant="outline" className="text-xs">¥5,000〜</Badge>
+                    <SelectItem value="premium" className="py-4 text-base">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="font-medium">高級</span>
+                        <Badge variant="outline" size="sm">
+                          ¥5,000〜
+                        </Badge>
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   普段購入する価格帯を選択してください
                 </p>
               </div>
 
-              <Separator />
+              <Separator className="opacity-50" />
 
               {/* Food Pairing */}
-              <div className="space-y-3">
-                <Label htmlFor="food" className="text-base font-medium">
+              <div className="space-y-4">
+                <Label htmlFor="food" className="text-lg font-semibold">
                   一緒に楽しむ料理
                 </Label>
                 <Input
@@ -269,17 +296,17 @@ export default function SettingsPage() {
                   placeholder="刺身, 天ぷら, 焼き鳥 など"
                   value={foodPairingText}
                   onChange={(e) => setFoodPairingText(e.target.value)}
-                  className="w-full"
+                  className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   カンマ区切りで入力してください（例: 刺身, 天ぷら, 焼き鳥）
                 </p>
                 {foodPairingText && (
-                  <div className="flex flex-wrap gap-2 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-3">
                     {foodPairingText.split(',').map((food, i) => {
                       const trimmed = food.trim();
                       return trimmed ? (
-                        <Badge key={i} variant="secondary">
+                        <Badge key={i} variant="secondary" size="lg">
                           {trimmed}
                         </Badge>
                       ) : null;
@@ -292,20 +319,20 @@ export default function SettingsPage() {
             <Separator />
 
             {/* Save Button */}
-            <CardContent className="pt-6 pb-6">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
+            <CardContent className="pt-8 pb-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <p className="text-base text-muted-foreground leading-relaxed">
                   設定は自動的にローカルに保存されます
                 </p>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
                   <motion.div
                     initial={false}
                     animate={saved ? { scale: [0, 1.2, 1], opacity: [0, 1, 1] } : {}}
                     transition={{ duration: 0.4 }}
                   >
                     {saved && (
-                      <div className="flex items-center gap-2 text-sm text-emerald-500">
-                        <Check className="h-4 w-4" />
+                      <div className="flex items-center gap-2.5 text-base text-emerald-500 font-medium">
+                        <Check className="h-5 w-5" />
                         <span>保存しました</span>
                       </div>
                     )}
@@ -313,9 +340,9 @@ export default function SettingsPage() {
                   <Button
                     onClick={save}
                     size="lg"
-                    className="bg-gradient-to-r from-primary via-primary/90 to-primary/80 hover:shadow-xl transition-all"
+                    className="w-full sm:w-auto"
                   >
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="h-5 w-5" />
                     保存
                   </Button>
                 </div>
@@ -324,11 +351,11 @@ export default function SettingsPage() {
           </Card>
 
           {/* Info Alert */}
-          <Alert className="mt-6 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 backdrop-blur-sm">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <AlertDescription className="ml-0 mt-2">
-              <p className="text-sm leading-relaxed">
-                <strong className="text-foreground">ヒント:</strong> これらの設定はAIソムリエへの初期情報として使用されます。
+          <Alert className="mt-8 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 backdrop-blur-sm shadow-lg">
+            <Sparkles className="h-6 w-6 text-primary" />
+            <AlertDescription className="ml-0 mt-3">
+              <p className="text-base leading-relaxed">
+                <strong className="text-foreground font-semibold">ヒント:</strong> これらの設定はAIソムリエへの初期情報として使用されます。
                 会話の中でさらに詳しい好みを伝えることで、より精度の高いレコメンドが得られます。
               </p>
             </AlertDescription>
