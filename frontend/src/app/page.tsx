@@ -6,12 +6,15 @@ import { Mic, Settings, Volume2 } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
+import SakeHistory from '@/components/SakeHistory';
+import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -111,6 +114,14 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 lg:px-8">
+        {/* History Panel */}
+        <SakeHistory
+          onSelectSake={(item: SakeHistoryItem) => {
+            setRecommendedSake(item.sake);
+            setPurchaseOffer(item.offer);
+            setCurrentHistoryId(item.id);
+          }}
+        />
         {/* Header */}
         <motion.header
           className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center"
@@ -202,10 +213,14 @@ export default function Home() {
             onSakeRecommended={(sake) => {
               setRecommendedSake(sake);
               setPurchaseOffer(null);
+              setCurrentHistoryId(null);
             }}
             onOfferReady={(offer) => {
               setRecommendedSake(offer.sake);
               setPurchaseOffer(offer);
+              // 履歴に保存
+              SakeHistoryStorage.addToHistory(offer.sake, offer);
+              setCurrentHistoryId(null);
             }}
             preferences={preferences || undefined}
           />
