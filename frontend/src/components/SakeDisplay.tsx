@@ -33,22 +33,11 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
 
   return (
     <motion.div
-      className="w-full h-screen flex flex-col px-6 sm:px-8 lg:px-12 py-6 sm:py-8 overflow-hidden"
+      className="w-full h-screen flex flex-col px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 lg:pt-32 pb-6 sm:pb-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Back Button */}
-      <Button
-        onClick={onReset}
-        variant="ghost"
-        size="lg"
-        className="mb-4 group flex-shrink-0"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
-        <span className="text-sm sm:text-base">他の日本酒を探す</span>
-      </Button>
-
       {/* Main Card - Scrollable */}
       <Card className="overflow-hidden shadow-2xl border-border/40 flex-1 flex flex-col min-h-0">
         <div className="overflow-y-auto flex-1">

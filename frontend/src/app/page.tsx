@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Settings, Volume2, Sparkles } from 'lucide-react';
+import { Mic, Settings, Volume2, Sparkles, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
@@ -16,6 +16,7 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
+  const [isVoiceChatMinimized, setIsVoiceChatMinimized] = useState(false);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -142,19 +143,34 @@ export default function Home() {
           transition={{ duration: 0.5 }}
         >
           <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 py-6 sm:py-8 lg:py-10 flex justify-between items-center">
-            {/* ロゴエリア */}
-            <motion.div
-              className="flex items-center gap-3 sm:gap-4"
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <div className="rounded-2xl bg-primary/10 p-2.5 sm:p-3 backdrop-blur-sm border border-primary/20 shadow-sm">
-                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text tracking-tight">
-                Sakescope
-              </h1>
-            </motion.div>
+            {/* 左側 - ロゴまたは戻るボタン */}
+            {recommendedSake ? (
+              <Button
+                onClick={() => {
+                  setRecommendedSake(null);
+                  setPurchaseOffer(null);
+                }}
+                variant="ghost"
+                size="lg"
+                className="group -ml-2"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
+                <span className="text-sm sm:text-base">他の日本酒を探す</span>
+              </Button>
+            ) : (
+              <motion.div
+                className="flex items-center gap-3 sm:gap-4"
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 400 }}
+              >
+                <div className="rounded-2xl bg-primary/10 p-2.5 sm:p-3 backdrop-blur-sm border border-primary/20 shadow-sm">
+                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text tracking-tight">
+                  Sakescope
+                </h1>
+              </motion.div>
+            )}
             
             {/* 右側ナビゲーション */}
             <div className="flex items-center gap-3 sm:gap-4">
@@ -266,6 +282,8 @@ export default function Home() {
             variant={voiceChatVariant}
             isRecording={isRecording}
             setIsRecording={setIsRecording}
+            isMinimized={isVoiceChatMinimized}
+            onToggleMinimize={() => setIsVoiceChatMinimized(!isVoiceChatMinimized)}
             onSakeRecommended={(sake) => {
               setRecommendedSake(sake);
               setPurchaseOffer(null);

@@ -44,6 +44,8 @@ interface VoiceChatProps {
     notes?: string | null;
   };
   variant?: 'full' | 'compact';
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
 }
 
 const preferenceValueLabels: Record<string, string> = {
@@ -110,6 +112,8 @@ export default function VoiceChat({
   onOfferReady,
   preferences,
   variant = 'full',
+  isMinimized = false,
+  onToggleMinimize,
 }: VoiceChatProps) {
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -621,6 +625,38 @@ export default function VoiceChat({
     </div>
   );
 
+  // Minimized variant (最小化表示 - 右下に固定)
+  if (variant === 'compact' && isMinimized) {
+    return (
+      <motion.button
+        onClick={onToggleMinimize}
+        className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 h-14 w-14 rounded-full shadow-2xl glass border-border/30 flex items-center justify-center hover:scale-110 transition-all duration-300"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        exit={{ scale: 0 }}
+      >
+        <div className="relative">
+          {isConnected && isRecording && (
+            <motion.div
+              className="absolute inset-0 rounded-full bg-primary/30"
+              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+          )}
+          <MessageSquare className={cn(
+            "h-6 w-6",
+            isConnected ? "text-primary" : "text-muted-foreground"
+          )} />
+        </div>
+        {isConnected && (
+          <div className="absolute -top-1 -right-1 h-3 w-3 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
+        )}
+      </motion.button>
+    );
+  }
+
   // Compact variant (コンパクト表示)
   const compactContent = (
     <Card className="glass w-full shadow-2xl border-border/30">
@@ -634,7 +670,33 @@ export default function VoiceChat({
             </Avatar>
             <span className="text-base font-semibold">音声アシスト</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {onToggleMinimize && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleMinimize}
+                className="h-8 w-8 hover:bg-primary/10"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-muted-foreground"
+                >
+                  <polyline points="4 14 10 14 10 20"></polyline>
+                  <polyline points="20 10 14 10 14 4"></polyline>
+                  <line x1="14" y1="10" x2="21" y2="3"></line>
+                  <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
+              </Button>
+            )}
             {isDelegating && (
               <Activity className="h-5 w-5 text-primary animate-pulse" />
             )}
