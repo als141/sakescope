@@ -32,11 +32,6 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
   const tastingNotes = sake.tastingNotes ?? [];
   const servingTemperatures = sake.servingTemperature ?? [];
   const foodPairing = sake.foodPairing ?? [];
-  
-  // 有効な画像URLかチェック
-  const isValidImageUrl = sake.imageUrl && 
-    !sake.imageUrl.includes('.html') && 
-    /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(sake.imageUrl);
 
   return (
     <motion.div
@@ -58,10 +53,10 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
               >
-                {isValidImageUrl && !imageError ? (
+                {sake.imageUrl && !imageError ? (
                   <>
                     <Image
-                      src={sake.imageUrl!}
+                      src={sake.imageUrl}
                       alt={`${sake.name}のイメージ`}
                       fill
                       className="object-cover"
