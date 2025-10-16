@@ -35,11 +35,13 @@ export function createRealtimeVoiceBundle(
     groupId: traceGroupId,
     traceMetadata: {
       channel: 'voice',
+      conversation_id: traceGroupId,
     },
     config: {
-      outputModalities: ['audio', 'text'],
+      outputModalities: ['audio'],
       audio: {
-        output: { voice: 'alloy' },
+        input: { format: 'pcm16' },
+        output: { voice: 'alloy', format: 'pcm16' },
       },
     },
   });

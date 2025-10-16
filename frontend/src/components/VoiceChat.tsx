@@ -117,6 +117,7 @@ export default function VoiceChat({
   const onOfferReadyRef = useRef(onOfferReady);
   const latestSakeRef = useRef<Sake | null>(null);
   const preferencesRef = useRef(preferences);
+  const assistantMessageIdsRef = useRef<Set<string>>(new Set());
   const isCompact = variant === 'compact';
 
   useEffect(() => {
@@ -193,14 +194,91 @@ export default function VoiceChat({
       void event;
     });
 
-    bundle.session.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
-      if (typeof finalText === 'string' && finalText.trim()) {
-        setAiMessages((prev) => [...prev, finalText.trim()]);
+    const extractAssistantTranscript = (item: unknown): string | null => {
+      if (!item || typeof item !== 'object') {
+        return null;
       }
+      const record = item as Record<string, unknown>;
+      if (record.type !== 'message' || record.role !== 'assistant') {
+        return null;
+      }
+      const rawContent = record.content;
+      const content = Array.isArray(rawContent)
+        ? (rawContent as Array<Record<string, unknown>>)
+        : [];
+      const snippets = content
+        .map((piece) => {
+          if (!piece || typeof piece !== 'object') {
+            return null;
+          }
+          if (piece.type === 'output_text' && typeof piece.text === 'string') {
+            return piece.text;
+          }
+          if (
+            piece.type === 'output_audio' &&
+            typeof piece.transcript === 'string'
+          ) {
+            return piece.transcript;
+          }
+          return null;
+        })
+        .filter((text): text is string => Boolean(text && text.trim()));
+      if (snippets.length === 0) {
+        return null;
+      }
+      return snippets.join('\n').trim();
+    };
+
+    bundle.session.on('history_added', (item) => {
+      const text = extractAssistantTranscript(item);
+      if (!text) {
+        return;
+      }
+      const rawId =
+        item && typeof item === 'object' && 'itemId' in item
+          ? (item as { itemId?: unknown }).itemId
+          : null;
+      if (typeof rawId === 'string') {
+        const seen = assistantMessageIdsRef.current;
+        if (seen.has(rawId)) {
+          return;
+        }
+        seen.add(rawId);
+      }
+      setAiMessages((prev) => {
+        const last = prev.length > 0 ? prev[prev.length - 1] : null;
+        if (last && last.trim() === text) {
+          return prev;
+        }
+        return [...prev, text];
+      });
+    });
+
+    bundle.session.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
+      if (typeof finalText !== 'string') {
+        return;
+      }
+      const trimmed = finalText.trim();
+      if (!trimmed) {
+        return;
+      }
+      setAiMessages((prev) => {
+        const last = prev.length > 0 ? prev[prev.length - 1] : null;
+        if (last && last.trim() === trimmed) {
+          return prev;
+        }
+        return [...prev, trimmed];
+      });
     });
 
     bundle.session.on('agent_handoff', () => {
       setIsDelegating(true);
+    });
+
+    bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
+      if (tool.name === 'recommend_sake') {
+        setIsDelegating(true);
+      }
     });
 
     bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
@@ -291,6 +369,7 @@ export default function VoiceChat({
       setIsConnected(true);
       setIsLoading(false);
       setIsRecording(true);
+      assistantMessageIdsRef.current.clear();
       setAiMessages([]);
     } catch (err) {
       console.error('Failed to connect:', err);
@@ -311,6 +390,7 @@ export default function VoiceChat({
     setError(null);
     setIsDelegating(false);
     latestSakeRef.current = null;
+    assistantMessageIdsRef.current.clear();
   };
 
   const handleStartConversation = () => {
