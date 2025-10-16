@@ -107,6 +107,70 @@ const agentResponseSchema = recommendationPayloadSchema.extend({
   follow_up_prompt: z.string().nullable(),
 });
 
+type AgentResponse = z.infer<typeof agentResponseSchema>;
+
+async function handleRecommendationSubmission(
+  parsed: AgentResponse,
+  runContext: RuntimeRunContext,
+): Promise<{ status: 'submitted'; shopCount: number; hasAlternatives: boolean }> {
+  const ctx = getRuntimeContext(runContext);
+
+  const sake = mapSakePayload(parsed.sake);
+  const shops: ShopListing[] = parsed.shops.map((shop) => ({
+    retailer: shop.retailer,
+    url: shop.url,
+    price: shop.price ?? undefined,
+    priceText: shop.price_text ?? undefined,
+    currency: shop.currency ?? undefined,
+    availability: shop.availability ?? undefined,
+    deliveryEstimate: shop.delivery_estimate ?? undefined,
+    source: shop.source ?? undefined,
+    notes: shop.notes ?? undefined,
+  }));
+
+  const offer: PurchaseOffer = {
+    sake,
+    summary: parsed.summary,
+    reasoning: parsed.reasoning,
+    tastingHighlights: parsed.tasting_highlights ?? undefined,
+    servingSuggestions: parsed.serving_suggestions ?? undefined,
+    shops,
+    updatedAt: new Date().toISOString(),
+    followUpPrompt: parsed.follow_up_prompt ?? undefined,
+    alternatives: parsed.alternatives
+      ? parsed.alternatives.map((alt) => ({
+          sake: mapSakePayload(alt.sake),
+          summary: alt.summary,
+          reasoning: alt.reasoning,
+          shops: alt.shops.map((shop) => ({
+            retailer: shop.retailer,
+            url: shop.url,
+            price: shop.price ?? undefined,
+            priceText: shop.price_text ?? undefined,
+            currency: shop.currency ?? undefined,
+            availability: shop.availability ?? undefined,
+            deliveryEstimate: shop.delivery_estimate ?? undefined,
+            source: shop.source ?? undefined,
+            notes: shop.notes ?? undefined,
+          })),
+          tastingHighlights: alt.tasting_highlights ?? undefined,
+          servingSuggestions: alt.serving_suggestions ?? undefined,
+        }))
+      : undefined,
+  };
+
+  ctx.session.currentSake = offer.sake;
+  ctx.callbacks.onSakeProfile?.(offer.sake);
+  ctx.callbacks.onShopsUpdated?.(shops);
+  ctx.callbacks.onOfferReady?.(offer);
+
+  return {
+    status: 'submitted',
+    shopCount: shops.length,
+    hasAlternatives: Boolean(offer.alternatives?.length),
+  };
+}
+
 export const submitPurchaseRecommendationTool = tool({
   name: 'submit_purchase_recommendation',
   description:
@@ -114,63 +178,12 @@ export const submitPurchaseRecommendationTool = tool({
   parameters: agentResponseSchema,
   strict: true,
   async execute(input, runContext): Promise<string> {
-    const ctx = getRuntimeContext(runContext as RuntimeRunContext);
     const parsed = agentResponseSchema.parse(input);
-
-    const sake = mapSakePayload(parsed.sake);
-    const shops: ShopListing[] = parsed.shops.map((shop) => ({
-      retailer: shop.retailer,
-      url: shop.url,
-      price: shop.price ?? undefined,
-      priceText: shop.price_text ?? undefined,
-      currency: shop.currency ?? undefined,
-      availability: shop.availability ?? undefined,
-      deliveryEstimate: shop.delivery_estimate ?? undefined,
-      source: shop.source ?? undefined,
-      notes: shop.notes ?? undefined,
-    }));
-
-    const offer: PurchaseOffer = {
-      sake,
-      summary: parsed.summary,
-      reasoning: parsed.reasoning,
-      tastingHighlights: parsed.tasting_highlights ?? undefined,
-      servingSuggestions: parsed.serving_suggestions ?? undefined,
-      shops,
-      updatedAt: new Date().toISOString(),
-      followUpPrompt: parsed.follow_up_prompt ?? undefined,
-      alternatives: parsed.alternatives
-        ? parsed.alternatives.map((alt) => ({
-            sake: mapSakePayload(alt.sake),
-            summary: alt.summary,
-            reasoning: alt.reasoning,
-            shops: alt.shops.map((shop) => ({
-              retailer: shop.retailer,
-              url: shop.url,
-              price: shop.price ?? undefined,
-              priceText: shop.price_text ?? undefined,
-              currency: shop.currency ?? undefined,
-              availability: shop.availability ?? undefined,
-              deliveryEstimate: shop.delivery_estimate ?? undefined,
-              source: shop.source ?? undefined,
-              notes: shop.notes ?? undefined,
-            })),
-            tastingHighlights: alt.tasting_highlights ?? undefined,
-            servingSuggestions: alt.serving_suggestions ?? undefined,
-          }))
-        : undefined,
-    };
-
-    ctx.session.currentSake = offer.sake;
-    ctx.callbacks.onSakeProfile?.(offer.sake);
-    ctx.callbacks.onShopsUpdated?.(shops);
-    ctx.callbacks.onOfferReady?.(offer);
-
-    return JSON.stringify({
-      status: 'submitted',
-      shopCount: shops.length,
-      hasAlternatives: Boolean(offer.alternatives?.length),
-    });
+    const result = await handleRecommendationSubmission(
+      parsed,
+      runContext as RuntimeRunContext,
+    );
+    return JSON.stringify(result);
   },
 });
 
@@ -563,13 +576,12 @@ export const delegateToSakeAgentTool = tool({
       const rawPayload = await response.json();
       const parsedPayload = agentResponseSchema.parse(rawPayload);
 
-      await submitPurchaseRecommendationTool.execute(parsedPayload, runContext);
+      const submissionResult = await handleRecommendationSubmission(
+        parsedPayload,
+        runContext as RuntimeRunContext,
+      );
 
-      return JSON.stringify({
-        status: 'ok',
-        shopCount: parsedPayload.shops.length,
-        hasAlternatives: Boolean(parsedPayload.alternatives?.length),
-      });
+      return JSON.stringify(submissionResult);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';

@@ -164,7 +164,7 @@ const finalizeRecommendationTool = tool({
   parameters: finalPayloadSchema,
   strict: true,
   async execute(input) {
-    return JSON.stringify(input);
+    return input;
   },
 });
 
@@ -251,6 +251,7 @@ export async function POST(req: NextRequest) {
   const agent = new Agent({
     name: 'Sake Purchase Research Worker',
     model,
+    outputType: finalPayloadSchema,
     tools: [
       webSearchTool({
         searchContextSize: 'high',
@@ -262,6 +263,9 @@ export async function POST(req: NextRequest) {
       }),
       finalizeRecommendationTool,
     ],
+    toolUseBehavior: {
+      stopAtToolNames: ['finalize_recommendation'],
+    },
     instructions: `
 あなたは日本酒リサーチ専任のテキストエージェントです。以下の方針に従って、信頼できる情報源から推薦と購入情報を収集し、構造化データで返してください。
 
@@ -368,29 +372,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let payload: unknown;
-  if (typeof finalOutput === 'string') {
-    try {
-      payload = JSON.parse(finalOutput);
-    } catch (parseError) {
-      return NextResponse.json(
-        { error: 'Failed to parse agent output', details: String(parseError) },
-        { status: 500 },
-      );
-    }
-  } else {
-    payload = finalOutput;
-  }
-
-  try {
-    return NextResponse.json(finalPayloadSchema.parse(payload));
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: 'Structured output validation failed',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
-  }
+  const payload = finalPayloadSchema.parse(finalOutput);
+  return NextResponse.json(payload);
 }
