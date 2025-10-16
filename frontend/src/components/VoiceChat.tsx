@@ -1,18 +1,32 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, MessageSquare, Loader, PhoneOff } from 'lucide-react';
-import { RealtimeAgent, RealtimeSession, tool } from '@openai/agents/realtime';
-import type { RealtimeSessionEventTypes, TransportEvent } from '@openai/agents/realtime';
-import { z } from 'zod';
-import { SakeData } from '@/data/sakeData';
-import { getSakeRecommendations } from '@/data/sakeData';
+import {
+  Mic,
+  MicOff,
+  MessageSquare,
+  Loader,
+  PhoneOff,
+  Activity,
+} from 'lucide-react';
+import type {
+  RealtimeSession,
+  RealtimeSessionEventTypes,
+  TransportEvent,
+} from '@openai/agents-realtime';
+import { Sake, PurchaseOffer } from '@/domain/sake/types';
+import {
+  createRealtimeVoiceBundle,
+  type VoiceAgentBundle,
+} from '@/infrastructure/openai/realtime/sessionFactory';
+import type { AgentRuntimeContext } from '@/infrastructure/openai/agents/context';
 
 interface VoiceChatProps {
   isRecording: boolean;
   setIsRecording: (recording: boolean) => void;
-  onSakeRecommended: (sake: SakeData) => void;
+  onSakeRecommended: (sake: Sake) => void;
+  onOfferReady?: (offer: PurchaseOffer) => void;
   preferences?: {
     flavor_preference?: 'dry' | 'sweet' | 'balanced';
     body_preference?: 'light' | 'medium' | 'rich';
@@ -55,150 +69,139 @@ function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string 
   return undefined;
 }
 
-export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommended, preferences }: VoiceChatProps) {
-  const [session, setSession] = useState<RealtimeSession | null>(null);
+export default function VoiceChat({
+  isRecording,
+  setIsRecording,
+  onSakeRecommended,
+  onOfferReady,
+  preferences,
+}: VoiceChatProps) {
+  const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // Only store assistant text outputs (no user transcripts)
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const agentRef = useRef<RealtimeAgent | null>(null);
+  const [isDelegating, setIsDelegating] = useState(false);
 
-  // Initialize agent and create session
+  const bundleRef = useRef<VoiceAgentBundle | null>(null);
+  const onSakeRecommendedRef = useRef(onSakeRecommended);
+  const onOfferReadyRef = useRef(onOfferReady);
+  const latestSakeRef = useRef<Sake | null>(null);
+  const preferencesRef = useRef(preferences);
+
   useEffect(() => {
-    const initializeAgent = async () => {
-      if (agentRef.current) return;
-      type SessionEvents = RealtimeSessionEventTypes;
-
-      // Define a function tool the model can call to fetch sake recommendations
-      const findSakeTool = tool({
-        name: 'find_sake_recommendations',
-        description: 'お客様の好みに基づいて日本酒を推薦します',
-        parameters: z.object({
-          flavor_preference: z.enum(['dry', 'sweet', 'balanced']),
-          body_preference: z.enum(['light', 'medium', 'rich']),
-          price_range: z.enum(['budget', 'mid', 'premium']),
-          // Optional fields are not supported by the API; use nullable required field instead
-          food_pairing: z.array(z.string()).nullable(),
-        }),
-        async execute(input) {
-          const prefs = input as {
-            flavor_preference: 'dry'|'sweet'|'balanced';
-            body_preference: 'light'|'medium'|'rich';
-            price_range: 'budget'|'mid'|'premium';
-            food_pairing: string[] | null;
-          };
-          const recs = getSakeRecommendations({
-            flavor_preference: prefs.flavor_preference,
-            body_preference: prefs.body_preference,
-            price_range: prefs.price_range,
-            food_pairing: prefs.food_pairing ?? undefined,
-          });
-          // Return structured JSON the model can use to explain
-          return JSON.stringify({ recommendations: recs });
-        }
-      });
-
-      const agent = new RealtimeAgent({
-        name: '日本酒ソムリエ',
-        instructions: `あなたは日本酒の専門知識を持つ親しみやすいAIソムリエです。
-        
-        ## あなたの役割
-        - 日本酒を愛する情熱的なソムリエとして、お客様の好みや要望を聞き取る
-        - 対話を通じてお客様の好みを理解し、最適な日本酒を推薦する
-        - 日本酒の知識を分かりやすく、楽しく伝える
-        
-        ## 対話の流れ
-        1. まず挨拶をして、お客様がどのような日本酒をお探しかを尋ねる
-        2. 以下の項目について質問して好みを把握する：
-           - 味の好み（辛口・甘口・バランス型）
-           - ボディの好み（軽快・中程度・濃厚）
-           - 価格帯（お手頃・中価格帯・高級）
-           - 一緒に楽しむ料理
-           - 飲む場面・シーン
-        3. 情報が十分集まったら、日本酒を推薦する
-        
-        ## 話し方
-        - 親しみやすく、専門知識を持ちながらも堅苦しくない
-        - 日本酒の魅力を伝える情熱を持って話す
-        - 相手の話をよく聞き、質問を通じて理解を深める
-        - 日本酒の専門用語は分かりやすく説明する
-        
-        ## 重要なルール
-        - 十分な情報を聞き取ったら、具体的な日本酒の推薦を必ずツールで行う
-        - 推薦時は必ずツール find_sake_recommendations を関数呼び出しで使用する（画面表示はツール結果で行う）
-        - ツール引数は: flavor_preference, body_preference, price_range は必須。food_pairing は null 可
-        - 引数が不足している場合は、会話やユーザー設定から推定し、無ければ既定値（flavor=balanced, body=medium, price=mid, food_pairing=null）を用いる
-        - ツール結果に基づき、1つの日本酒に絞って詳しく紹介し、なぜその日本酒がおすすめなのかを説明する
-        - ツールを呼ばずに日本酒名を直接提示・否定（見つからない等）しない
-        - 万一結果が空の場合でも、条件を緩和して再度ツールを呼び直し、必ず最も近い候補を提示する`,
-        tools: [findSakeTool],
-      });
-
-      agentRef.current = agent;
-      
-      // Request audio output; transcript text is still received via session events
-      const newSession = new RealtimeSession(agent, {
-        config: {
-          outputModalities: ['audio']
-        }
-      });
-      setSession(newSession);
-
-      // Do not store or render user speech transcripts — UI shows only AI output
-      newSession.on('transport_event', (event: TransportEvent) => {
-        void event; // Intentionally ignore finalized user input transcription events
-      });
-
-      // Append assistant's final text per turn (from output_text or audio transcript)
-      newSession.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
-        if (typeof finalText === 'string' && finalText.trim()) {
-          setAiMessages(prev => [...prev, finalText.trim()]);
-        }
-      });
-
-      // When the tool finishes, update the UI with the top recommendation
-      newSession.on('agent_tool_end', (...args: SessionEvents['agent_tool_end']) => {
-        const [, , , result] = args;
-        try {
-          const parsed = JSON.parse(result);
-          const recs = parsed?.recommendations as SakeData[] | undefined;
-          if (recs && recs.length > 0) {
-            onSakeRecommended(recs[0]);
-          }
-        } catch {}
-      });
-
-      newSession.on('error', (event: SessionEvents['error'][0]) => {
-        // Extract readable message if present
-        const rawMsg = extractErrorMessage(event);
-
-        // Known benign noise seen in browsers with Realtime: ignore gracefully
-        const isBenign = rawMsg && /Unable to add filesystem/i.test(rawMsg);
-
-        if (isBenign) {
-          console.warn('[Realtime] Ignored benign error:', rawMsg);
-          return; // Do not surface to UI or drop connection
-        }
-
-        console.error('Session error:', rawMsg ?? event);
-        setError(rawMsg || 'Connection error occurred');
-        // Do not force disconnect on transient errors; keep session unless transport actually closes
-        setIsLoading(false);
-      });
-    };
-
-    initializeAgent();
+    onSakeRecommendedRef.current = onSakeRecommended;
   }, [onSakeRecommended]);
 
+  useEffect(() => {
+    onOfferReadyRef.current = onOfferReady;
+  }, [onOfferReady]);
+
+  useEffect(() => {
+    preferencesRef.current = preferences;
+  }, [preferences]);
+
+  useEffect(() => {
+    if (bundleRef.current) {
+      return;
+    }
+
+    const pushSakeUpdate = (update: Sake) => {
+      const current = latestSakeRef.current ?? null;
+      const merged: Sake = {
+        ...(current ?? {}),
+        ...update,
+        flavorProfile: update.flavorProfile ?? current?.flavorProfile,
+        tastingNotes: update.tastingNotes ?? current?.tastingNotes,
+        foodPairing: update.foodPairing ?? current?.foodPairing,
+        servingTemperature: update.servingTemperature ?? current?.servingTemperature,
+        originSources: update.originSources ?? current?.originSources,
+      } as Sake;
+      latestSakeRef.current = merged;
+      onSakeRecommendedRef.current(merged);
+    };
+
+    const bundle = createRealtimeVoiceBundle({
+      onRecommendations: (recommendations) => {
+        if (recommendations.length > 0) {
+          const top = recommendations[0].sake;
+          pushSakeUpdate(top);
+        }
+      },
+      onSakeProfile: (sake) => {
+        pushSakeUpdate(sake);
+      },
+      onShopsUpdated: () => {
+        setIsDelegating(true);
+      },
+      onOfferReady: (offer) => {
+        pushSakeUpdate(offer.sake);
+        setIsDelegating(false);
+        onOfferReadyRef.current?.(offer);
+      },
+      onError: (message) => {
+        setError(message);
+      },
+    });
+
+    bundleRef.current = bundle;
+    sessionRef.current = bundle.session;
+
+    type SessionEvents = RealtimeSessionEventTypes<AgentRuntimeContext>;
+
+    bundle.session.on('transport_event', (event: TransportEvent) => {
+      void event;
+    });
+
+    bundle.session.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
+      if (typeof finalText === 'string' && finalText.trim()) {
+        setAiMessages((prev) => [...prev, finalText.trim()]);
+      }
+    });
+
+    bundle.session.on('agent_handoff', () => {
+      setIsDelegating(true);
+    });
+
+    bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
+      if (tool.name === 'submit_purchase_recommendation') {
+        setIsDelegating(false);
+      }
+    });
+
+    bundle.session.on('error', (event: SessionEvents['error'][0]) => {
+      const rawMsg = extractErrorMessage(event);
+      const isBenign =
+        rawMsg && /Unable to add filesystem/i.test(rawMsg);
+      if (isBenign) {
+        console.warn('[Realtime] Ignored benign error:', rawMsg);
+        return;
+      }
+      console.error('Session error:', rawMsg ?? event);
+      setError(rawMsg || 'Connection error occurred');
+      setIsLoading(false);
+    });
+
+    return () => {
+      try {
+        bundle.session.close();
+      } catch (err) {
+        console.warn('Error closing session', err);
+      }
+      bundleRef.current = null;
+      sessionRef.current = null;
+    };
+  }, []);
+
   const connectToSession = async () => {
-    if (!session) return;
-    
+    const currentSession = sessionRef.current;
+    if (!currentSession) return;
+
     setIsLoading(true);
     setError(null);
+    setIsDelegating(false);
 
     try {
-      // Get client secret from our API
       const response = await fetch('/api/client-secret', {
         method: 'POST',
         headers: {
@@ -206,24 +209,26 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         },
       });
 
-      const data = await response.json().catch(() => null) as
+      const data = (await response.json().catch(() => null)) as
         | { value?: string; error?: unknown; details?: unknown }
         | null;
       if (!response.ok || !data?.value) {
-        const details = (data && (data.error || data.details)) || 'Failed to get client secret';
-        throw new Error(typeof details === 'string' ? details : JSON.stringify(details));
+        const details =
+          (data && (data.error || data.details)) || 'Failed to get client secret';
+        throw new Error(
+          typeof details === 'string' ? details : JSON.stringify(details)
+        );
       }
-      
-      await session.connect({
-        apiKey: data.value
-      });
-      // Ensure we are unmuted when starting
-      session.mute(false);
 
-      // Provide saved preferences to the model as context so it can call the tool easily
-      if (preferences) {
-        const prefText = `ユーザー設定: 味=${preferences.flavor_preference ?? '未設定'}, ボディ=${preferences.body_preference ?? '未設定'}, 価格帯=${preferences.price_range ?? '未設定'}, 料理=${preferences.food_pairing?.join(' / ') ?? '未設定'}`;
-        session.sendMessage({
+      await currentSession.connect({
+        apiKey: data.value,
+      });
+      currentSession.mute(false);
+
+      const prefs = preferencesRef.current;
+      if (prefs) {
+        const prefText = `ユーザー設定: 味=${prefs.flavor_preference ?? '未設定'}, ボディ=${prefs.body_preference ?? '未設定'}, 価格帯=${prefs.price_range ?? '未設定'}, 料理=${prefs.food_pairing?.join(' / ') ?? '未設定'}`;
+        currentSession.sendMessage({
           type: 'message',
           role: 'user',
           content: [{ type: 'input_text', text: prefText }],
@@ -233,28 +238,31 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
       setIsConnected(true);
       setIsLoading(false);
       setIsRecording(true);
-    } catch (error) {
-      console.error('Failed to connect:', error);
+      setAiMessages([]);
+    } catch (err) {
+      console.error('Failed to connect:', err);
       const message =
-        error instanceof Error ? error.message : 'Failed to connect to AI assistant';
+        err instanceof Error ? err.message : 'Failed to connect to AI assistant';
       setError(message || 'Failed to connect to AI assistant');
       setIsLoading(false);
     }
   };
 
   const disconnectFromSession = () => {
-    if (session) {
-      session.close();
-      setIsConnected(false);
-      setIsRecording(false);
-      setIsLoading(false);
-      setError(null);
+    if (sessionRef.current) {
+      sessionRef.current.close();
     }
+    setIsConnected(false);
+    setIsRecording(false);
+    setIsLoading(false);
+    setError(null);
+    setIsDelegating(false);
+    latestSakeRef.current = null;
   };
 
   const handleStartConversation = () => {
     if (isLoading || isConnected) return;
-    connectToSession();
+    void connectToSession();
   };
 
   const handleStopConversation = () => {
@@ -263,10 +271,11 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
   };
 
   const handleToggleMute = () => {
-    if (!isConnected || !session) return;
+    const currentSession = sessionRef.current;
+    if (!isConnected || !currentSession) return;
     const nextRecordingState = !isRecording;
     try {
-      session.mute(!nextRecordingState);
+      currentSession.mute(!nextRecordingState);
     } catch (err) {
       console.error('Failed to toggle mute:', err);
       setError('マイクのミュート切り替えに失敗しました');
@@ -280,18 +289,14 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
 
   const isMuted = isConnected && !isRecording;
 
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      try {
-        session?.close();
-      } catch {}
-    };
-  }, [session]);
+  useEffect(() => () => {
+    try {
+      sessionRef.current?.close();
+    } catch {}
+  }, []);
 
   return (
     <div className="flex flex-col items-center space-y-6">
-      {/* Controls */}
       <div className="flex flex-col items-center gap-4">
         {!isConnected ? (
           <motion.button
@@ -338,7 +343,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
                       transition={{
                         duration: 2,
                         repeat: Infinity,
-                        ease: 'easeOut'
+                        ease: 'easeOut',
                       }}
                     />
                     <motion.div
@@ -350,7 +355,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
                         duration: 2,
                         repeat: Infinity,
                         ease: 'easeOut',
-                        delay: 0.5
+                        delay: 0.5,
                       }}
                     />
                   </>
@@ -381,7 +386,6 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         )}
       </div>
 
-      {/* Status Text */}
       <motion.div
         className="text-center space-y-2"
         initial={{ opacity: 0, y: 10 }}
@@ -395,12 +399,13 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
               ? 'マイクボタンを押してスタート'
               : isMuted
                 ? 'ミュート中（AIには聞こえていません）'
-                : 'お話しください 🎤'
-          }
+                : isDelegating
+                  ? '購入情報を調査中です…'
+                  : 'お話しください 🎤'}
         </p>
-        
+
         {error && (
-          <motion.p 
+          <motion.p
             className="text-red-400 text-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -410,7 +415,20 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         )}
       </motion.div>
 
-      {/* Conversation History */}
+      <AnimatePresence>
+        {isDelegating && (
+          <motion.div
+            className="flex items-center gap-2 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-full px-4 py-2"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <Activity className="w-4 h-4 animate-pulse" />
+            <span>テキストエージェントが購入候補を調査しています</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {aiMessages.length > 0 && (
         <motion.div
           className="w-full max-w-2xl space-y-3 max-h-64 overflow-y-auto px-2"
@@ -421,7 +439,7 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
         >
           {aiMessages.map((message, index) => (
             <motion.div
-              key={index}
+              key={`${index}-${message}`}
               className="flex items-start gap-3 mr-8"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -431,17 +449,20 @@ export default function VoiceChat({ isRecording, setIsRecording, onSakeRecommend
                 <MessageSquare className="w-4 h-4 text-orange-300" />
               </div>
               <div className="flex-1 rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-400/10 border border-orange-400/20 p-4 shadow-sm">
-                <div className="mb-1 text-xs uppercase tracking-wider text-orange-300/80">AIソムリエ</div>
-                <p className="text-sm leading-relaxed text-gray-100 whitespace-pre-wrap">{message}</p>
+                <div className="mb-1 text-xs uppercase tracking-wider text-orange-300/80">
+                  AIソムリエ
+                </div>
+                <p className="text-sm leading-relaxed text-gray-100 whitespace-pre-wrap">
+                  {message}
+                </p>
               </div>
             </motion.div>
           ))}
         </motion.div>
       )}
 
-      {/* Connection Status Indicator */}
       <div className="flex items-center gap-2 text-sm text-gray-400">
-        <div 
+        <div
           className={`w-2 h-2 rounded-full ${
             isConnected ? 'bg-green-400' : 'bg-red-400'
           }`}

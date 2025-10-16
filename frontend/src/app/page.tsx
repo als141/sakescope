@@ -6,11 +6,12 @@ import { Mic, Settings, Volume2 } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
-import { SakeData } from '@/data/sakeData';
+import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
-  const [recommendedSake, setRecommendedSake] = useState<SakeData | null>(null);
+  const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
+  const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: 'dry' | 'sweet' | 'balanced';
     body_preference?: 'light' | 'medium' | 'rich';
@@ -159,7 +160,14 @@ export default function Home() {
               <VoiceChat
                 isRecording={isRecording}
                 setIsRecording={setIsRecording}
-                onSakeRecommended={setRecommendedSake}
+                onSakeRecommended={(sake) => {
+                  setRecommendedSake(sake);
+                  setPurchaseOffer(null);
+                }}
+                onOfferReady={(offer) => {
+                  setRecommendedSake(offer.sake);
+                  setPurchaseOffer(offer);
+                }}
                 preferences={preferences || undefined}
               />
 
@@ -183,7 +191,11 @@ export default function Home() {
           ) : (
             <SakeDisplay
               sake={recommendedSake}
-              onReset={() => setRecommendedSake(null)}
+              offer={purchaseOffer}
+              onReset={() => {
+                setRecommendedSake(null);
+                setPurchaseOffer(null);
+              }}
             />
           )}
         </AnimatePresence>
