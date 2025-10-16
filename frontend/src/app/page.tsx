@@ -125,7 +125,7 @@ export default function Home() {
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 sm:px-8 lg:px-12">
+      <div className="relative z-10 flex flex-col items-center justify-center h-screen px-6 sm:px-8 lg:px-12 overflow-hidden">
         {/* History Panel */}
         <SakeHistory
           onSelectSake={(item: SakeHistoryItem) => {
@@ -176,7 +176,7 @@ export default function Home() {
           {!recommendedSake ? (
             <motion.div
               key="voice-interface"
-              className="text-center space-y-12 sm:space-y-16 max-w-4xl px-4 sm:px-0"
+              className="text-center space-y-8 sm:space-y-10 lg:space-y-12 max-w-4xl px-4 sm:px-0"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -184,7 +184,7 @@ export default function Home() {
             >
               {/* Welcome Message */}
               <motion.div
-                className="space-y-10 sm:space-y-12 lg:space-y-16"
+                className="space-y-6 sm:space-y-8 lg:space-y-10"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
@@ -206,13 +206,13 @@ export default function Home() {
                 </motion.div>
 
                 {/* メインヘッドライン */}
-                <div className="space-y-6 sm:space-y-8 lg:space-y-10">
-                  <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-[1.1] tracking-tight">
-                    <span className="gradient-text block mb-2 sm:mb-3">最高の一杯を</span>
+                <div className="space-y-4 sm:space-y-6">
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+                    <span className="gradient-text block mb-2">最高の一杯を</span>
                     <span className="gradient-text block">一緒に見つけましょう</span>
                   </h2>
 
-                  <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed font-light px-4">
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light px-4">
                     AIソムリエとの音声対話を通じて、
                     <br className="hidden sm:inline" />
                     あなたの好みにぴったりの日本酒をお探しします
@@ -222,7 +222,7 @@ export default function Home() {
 
               {/* Features */}
               <motion.div
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 pt-6 sm:pt-8"
+                className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 sm:pt-6"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.6 }}
@@ -235,11 +235,11 @@ export default function Home() {
                   <React.Fragment key={feature.label}>
                     <Badge 
                       variant="outline" 
-                      size="lg"
-                      className="px-4 sm:px-5 py-2.5 sm:py-3 gap-2.5 sm:gap-3 shadow-sm backdrop-blur-md bg-card/50 hover:bg-card/80 transition-all duration-300"
+                      size="default"
+                      className="px-3 sm:px-4 py-2 gap-2 shadow-sm backdrop-blur-md bg-card/50 hover:bg-card/80 transition-all duration-300"
                     >
-                      <feature.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                      <span className="text-xs sm:text-sm font-medium text-foreground">
+                      <feature.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                      <span className="text-xs font-medium text-foreground">
                         {feature.label}
                       </span>
                     </Badge>
@@ -280,19 +280,6 @@ export default function Home() {
           />
         </div>
 
-        {/* Footer */}
-        {!recommendedSake && (
-          <motion.footer
-            className="absolute bottom-0 left-0 right-0 px-6 py-8 sm:py-10 text-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
-          >
-            <p className="text-xs sm:text-sm text-muted-foreground/70 font-light tracking-wide">
-              Powered by OpenAI Realtime API · 日本酒の新しい体験
-            </p>
-          </motion.footer>
-        )}
       </div>
     </div>
   );

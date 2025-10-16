@@ -437,7 +437,7 @@ export default function VoiceChat({
   // Full variant (大画面表示)
   const fullContent = (
     <div className="flex flex-col items-center space-y-8 sm:space-y-10 lg:space-y-12">
-      <div className="flex flex-col items-center gap-6 sm:gap-8">
+      <div className="flex flex-col items-center gap-5 sm:gap-6">
         {!isConnected ? (
           <motion.div className="relative">
             <Button
@@ -445,7 +445,7 @@ export default function VoiceChat({
               disabled={isLoading}
               size="xl"
               className={cn(
-                "relative h-28 w-28 sm:h-32 sm:w-32 lg:h-36 lg:w-36 rounded-full p-0",
+                "relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0",
                 "bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600",
                 "shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
                 "hover:scale-105 active:scale-100",
@@ -459,9 +459,9 @@ export default function VoiceChat({
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               >
                 {isLoading ? (
-                  <Loader2 className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
+                  <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
                 ) : (
-                  <Mic className="h-12 w-12 sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
+                  <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
                 )}
               </motion.div>
             </Button>
@@ -476,7 +476,7 @@ export default function VoiceChat({
                 onClick={handleStopConversation}
                 size="xl"
                 variant="destructive"
-                className="h-16 w-16 sm:h-20 sm:w-20 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
               >
                 <PhoneOff className="h-7 w-7 sm:h-9 sm:w-9" />
               </Button>
@@ -520,7 +520,7 @@ export default function VoiceChat({
                 size="xl"
                 variant={isMuted ? "secondary" : "default"}
                 className={cn(
-                  "relative h-20 w-20 sm:h-24 sm:w-24 lg:h-28 lg:w-28 rounded-full p-0 shadow-xl transition-all duration-300",
+                  "relative h-18 w-18 sm:h-20 sm:w-20 lg:h-24 lg:w-24 rounded-full p-0 shadow-xl transition-all duration-300",
                   !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:shadow-emerald-500/50",
                   "hover:scale-105 active:scale-100"
                 )}
@@ -542,12 +542,12 @@ export default function VoiceChat({
       </div>
 
       <motion.div
-        className="text-center space-y-3 sm:space-y-4 px-4"
+        className="text-center space-y-2 sm:space-y-3 px-4"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <h3 className="text-xl sm:text-2xl font-semibold text-foreground tracking-tight">
+        <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
           {isLoading
             ? 'AIソムリエに接続中...'
             : !isConnected
@@ -588,26 +588,26 @@ export default function VoiceChat({
       {aiMessages.length > 0 && (
         <Card className="w-full max-w-2xl shadow-2xl border-border/30">
           <CardContent className="p-0">
-            <ScrollArea className="h-64 sm:h-72 lg:h-80 p-6 sm:p-8">
-              <div className="space-y-4 sm:space-y-5">
+            <ScrollArea className="h-48 sm:h-56 p-5 sm:p-6">
+              <div className="space-y-3 sm:space-y-4">
                 {aiMessages.map((message, index) => (
                   <motion.div
                     key={`${index}-${message}`}
-                    className="flex items-start gap-4"
+                    className="flex items-start gap-3"
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(index * 0.05, 0.3) }}
                   >
-                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border-2 border-primary/30 shadow-sm">
+                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-primary/30 shadow-sm">
                       <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                        <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <MessageSquare className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="mb-1.5 sm:mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary">
                         AIソムリエ
                       </div>
-                      <p className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
                         {message}
                       </p>
                     </div>
@@ -618,16 +618,6 @@ export default function VoiceChat({
           </CardContent>
         </Card>
       )}
-
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <div
-          className={cn(
-            "h-2 w-2 rounded-full",
-            isConnected ? "bg-emerald-500" : "bg-destructive"
-          )}
-        />
-        {isConnected ? '接続中' : '未接続'}
-      </div>
     </div>
   );
 
