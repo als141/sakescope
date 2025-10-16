@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, Info, ExternalLink, Sparkles } from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,14 +19,6 @@ interface SakeDisplayProps {
 }
 
 export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) {
-  const getFlavorIcon = (value?: number | null) => {
-    const icons = ['😐', '🙂', '😊', '😋', '🤤'];
-    if (typeof value !== 'number' || Number.isNaN(value)) {
-      return '🙂';
-    }
-    return icons[Math.max(0, Math.min(4, Math.round(value) - 1))];
-  };
-
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
   const purchaseShops = offer?.shops ?? [];
   const flavorProfile = sake.flavorProfile ?? null;

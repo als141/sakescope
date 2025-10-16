@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createVoiceAgent } from '@/infrastructure/openai/agents/voiceAgentFactory';
+import type { FunctionTool } from '@openai/agents-core';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -18,16 +19,19 @@ type ToolManifest = {
 function buildToolManifest(): ToolManifest[] {
   const agent = createVoiceAgent();
   const tools = agent.tools ?? [];
-  return tools.map((tool) => ({
-    type: 'function' as const,
-    name: tool.name ?? 'tool',
-    description: tool.description ?? '',
-    parameters: tool.parameters ?? {
-      type: 'object',
-      properties: {},
-      required: [],
-    },
-  }));
+  return tools
+    .filter((tool): tool is FunctionTool => tool.type === 'function')
+    .map((tool) => ({
+      type: 'function' as const,
+      name: tool.name ?? 'tool',
+      description: tool.description ?? '',
+      parameters: (tool.parameters ?? {
+        type: 'object',
+        properties: {},
+        required: [],
+      }) as unknown as Record<string, unknown>,
+      strict: tool.strict ? true : undefined,
+    }));
 }
 
 function buildInstructions(): string {

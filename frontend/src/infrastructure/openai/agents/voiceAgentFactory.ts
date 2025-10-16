@@ -1,5 +1,6 @@
 import { RealtimeAgent } from '@openai/agents-realtime';
 import { recommendSakeTool } from './tools';
+import type { AgentRuntimeContext } from './context';
 
 const VOICE_INSTRUCTIONS = `
 あなたは日本酒コンシェルジュ。だけど堅くしゃべらない。敬語禁止、ため口オンリー。
@@ -27,10 +28,9 @@ const VOICE_INSTRUCTIONS = `
 `.trim();
 
 export function createVoiceAgent() {
-  return new RealtimeAgent({
+  return new RealtimeAgent<AgentRuntimeContext>({
     name: 'Sake Sommelier Voice',
     instructions: VOICE_INSTRUCTIONS,
-    model: 'gpt-realtime-mini',
     voice: 'alloy',
     tools: [recommendSakeTool],
   });

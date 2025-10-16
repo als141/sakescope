@@ -426,7 +426,12 @@ export async function POST(req: NextRequest) {
     apiKey: OPENAI_API_KEY,
   });
 
-  const model = new OpenAIResponsesModel(openaiClient, TEXT_MODEL);
+  // Cast keeps type system satisfied when mixing local OpenAI dependency with
+  // agents-openai's bundled types; runtime still shares the same client.
+  const model = new OpenAIResponsesModel(
+    openaiClient as unknown as ConstructorParameters<typeof OpenAIResponsesModel>[0],
+    TEXT_MODEL,
+  );
 
   const agent = new Agent({
     name: 'Sake Purchase Research Worker',

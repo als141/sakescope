@@ -16,7 +16,6 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
-  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -132,7 +131,6 @@ export default function Home() {
           onSelectSake={(item: SakeHistoryItem) => {
             setRecommendedSake(item.sake);
             setPurchaseOffer(item.offer);
-            setCurrentHistoryId(item.id);
           }}
         />
 
@@ -271,14 +269,12 @@ export default function Home() {
             onSakeRecommended={(sake) => {
               setRecommendedSake(sake);
               setPurchaseOffer(null);
-              setCurrentHistoryId(null);
             }}
             onOfferReady={(offer) => {
               setRecommendedSake(offer.sake);
               setPurchaseOffer(offer);
               // 履歴に保存
               SakeHistoryStorage.addToHistory(offer.sake, offer);
-              setCurrentHistoryId(null);
             }}
             preferences={preferences || undefined}
           />
