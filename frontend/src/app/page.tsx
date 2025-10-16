@@ -58,6 +58,12 @@ export default function Home() {
     return { width, height, left, top, duration, deltaX, deltaY };
   });
 
+  const isCompactMode = Boolean(recommendedSake);
+  const voiceChatVariant = isCompactMode ? 'compact' : 'full';
+  const voiceChatContainerClass = isCompactMode
+    ? 'pointer-events-auto fixed bottom-6 right-4 z-40 w-full max-w-sm sm:right-8 sm:bottom-8'
+    : 'pointer-events-auto relative mt-12 w-full max-w-2xl mx-auto';
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Animated Background */}
@@ -154,24 +160,10 @@ export default function Home() {
                   一緒に見つけましょう
                 </h2>
                 <p className="text-lg sm:text-xl text-gray-300 max-w-xl mx-auto">
-                  AIソムリエとの音声対話を通じて、あなたの好みにぴったりの日本酒をお探しします
+                  AIソムリエとの音声対話を通じて、あなたの好みにぴったりの日本酒をお探しします。
+                  画面下部の音声コントロールから話しかけてください。
                 </p>
               </motion.div>
-
-              {/* Voice Chat Component */}
-              <VoiceChat
-                isRecording={isRecording}
-                setIsRecording={setIsRecording}
-                onSakeRecommended={(sake) => {
-                  setRecommendedSake(sake);
-                  setPurchaseOffer(null);
-                }}
-                onOfferReady={(offer) => {
-                  setRecommendedSake(offer.sake);
-                  setPurchaseOffer(offer);
-                }}
-                preferences={preferences || undefined}
-              />
 
               {/* Instructions */}
               <motion.div
@@ -201,6 +193,23 @@ export default function Home() {
             />
           )}
         </AnimatePresence>
+
+        <div className={voiceChatContainerClass}>
+          <VoiceChat
+            variant={voiceChatVariant}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+            onSakeRecommended={(sake) => {
+              setRecommendedSake(sake);
+              setPurchaseOffer(null);
+            }}
+            onOfferReady={(offer) => {
+              setRecommendedSake(offer.sake);
+              setPurchaseOffer(offer);
+            }}
+            preferences={preferences || undefined}
+          />
+        </div>
 
         {/* Footer */}
         <motion.footer

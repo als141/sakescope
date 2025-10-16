@@ -37,6 +37,7 @@ interface VoiceChatProps {
     food_pairing?: string[];
     notes?: string | null;
   };
+  variant?: 'full' | 'compact';
 }
 
 const preferenceValueLabels: Record<string, string> = {
@@ -102,6 +103,7 @@ export default function VoiceChat({
   onSakeRecommended,
   onOfferReady,
   preferences,
+  variant = 'full',
 }: VoiceChatProps) {
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -115,6 +117,7 @@ export default function VoiceChat({
   const onOfferReadyRef = useRef(onOfferReady);
   const latestSakeRef = useRef<Sake | null>(null);
   const preferencesRef = useRef(preferences);
+  const isCompact = variant === 'compact';
 
   useEffect(() => {
     onSakeRecommendedRef.current = onSakeRecommended;
@@ -345,7 +348,7 @@ export default function VoiceChat({
     } catch {}
   }, []);
 
-  return (
+  const fullContent = (
     <div className="flex flex-col items-center space-y-6">
       <div className="flex flex-col items-center gap-4">
         {!isConnected ? (
@@ -521,4 +524,106 @@ export default function VoiceChat({
       </div>
     </div>
   );
+
+  const hasError = Boolean(error);
+  const statusText =
+    error ??
+    (isLoading
+      ? 'AIソムリエに接続中...'
+      : !isConnected
+        ? '準備完了です。スタートで会話を始めましょう。'
+        : isDelegating
+          ? 'テキストエージェントが購入候補を更新しています'
+          : isMuted
+            ? 'ミュート中（AIには聞こえていません）'
+            : '会話中です。ご希望を追加してください。');
+  const latestMessage =
+    aiMessages.length > 0 ? aiMessages[aiMessages.length - 1] : null;
+
+  const compactContent = (
+    <div className="glass w-full rounded-xl border border-orange-500/20 bg-black/40 p-4 text-sm text-white shadow-lg backdrop-blur">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-amber-300" />
+          <span className="text-sm font-semibold text-white">音声アシスト</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {isDelegating ? (
+            <Activity className="w-4 h-4 text-amber-300 animate-pulse" />
+          ) : null}
+          <span
+            className={`inline-flex h-2.5 w-2.5 rounded-full ${
+              isConnected ? 'bg-emerald-400' : 'bg-gray-400'
+            }`}
+            aria-hidden
+          />
+        </div>
+      </div>
+      <p
+        className={`mt-2 text-xs ${
+          hasError ? 'text-red-300' : 'text-gray-200'
+        }`}
+      >
+        {statusText}
+      </p>
+      {latestMessage && !hasError ? (
+        <div className="mt-2 rounded-lg border border-white/10 bg-white/5 p-2 text-xs text-gray-300 line-clamp-2">
+          {latestMessage}
+        </div>
+      ) : null}
+      <div className="mt-3 flex items-center gap-2">
+        {!isConnected ? (
+          <button
+            onClick={handleStartConversation}
+            disabled={isLoading}
+            className="flex-1 inline-flex items-center justify-center rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-70"
+            aria-label="会話を開始"
+          >
+            {isLoading ? (
+              <Loader className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Mic className="mr-2 h-4 w-4" />
+                開始
+              </>
+            )}
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={handleToggleMute}
+              className={`flex-1 inline-flex items-center justify-center rounded-lg border border-white/10 px-3 py-2 text-sm transition-colors ${
+                isMuted
+                  ? 'bg-gray-700/70 text-gray-200 hover:bg-gray-600/70'
+                  : 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+              }`}
+              aria-label={isMuted ? 'ミュートを解除' : 'ミュートする'}
+            >
+              {isMuted ? (
+                <>
+                  <MicOff className="mr-2 h-4 w-4" />
+                  ミュート解除
+                </>
+              ) : (
+                <>
+                  <Mic className="mr-2 h-4 w-4" />
+                  ミュート
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleStopConversation}
+              className="inline-flex items-center justify-center rounded-lg bg-red-500/80 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600/80"
+              aria-label="会話を終了"
+            >
+              <PhoneOff className="mr-2 h-4 w-4" />
+              終了
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return isCompact ? compactContent : fullContent;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, Info } from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 
@@ -64,16 +65,37 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
           {/* Sake Bottle Illustration Placeholder */}
           <div className="flex flex-col lg:flex-row gap-8 items-start">
             <motion.div
-              className="flex-shrink-0 w-full lg:w-80 h-80 bg-gradient-to-br from-amber-600/20 to-orange-600/20 rounded-xl flex items-center justify-center"
+              className="relative flex-shrink-0 w-full lg:w-80 h-80 overflow-hidden rounded-xl bg-gradient-to-br from-amber-600/20 to-orange-600/20"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <div className="text-center space-y-4">
-                <Wine className="w-16 h-16 text-amber-400 mx-auto" />
-                <div className="text-2xl font-bold text-amber-400">{sake.name}</div>
-                <div className="text-lg text-gray-300">{sake.brewery}</div>
-              </div>
+              {sake.imageUrl ? (
+                <>
+                  <Image
+                    src={sake.imageUrl}
+                    alt={`${sake.name}のイメージ`}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 20rem, 100vw"
+                    unoptimized
+                    priority={false}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 flex flex-col items-start gap-1 bg-gradient-to-t from-black/70 via-black/20 to-transparent p-4 text-white">
+                    <div className="text-lg font-semibold">{sake.name}</div>
+                    {sake.brewery && (
+                      <div className="text-sm text-gray-200">{sake.brewery}</div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center space-y-4 text-center">
+                  <Wine className="w-16 h-16 text-amber-400" />
+                  <div className="text-2xl font-bold text-amber-400">{sake.name}</div>
+                  <div className="text-lg text-gray-300">{sake.brewery}</div>
+                </div>
+              )}
             </motion.div>
 
             {/* Sake Information */}
