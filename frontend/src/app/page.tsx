@@ -138,16 +138,18 @@ export default function Home() {
 
         {/* Header */}
         <motion.header
-          className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center"
+          className="absolute top-0 left-0 right-0 px-6 py-6 flex justify-between items-center sm:px-10 sm:py-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
           <motion.div
-            className="flex items-center gap-2"
+            className="flex items-center gap-3"
             whileHover={{ scale: 1.02 }}
           >
-            <Sparkles className="h-6 w-6 text-primary" />
+            <div className="rounded-full bg-primary/10 p-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
             <h1 className="text-2xl sm:text-3xl font-bold gradient-text">
               Sakescope
             </h1>
@@ -157,7 +159,7 @@ export default function Home() {
             <Button
               variant="outline"
               size="icon"
-              className="rounded-full h-11 w-11 shadow-lg hover:shadow-xl transition-all"
+              className="rounded-full h-11 w-11 shadow-lg hover:shadow-xl transition-all hover:scale-105"
             >
               <Settings className="h-5 w-5" />
             </Button>
@@ -206,25 +208,25 @@ export default function Home() {
 
               {/* Features */}
               <motion.div
-                className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-muted-foreground"
+                className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6, duration: 0.5 }}
               >
-                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
+                <Badge variant="outline" className="px-4 py-2.5 gap-2 shadow-sm backdrop-blur-sm bg-card/50">
                   <Mic className="h-4 w-4 text-primary" />
-                  <span>音声で対話</span>
-                </div>
-                <div className="hidden sm:block h-1 w-1 rounded-full bg-muted-foreground/30" />
-                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
+                  <span className="text-muted-foreground">音声で対話</span>
+                </Badge>
+                <div className="hidden sm:block h-1 w-1 rounded-full bg-border" />
+                <Badge variant="outline" className="px-4 py-2.5 gap-2 shadow-sm backdrop-blur-sm bg-card/50">
                   <Volume2 className="h-4 w-4 text-primary" />
-                  <span>AIが応答</span>
-                </div>
-                <div className="hidden sm:block h-1 w-1 rounded-full bg-muted-foreground/30" />
-                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-muted/30 border border-border/50">
+                  <span className="text-muted-foreground">AIが応答</span>
+                </Badge>
+                <div className="hidden sm:block h-1 w-1 rounded-full bg-border" />
+                <Badge variant="outline" className="px-4 py-2.5 gap-2 shadow-sm backdrop-blur-sm bg-card/50">
                   <Sparkles className="h-4 w-4 text-primary" />
-                  <span>最適な日本酒を提案</span>
-                </div>
+                  <span className="text-muted-foreground">最適な日本酒を提案</span>
+                </Badge>
               </motion.div>
             </motion.div>
           ) : (
@@ -261,16 +263,18 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <motion.footer
-          className="absolute bottom-0 left-0 right-0 p-6 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8, duration: 0.5 }}
-        >
-          <p className="text-sm text-muted-foreground/70">
-            Powered by OpenAI Realtime API • 日本酒の新しい体験
-          </p>
-        </motion.footer>
+        {!recommendedSake && (
+          <motion.footer
+            className="absolute bottom-0 left-0 right-0 px-6 py-8 text-center sm:px-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.5 }}
+          >
+            <p className="text-sm text-muted-foreground/60">
+              Powered by OpenAI Realtime API • 日本酒の新しい体験
+            </p>
+          </motion.footer>
+        )}
       </div>
     </div>
   );

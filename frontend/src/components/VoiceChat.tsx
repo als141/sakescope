@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 interface VoiceChatProps {
@@ -563,10 +564,10 @@ export default function VoiceChat({
       </AnimatePresence>
 
       {aiMessages.length > 0 && (
-        <Card className="w-full max-w-2xl shadow-xl border-border/50">
+        <Card className="w-full max-w-2xl shadow-xl border-border/50 backdrop-blur-sm bg-card/95">
           <CardContent className="p-0">
-            <ScrollArea className="h-64 p-4">
-              <div className="space-y-3">
+            <ScrollArea className="h-64 p-6">
+              <div className="space-y-4">
                 {aiMessages.map((message, index) => (
                   <motion.div
                     key={`${index}-${message}`}
@@ -575,11 +576,13 @@ export default function VoiceChat({
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(index * 0.05, 0.3) }}
                   >
-                    <div className="shrink-0 mt-1 rounded-full bg-primary/20 p-2">
-                      <MessageSquare className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 rounded-xl bg-muted/50 border border-border/50 p-4">
-                      <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
+                    <Avatar className="h-8 w-8 border-2 border-primary/20">
+                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                        <MessageSquare className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-4 shadow-sm">
+                      <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-primary/80">
                         AIソムリエ
                       </div>
                       <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
@@ -608,21 +611,25 @@ export default function VoiceChat({
 
   // Compact variant (コンパクト表示)
   const compactContent = (
-    <Card className="glass w-full shadow-2xl border-border/30">
-      <CardContent className="p-4">
+    <Card className="glass w-full shadow-2xl border-border/30 backdrop-blur-sm bg-card/95">
+      <CardContent className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-7 w-7 border-2 border-primary/20">
+              <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                <MessageSquare className="h-3.5 w-3.5" />
+              </AvatarFallback>
+            </Avatar>
             <span className="text-sm font-semibold">音声アシスト</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {isDelegating && (
               <Activity className="h-4 w-4 text-primary animate-pulse" />
             )}
             <div
               className={cn(
-                "h-2.5 w-2.5 rounded-full",
-                isConnected ? "bg-emerald-500" : "bg-muted"
+                "h-2.5 w-2.5 rounded-full shadow-sm",
+                isConnected ? "bg-emerald-500 animate-pulse" : "bg-muted"
               )}
             />
           </div>

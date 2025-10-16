@@ -2,12 +2,14 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, Info, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, Info, ExternalLink, Sparkles } from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface SakeDisplayProps {
@@ -34,7 +36,7 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
 
   return (
     <motion.div
-      className="w-full max-w-5xl mx-auto"
+      className="w-full max-w-5xl mx-auto px-4 sm:px-0"
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4 }}
@@ -43,16 +45,16 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
       <Button
         onClick={onReset}
         variant="ghost"
-        className="mb-6 -ml-2 hover:bg-accent"
+        className="mb-6 -ml-2 hover:bg-accent hover:scale-105 transition-all"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         他の日本酒を探す
       </Button>
 
       {/* Main Card */}
-      <Card className="overflow-hidden shadow-2xl border-border/50">
+      <Card className="overflow-hidden shadow-2xl border-border/50 backdrop-blur-sm bg-card/95">
         {/* Header Section */}
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-6">
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Image */}
             <motion.div
@@ -166,18 +168,36 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
           </div>
         </CardHeader>
 
-        <Separator className="my-6" />
+        <Separator />
 
-        <CardContent className="space-y-8">
-          {/* Flavor Profile Section */}
-          {(flavorProfile || tastingNotes.length > 0) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="space-y-4"
-            >
-              <h3 className="text-xl font-semibold gradient-text">味わいの特徴</h3>
+        <CardContent className="pt-8 space-y-8">
+          {/* Tabs for organized content */}
+          <Tabs defaultValue="profile" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+              <TabsTrigger value="profile" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">味わい</span>
+              </TabsTrigger>
+              <TabsTrigger value="pairing" className="gap-2">
+                <Utensils className="h-4 w-4" />
+                <span className="hidden sm:inline">楽しみ方</span>
+              </TabsTrigger>
+              {offer && (
+                <TabsTrigger value="purchase" className="gap-2">
+                  <ShoppingBag className="h-4 w-4" />
+                  <span className="hidden sm:inline">購入</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+
+            {/* Flavor Profile Tab */}
+            <TabsContent value="profile" className="mt-6">
+              {(flavorProfile || tastingNotes.length > 0) && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h3 className="text-xl font-semibold gradient-text">味わいの特徴</h3>
+              </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {flavorProfile && (
@@ -231,8 +251,9 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
+            </TabsContent>
 
           {/* Serving & Pairing Section */}
           {(servingTemperatures.length > 0 || foodPairing.length > 0) && (
@@ -293,44 +314,38 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
             </>
           )}
 
-          {/* Purchase Information */}
-          {offer && (
-            <>
-              <Separator />
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.0 }}
-                className="space-y-6"
-              >
+            {/* Purchase Tab */}
+            {offer && (
+              <TabsContent value="purchase" className="mt-6 space-y-6">
                 {/* Summary */}
-                <Card className="border-primary/20 bg-primary/5">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Info className="h-5 w-5 text-primary" />
-                      ソムリエのリサーチ概要
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <p className="leading-relaxed">{offer.summary}</p>
-                    <p className="text-muted-foreground leading-relaxed">{offer.reasoning}</p>
+                <Alert className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+                  <Info className="h-5 w-5 text-primary" />
+                  <AlertDescription className="ml-0 mt-2 space-y-3">
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-base text-foreground">ソムリエのリサーチ概要</h4>
+                      <p className="text-sm leading-relaxed">{offer.summary}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{offer.reasoning}</p>
+                    </div>
                     {offer.tastingHighlights && offer.tastingHighlights.length > 0 && (
-                      <div className="space-y-1">
-                        <span className="font-semibold text-primary">ハイライト: </span>
-                        <span className="text-muted-foreground">{offer.tastingHighlights.join(' / ')}</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {offer.tastingHighlights.map((note) => (
+                          <Badge key={note} variant="secondary" className="text-xs">
+                            {note}
+                          </Badge>
+                        ))}
                       </div>
                     )}
                     {offer.servingSuggestions && offer.servingSuggestions.length > 0 && (
-                      <div className="space-y-1">
-                        <span className="font-semibold text-primary">おすすめの楽しみ方: </span>
-                        <span className="text-muted-foreground">{offer.servingSuggestions.join(' / ')}</span>
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-medium">おすすめ: </span>
+                        {offer.servingSuggestions.join(' / ')}
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground/70">
                       最終更新: {new Date(offer.updatedAt).toLocaleString()}
                     </p>
-                  </CardContent>
-                </Card>
+                  </AlertDescription>
+                </Alert>
 
                 {/* Purchase Links */}
                 <div className="space-y-4">
@@ -420,15 +435,16 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
 
                 {/* Follow-up Prompt */}
                 {offer.followUpPrompt && (
-                  <Card className="border-dashed border-primary/30 bg-primary/5">
-                    <CardContent className="p-4 text-sm">
-                      💡 {offer.followUpPrompt}
-                    </CardContent>
-                  </Card>
+                  <Alert className="border-dashed border-primary/30 bg-primary/5">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <AlertDescription className="ml-0 mt-2 text-sm">
+                      {offer.followUpPrompt}
+                    </AlertDescription>
+                  </Alert>
                 )}
-              </motion.div>
-            </>
-          )}
+              </TabsContent>
+            )}
+          </Tabs>
         </CardContent>
 
         {/* Call to Action */}

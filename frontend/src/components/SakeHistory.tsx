@@ -73,7 +73,7 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
         <Button
           variant="outline"
           size="icon"
-          className="fixed left-4 top-20 z-40 h-12 w-12 rounded-full shadow-xl glass border-border/50 hover:shadow-2xl hover:scale-105 transition-all sm:left-8"
+          className="fixed left-6 top-24 z-40 h-12 w-12 rounded-full shadow-xl glass border-border/50 hover:shadow-2xl hover:scale-105 transition-all sm:left-10"
         >
           <History className="h-5 w-5" />
           {history.length > 0 && (
@@ -88,98 +88,110 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
       </SheetTrigger>
 
       <SheetContent side="left" className="w-full sm:max-w-md p-0 flex flex-col">
-        <SheetHeader className="px-6 py-5 border-b border-border/50">
-          <SheetTitle className="flex items-center gap-2 text-2xl">
-            <History className="h-6 w-6 text-primary" />
+        <SheetHeader className="px-6 py-6 border-b border-border/50">
+          <SheetTitle className="flex items-center gap-3 text-2xl">
+            <div className="rounded-full bg-primary/10 p-2">
+              <History className="h-5 w-5 text-primary" />
+            </div>
             <span className="gradient-text">レコメンド履歴</span>
           </SheetTitle>
-          <SheetDescription>
+          <SheetDescription className="text-muted-foreground">
             過去にレコメンドされた日本酒
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 p-4">
-          {history.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-4 px-4">
-              <div className="rounded-full bg-muted/50 p-6">
-                <Wine className="h-12 w-12 text-muted-foreground" />
+        <ScrollArea className="flex-1">
+          <div className="p-4">
+            {history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-6 px-6">
+                <div className="rounded-full bg-muted/50 p-8 border-2 border-dashed border-border/50">
+                  <Wine className="h-16 w-16 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-lg font-semibold text-foreground">
+                    まだ履歴がありません
+                  </p>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    AIソムリエと会話して日本酒を探してみましょう。レコメンドされた日本酒は自動的にここに保存されます。
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <p className="text-muted-foreground font-medium">
-                  まだレコメンドの履歴がありません
-                </p>
-                <p className="text-sm text-muted-foreground/70">
-                  AIソムリエと会話して日本酒を探してみましょう
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {history.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => handleSelectItem(item)}
-                  className={cn(
-                    "w-full text-left rounded-xl border border-border/50 bg-card p-3",
-                    "hover:border-primary/50 hover:bg-accent/50 transition-all",
-                    "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  )}
-                >
-                  <div className="flex gap-3">
-                    {/* Image */}
-                    <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted/50 border border-border/30">
-                      {item.sake.imageUrl ? (
-                        <Image
-                          src={item.sake.imageUrl}
-                          alt={item.sake.name}
-                          width={80}
-                          height={80}
-                          className="w-full h-full object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Wine className="h-8 w-8 text-primary/60" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm truncate mb-1">
-                        {item.sake.name}
-                      </h3>
-                      {item.sake.brewery && (
-                        <p className="text-xs text-muted-foreground truncate mb-2">
-                          {item.sake.brewery}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {item.sake.type && (
-                          <Badge variant="secondary" className="text-xs h-5">
-                            {item.sake.type}
-                          </Badge>
+            ) : (
+              <div className="space-y-3">
+                {history.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelectItem(item)}
+                    className={cn(
+                      "group relative rounded-xl border border-border/50 bg-card p-4 cursor-pointer",
+                      "hover:border-primary/50 hover:bg-accent/30 transition-all",
+                      "focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectItem(item);
+                      }
+                    }}
+                  >
+                    <div className="flex gap-4">
+                      {/* Image */}
+                      <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted/50 border border-border/30">
+                        {item.sake.imageUrl ? (
+                          <Image
+                            src={item.sake.imageUrl}
+                            alt={item.sake.name}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Wine className="h-8 w-8 text-primary/60" />
+                          </div>
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(item.timestamp)}
-                        </span>
                       </div>
-                    </div>
 
-                    {/* Delete Button */}
-                    <Button
-                      onClick={(e) => handleRemoveItem(item.id, e)}
-                      variant="ghost"
-                      size="icon"
-                      className="flex-shrink-0 h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm truncate mb-1.5 group-hover:text-primary transition-colors">
+                          {item.sake.name}
+                        </h3>
+                        {item.sake.brewery && (
+                          <p className="text-xs text-muted-foreground truncate mb-2">
+                            {item.sake.brewery}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {item.sake.type && (
+                            <Badge variant="secondary" className="text-xs h-5 px-2">
+                              {item.sake.type}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(item.timestamp)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Delete Button */}
+                      <Button
+                        onClick={(e) => handleRemoveItem(item.id, e)}
+                        variant="ghost"
+                        size="icon"
+                        className="flex-shrink-0 h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </button>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
         {history.length > 0 && (

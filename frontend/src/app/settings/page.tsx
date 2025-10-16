@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, Save, Check, Settings as SettingsIcon } from 'lucide-react';
+import { ArrowLeft, Save, Check, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Flavor = 'dry' | 'sweet' | 'balanced';
 type Body = 'light' | 'medium' | 'rich';
@@ -93,23 +94,23 @@ export default function SettingsPage() {
         />
       </div>
 
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 px-6 sm:px-10 lg:px-12 py-10 sm:py-12">
         {/* Header */}
-        <header className="max-w-3xl mx-auto mb-8">
+        <header className="max-w-3xl mx-auto mb-10">
           <Link href="/">
-            <Button variant="ghost" className="mb-4 -ml-2">
+            <Button variant="ghost" className="mb-6 -ml-2 hover:scale-105 transition-all">
               <ArrowLeft className="mr-2 h-4 w-4" />
               戻る
             </Button>
           </Link>
           
-          <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-full bg-primary/10 p-2.5">
+          <div className="flex items-center gap-4 mb-3">
+            <div className="rounded-full bg-primary/10 p-3">
               <SettingsIcon className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold gradient-text">設定</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold gradient-text">設定</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-base sm:text-lg">
             あなたの好みを設定して、より精度の高いレコメンドを受け取りましょう
           </p>
         </header>
@@ -322,15 +323,16 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Info Card */}
-          <Card className="mt-6 border-primary/20 bg-primary/5">
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                💡 <strong>ヒント:</strong> これらの設定はAIソムリエへの初期情報として使用されます。
+          {/* Info Alert */}
+          <Alert className="mt-6 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 backdrop-blur-sm">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <AlertDescription className="ml-0 mt-2">
+              <p className="text-sm leading-relaxed">
+                <strong className="text-foreground">ヒント:</strong> これらの設定はAIソムリエへの初期情報として使用されます。
                 会話の中でさらに詳しい好みを伝えることで、より精度の高いレコメンドが得られます。
               </p>
-            </CardContent>
-          </Card>
+            </AlertDescription>
+          </Alert>
         </motion.div>
       </div>
     </div>
