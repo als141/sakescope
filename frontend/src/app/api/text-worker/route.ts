@@ -11,7 +11,7 @@ import {
 import type { TextWorkerProgressEvent } from '@/types/textWorker';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
+const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-nano';
 
 const shopSchema = z.object({
   retailer: z.string(),
