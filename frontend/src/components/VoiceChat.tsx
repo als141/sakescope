@@ -24,6 +24,7 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from '@/infrastructure/openai/agents/context';
+import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -121,6 +122,7 @@ export default function VoiceChat({
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
+  const [progressEvents, setProgressEvents] = useState<TextWorkerProgressEvent[]>([]);
 
   const bundleRef = useRef<VoiceAgentBundle | null>(null);
   const onSakeRecommendedRef = useRef(onSakeRecommended);
@@ -129,6 +131,41 @@ export default function VoiceChat({
   const preferencesRef = useRef(preferences);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
   const isCompact = variant === 'compact';
+
+  const formatProgressTime = (timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleTimeString('ja-JP', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return '';
+    }
+  };
+
+  const progressAccent = (type: TextWorkerProgressEvent['type']): string => {
+    switch (type) {
+      case 'tool_started':
+        return 'text-amber-500';
+      case 'tool_completed':
+      case 'final':
+        return 'text-emerald-500';
+      case 'tool_failed':
+      case 'error':
+        return 'text-destructive';
+      case 'reasoning':
+        return 'text-sky-500';
+      case 'message':
+        return 'text-muted-foreground';
+      default:
+        return 'text-primary';
+    }
+  };
 
   useEffect(() => {
     onSakeRecommendedRef.current = onSakeRecommended;
@@ -175,6 +212,21 @@ export default function VoiceChat({
         pushSakeUpdate(offer.sake);
         setIsDelegating(false);
         onOfferReadyRef.current?.(offer);
+      },
+      onProgressEvent: (event) => {
+        if (event.label === 'connected') {
+          return;
+        }
+        setProgressEvents((prev) => {
+          if (event.type === 'status' && event.label === 'テキスト調査') {
+            return [event];
+          }
+          const next = [...prev, event];
+          if (next.length > 15) {
+            next.splice(0, next.length - 15);
+          }
+          return next;
+        });
       },
       onError: (message) => {
         setError(message);
@@ -401,6 +453,7 @@ export default function VoiceChat({
     setIsDelegating(false);
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
+    setProgressEvents([]);
   };
 
   const handleStartConversation = () => {
@@ -585,6 +638,50 @@ export default function VoiceChat({
               <Activity className="h-4 w-4 animate-pulse" />
               <span>テキストエージェントが購入候補を調査しています</span>
             </Badge>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {progressEvents.length > 0 && (
+          <motion.div
+            key="progress-log"
+            className="w-full max-w-2xl"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Card className="shadow-xl border-border/30 bg-card/70 backdrop-blur">
+              <CardContent className="p-3 sm:p-4">
+                <div className="space-y-2">
+                  {progressEvents.map((event) => {
+                    const timeLabel = formatProgressTime(event.timestamp);
+                    const key = `${event.timestamp}-${event.type}-${event.label ?? 'event'}`;
+                    return (
+                      <div
+                        key={key}
+                        className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-xs sm:text-sm"
+                      >
+                        <span className="text-muted-foreground font-mono tabular-nums">
+                          {timeLabel}
+                        </span>
+                        <div className="flex-1">
+                          <div className={cn('font-semibold', progressAccent(event.type))}>
+                            {event.label ?? event.type}
+                          </div>
+                          {event.message && (
+                            <p className="text-muted-foreground leading-snug">
+                              {event.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
         )}
       </AnimatePresence>

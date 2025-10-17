@@ -6,6 +6,7 @@ import {
   Sake,
   ShopListing,
 } from '@/domain/sake/types';
+import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import type {
   AgentRuntimeContext,
   AgentUserPreferences,
@@ -430,6 +431,15 @@ export const recommendSakeTool = tool({
   async execute(input, runContext): Promise<string> {
     const ctx = getRuntimeContext(runContext as RuntimeRunContext);
 
+    const emitProgress = (
+      event: Omit<TextWorkerProgressEvent, 'timestamp'> & { timestamp?: string },
+    ) => {
+      ctx.callbacks.onProgressEvent?.({
+        ...event,
+        timestamp: event.timestamp ?? new Date().toISOString(),
+      });
+    };
+
     const metadata = input.metadata ?? null;
     const metadataPreferences = metadata?.preferences;
 
@@ -457,9 +467,21 @@ export const recommendSakeTool = tool({
 
     ctx.callbacks.onShopsUpdated?.([]);
 
+    let eventSource: EventSource | null = null;
+
     try {
       const summary = input.handoff_summary.trim();
       ctx.session.lastQuery = summary;
+      const runId = `${
+        ctx.session.traceGroupId ?? 'trace'
+      }:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      ctx.session.lastDelegationRunId = runId;
+
+      emitProgress({
+        type: 'status',
+        label: 'テキスト調査',
+        message: 'テキストエージェントに購入調査を依頼しました。',
+      });
 
       const currentSakePayload =
         metadata?.current_sake ??
@@ -529,6 +551,7 @@ export const recommendSakeTool = tool({
       const requestBody: Record<string, unknown> = {
         handoff_summary: summary,
         trace_group_id: ctx.session.traceGroupId ?? null,
+        run_id: runId,
       };
 
       const additionalContext = toCleanString(input.additional_context);
@@ -552,6 +575,30 @@ export const recommendSakeTool = tool({
       }
       if (Object.keys(metadataPayload).length > 0) {
         requestBody.metadata = metadataPayload;
+      }
+
+      if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+        try {
+          const progressUrl = `/api/text-worker/progress?run=${encodeURIComponent(runId)}`;
+          eventSource = new EventSource(progressUrl);
+          eventSource.onmessage = (event) => {
+            try {
+              const payload = JSON.parse(event.data) as TextWorkerProgressEvent;
+              emitProgress(payload);
+              if (payload.type === 'final' || payload.type === 'error') {
+                eventSource?.close();
+              }
+            } catch (parseError) {
+              console.warn('[TextWorker] Failed to parse progress event:', parseError);
+            }
+          };
+          eventSource.onerror = (evt) => {
+            console.warn('[TextWorker] Progress stream error', evt);
+            eventSource?.close();
+          };
+        } catch (error) {
+          console.warn('[TextWorker] Failed to open progress stream:', error);
+        }
       }
 
       const response = await fetch('/api/text-worker', {
@@ -586,8 +633,20 @@ export const recommendSakeTool = tool({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';
+      emitProgress({
+        type: 'error',
+        label: 'テキスト調査エラー',
+        message,
+      });
       ctx.callbacks.onError?.(message);
       return JSON.stringify({ status: 'error', message });
+    }
+    finally {
+      try {
+        eventSource?.close();
+      } catch {
+        // ignore close errors
+      }
     }
   },
 });
