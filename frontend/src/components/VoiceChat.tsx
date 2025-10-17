@@ -131,6 +131,9 @@ export default function VoiceChat({
   const preferencesRef = useRef(preferences);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
   const isCompact = variant === 'compact';
+  const isRecordingRef = useRef(isRecording);
+  const autoMutedRef = useRef(false);
+  const setIsRecordingStateRef = useRef(setIsRecording);
 
   const formatProgressTime = (timestamp: string): string => {
     try {
@@ -180,6 +183,14 @@ export default function VoiceChat({
   }, [preferences]);
 
   useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  useEffect(() => {
+    setIsRecordingStateRef.current = setIsRecording;
+  }, [setIsRecording]);
+
+  useEffect(() => {
     if (bundleRef.current) {
       return;
     }
@@ -211,6 +222,15 @@ export default function VoiceChat({
       onOfferReady: (offer) => {
         pushSakeUpdate(offer.sake);
         setIsDelegating(false);
+        if (autoMutedRef.current && sessionRef.current) {
+          autoMutedRef.current = false;
+          try {
+            sessionRef.current.mute(false);
+          } catch (err) {
+            console.error('Failed to unmute after delegation:', err);
+          }
+          setIsRecordingStateRef.current(true);
+        }
         onOfferReadyRef.current?.(offer);
       },
       onProgressEvent: (event) => {
@@ -340,12 +360,34 @@ export default function VoiceChat({
     bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
       if (tool.name === 'recommend_sake') {
         setIsDelegating(true);
+        const currentSession = sessionRef.current;
+        if (currentSession && isRecordingRef.current) {
+          autoMutedRef.current = true;
+          try {
+            currentSession.mute(true);
+          } catch (err) {
+            console.error('Failed to auto-mute during delegation:', err);
+          }
+          setIsRecordingStateRef.current(false);
+        }
       }
     });
 
     bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
       if (tool.name === 'recommend_sake') {
         setIsDelegating(false);
+        if (autoMutedRef.current) {
+          autoMutedRef.current = false;
+          const currentSession = sessionRef.current;
+          if (currentSession) {
+            try {
+              currentSession.mute(false);
+            } catch (err) {
+              console.error('Failed to auto-unmute after delegation:', err);
+            }
+            setIsRecordingStateRef.current(true);
+          }
+        }
       }
     });
 
@@ -454,6 +496,7 @@ export default function VoiceChat({
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
     setProgressEvents([]);
+    autoMutedRef.current = false;
   };
 
   const handleStartConversation = () => {
@@ -477,6 +520,7 @@ export default function VoiceChat({
       setError('マイクのミュート切り替えに失敗しました');
       return;
     }
+    autoMutedRef.current = false;
     if (error === 'マイクのミュート切り替えに失敗しました') {
       setError(null);
     }
