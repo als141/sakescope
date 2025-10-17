@@ -17,6 +17,7 @@ export default function Home() {
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [isVoiceChatMinimized, setIsVoiceChatMinimized] = useState(false);
+  const [isVoiceConnected, setIsVoiceConnected] = useState(false);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -198,13 +199,16 @@ export default function Home() {
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.4 }}
             >
-              {/* Welcome Message */}
-              <motion.div
-                className="space-y-6 sm:space-y-8 lg:space-y-10"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
-              >
+              {/* Welcome Message - フェードアウト */}
+              <AnimatePresence>
+                {!isVoiceConnected && (
+                  <motion.div
+                    className="space-y-6 sm:space-y-8 lg:space-y-10"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                  >
                 {/* バッジ */}
                 <motion.div
                   className="inline-flex"
@@ -234,36 +238,39 @@ export default function Home() {
                     あなたの好みにぴったりの日本酒をお探しします
                   </p>
                 </div>
-              </motion.div>
 
-              {/* Features */}
-              <motion.div
-                className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 sm:pt-6"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.6 }}
-              >
-                {[
-                  { icon: Mic, label: "音声で対話" },
-                  { icon: Volume2, label: "AIが応答" },
-                  { icon: Sparkles, label: "最適な日本酒を提案" },
-                ].map((feature, index) => (
-                  <React.Fragment key={feature.label}>
-                    <Badge 
-                      variant="outline" 
-                      size="default"
-                      className="px-3 sm:px-4 py-2 gap-2 shadow-sm backdrop-blur-md bg-card/50 hover:bg-card/80 transition-all duration-300"
-                    >
-                      <feature.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                      <span className="text-xs font-medium text-foreground">
-                        {feature.label}
-                      </span>
-                    </Badge>
-                    {index < 2 && (
-                      <div className="hidden sm:block h-1.5 w-1.5 rounded-full bg-primary/30" />
-                    )}
-                  </React.Fragment>
-                ))}</motion.div>
+                {/* Features */}
+                <motion.div
+                  className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 sm:pt-6"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4, duration: 0.6 }}
+                >
+                  {[
+                    { icon: Mic, label: "音声で対話" },
+                    { icon: Volume2, label: "AIが応答" },
+                    { icon: Sparkles, label: "最適な日本酒を提案" },
+                  ].map((feature, index) => (
+                    <React.Fragment key={feature.label}>
+                      <Badge 
+                        variant="outline" 
+                        size="default"
+                        className="px-3 sm:px-4 py-2 gap-2 shadow-sm backdrop-blur-md bg-card/50 hover:bg-card/80 transition-all duration-300"
+                      >
+                        <feature.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+                        <span className="text-xs font-medium text-foreground">
+                          {feature.label}
+                        </span>
+                      </Badge>
+                      {index < 2 && (
+                        <div className="hidden sm:block h-1.5 w-1.5 rounded-full bg-primary/30" />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : (
             <SakeDisplay
@@ -284,6 +291,7 @@ export default function Home() {
             setIsRecording={setIsRecording}
             isMinimized={isVoiceChatMinimized}
             onToggleMinimize={() => setIsVoiceChatMinimized(!isVoiceChatMinimized)}
+            onConnectionChange={setIsVoiceConnected}
             onSakeRecommended={(sake) => {
               setRecommendedSake(sake);
               setPurchaseOffer(null);

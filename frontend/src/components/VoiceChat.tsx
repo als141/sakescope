@@ -37,6 +37,7 @@ interface VoiceChatProps {
   setIsRecording: (recording: boolean) => void;
   onSakeRecommended: (sake: Sake) => void;
   onOfferReady?: (offer: PurchaseOffer) => void;
+  onConnectionChange?: (isConnected: boolean) => void;
   preferences?: {
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -111,6 +112,7 @@ export default function VoiceChat({
   setIsRecording,
   onSakeRecommended,
   onOfferReady,
+  onConnectionChange,
   preferences,
   variant = 'full',
   isMinimized = false,
@@ -475,6 +477,7 @@ export default function VoiceChat({
       setIsRecording(true);
       assistantMessageIdsRef.current.clear();
       setAiMessages([]);
+      onConnectionChange?.(true);
     } catch (err) {
       console.error('Failed to connect:', err);
       const message =
@@ -497,6 +500,7 @@ export default function VoiceChat({
     assistantMessageIdsRef.current.clear();
     setProgressEvents([]);
     autoMutedRef.current = false;
+    onConnectionChange?.(false);
   };
 
   const handleStartConversation = () => {
@@ -537,9 +541,16 @@ export default function VoiceChat({
 
   // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center space-y-8 sm:space-y-10 lg:space-y-12">
-      <div className="flex flex-col items-center gap-5 sm:gap-6">
-        {!isConnected ? (
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto space-y-6">
+      {/* 接続前：マイクボタンのみ表示 */}
+      {!isConnected && (
+        <motion.div 
+          className="flex flex-col items-center gap-5 sm:gap-6"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          transition={{ duration: 0.3 }}
+        >
           <motion.div className="relative">
             <Button
               onClick={handleStartConversation}
@@ -567,8 +578,157 @@ export default function VoiceChat({
               </motion.div>
             </Button>
           </motion.div>
-        ) : (
-          <div className="flex items-center gap-6 sm:gap-8 lg:gap-10">
+
+          <motion.div
+            className="text-center space-y-2 px-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
+              {isLoading ? 'AIソムリエに接続中...' : 'マイクボタンを押してスタート'}
+            </h3>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* 接続後：チャットUI表示 */}
+      {isConnected && (
+        <motion.div
+          className="w-full space-y-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          {/* チャット表示エリア */}
+          <Card className="w-full shadow-2xl border-border/30 bg-card/95 backdrop-blur-sm">
+            <CardContent className="p-0">
+              <ScrollArea className="h-[60vh] sm:h-[65vh] max-h-[600px] p-4 sm:p-6">
+                <div className="space-y-4 sm:space-y-5">
+                  {aiMessages.length === 0 ? (
+                    <motion.div
+                      className="flex flex-col items-center justify-center h-full min-h-[200px] text-center space-y-3"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <div className="rounded-full bg-primary/10 p-4">
+                        <MessageSquare className="h-8 w-8 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-base font-medium text-foreground">
+                          会話を開始しました
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          お好みの日本酒についてお聞かせください
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    aiMessages.map((message, index) => (
+                      <motion.div
+                        key={`${index}-${message}`}
+                        className="flex items-start gap-3 sm:gap-4"
+                        initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        transition={{ 
+                          delay: Math.min(index * 0.05, 0.3),
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30
+                        }}
+                      >
+                        <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border-2 border-primary/30 shadow-md flex-shrink-0">
+                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                            <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                              AIソムリエ
+                            </span>
+                          </div>
+                          <div className="rounded-2xl rounded-tl-sm bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-3 sm:p-4 shadow-sm">
+                            <p className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                              {message}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* ステータスとプログレス */}
+          <div className="space-y-3">
+            {isDelegating && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="flex justify-center"
+              >
+                <Badge variant="secondary" className="gap-2 py-2 px-4">
+                  <Activity className="h-4 w-4 animate-pulse" />
+                  <span>テキストエージェントが購入候補を調査しています</span>
+                </Badge>
+              </motion.div>
+            )}
+
+            {progressEvents.length > 0 && (
+              <motion.div
+                key="progress-log"
+                className="w-full"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.25 }}
+              >
+                <Card className="shadow-lg border-border/30 bg-card/70 backdrop-blur">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="space-y-2">
+                      {progressEvents.map((event) => {
+                        const timeLabel = formatProgressTime(event.timestamp);
+                        const key = `${event.timestamp}-${event.type}-${event.label ?? 'event'}`;
+                        return (
+                          <div
+                            key={key}
+                            className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-xs sm:text-sm"
+                          >
+                            <span className="text-muted-foreground font-mono tabular-nums">
+                              {timeLabel}
+                            </span>
+                            <div className="flex-1">
+                              <div className={cn('font-semibold', progressAccent(event.type))}>
+                                {event.label ?? event.type}
+                              </div>
+                              {event.message && (
+                                <p className="text-muted-foreground leading-snug">
+                                  {event.message}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </div>
+
+          {/* コントロールボタン */}
+          <motion.div
+            className="flex items-center justify-center gap-6 sm:gap-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -587,7 +747,6 @@ export default function VoiceChat({
               <AnimatePresence>
                 {isRecording && (
                   <>
-                    {/* パルスリング1 */}
                     <motion.div
                       className="absolute inset-0 rounded-full bg-primary/20 blur-md"
                       initial={{ scale: 1, opacity: 0.8 }}
@@ -599,7 +758,6 @@ export default function VoiceChat({
                         ease: "easeOut",
                       }}
                     />
-                    {/* パルスリング2 */}
                     <motion.div
                       className="absolute inset-0 rounded-full bg-primary/30 blur-sm"
                       initial={{ scale: 1, opacity: 0.6 }}
@@ -638,130 +796,34 @@ export default function VoiceChat({
                 </motion.div>
               </Button>
             </motion.div>
-          </div>
-        )}
-      </div>
+          </motion.div>
 
-      <motion.div
-        className="text-center space-y-2 sm:space-y-3 px-4"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
-          {isLoading
-            ? 'AIソムリエに接続中...'
-            : !isConnected
-              ? 'マイクボタンを押してスタート'
-              : isMuted
+          {/* ステータステキスト */}
+          <motion.div
+            className="text-center space-y-2 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <p className="text-sm sm:text-base text-muted-foreground">
+              {isMuted
                 ? 'ミュート中（AIには聞こえていません）'
                 : isDelegating
                   ? '購入情報を調査中です…'
                   : 'お話しください 🎤'}
-        </h3>
+            </p>
 
-        {error && (
-          <motion.p
-            className="text-destructive text-base font-medium"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            エラー: {error}
-          </motion.p>
-        )}
-      </motion.div>
-
-      <AnimatePresence>
-        {isDelegating && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <Badge variant="secondary" className="gap-2 py-2 px-4">
-              <Activity className="h-4 w-4 animate-pulse" />
-              <span>テキストエージェントが購入候補を調査しています</span>
-            </Badge>
+            {error && (
+              <motion.p
+                className="text-destructive text-sm font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                エラー: {error}
+              </motion.p>
+            )}
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {progressEvents.length > 0 && (
-          <motion.div
-            key="progress-log"
-            className="w-full max-w-2xl"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.25 }}
-          >
-            <Card className="shadow-xl border-border/30 bg-card/70 backdrop-blur">
-              <CardContent className="p-3 sm:p-4">
-                <div className="space-y-2">
-                  {progressEvents.map((event) => {
-                    const timeLabel = formatProgressTime(event.timestamp);
-                    const key = `${event.timestamp}-${event.type}-${event.label ?? 'event'}`;
-                    return (
-                      <div
-                        key={key}
-                        className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-xs sm:text-sm"
-                      >
-                        <span className="text-muted-foreground font-mono tabular-nums">
-                          {timeLabel}
-                        </span>
-                        <div className="flex-1">
-                          <div className={cn('font-semibold', progressAccent(event.type))}>
-                            {event.label ?? event.type}
-                          </div>
-                          {event.message && (
-                            <p className="text-muted-foreground leading-snug">
-                              {event.message}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {aiMessages.length > 0 && (
-        <Card className="w-full max-w-2xl shadow-2xl border-border/30">
-          <CardContent className="p-0">
-            <ScrollArea className="h-48 sm:h-56 p-5 sm:p-6">
-              <div className="space-y-3 sm:space-y-4">
-                {aiMessages.map((message, index) => (
-                  <motion.div
-                    key={`${index}-${message}`}
-                    className="flex items-start gap-3"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: Math.min(index * 0.05, 0.3) }}
-                  >
-                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-primary/30 shadow-sm">
-                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                        <MessageSquare className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary">
-                        AIソムリエ
-                      </div>
-                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                        {message}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        </motion.div>
       )}
     </div>
   );
