@@ -6,6 +6,8 @@ import {
   Sake,
   ShopListing,
 } from '@/domain/sake/types';
+import type { IntakeSummary } from '@/types/gift';
+import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import type {
   AgentRuntimeContext,
   AgentUserPreferences,
@@ -109,6 +111,95 @@ const agentResponseSchema = recommendationPayloadSchema.extend({
 });
 
 type AgentResponse = z.infer<typeof agentResponseSchema>;
+
+const giftIntakeSummarySchema = z
+  .object({
+    aroma: z.array(z.string()).nullable().optional(),
+    taste_profile: z.array(z.string()).nullable().optional(),
+    sweetness_dryness: z.string().nullable().optional(),
+    temperature_preference: z.array(z.string()).nullable().optional(),
+    food_pairing: z.array(z.string()).nullable().optional(),
+    drinking_frequency: z.string().nullable().optional(),
+    region_preference: z.array(z.string()).nullable().optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .nullable()
+  .optional();
+
+const completeGiftIntakeSchema = z.object({
+  summary: z.string().min(1),
+  intake: giftIntakeSummarySchema,
+  additional_notes: z.string().nullable().optional(),
+});
+
+export const completeGiftIntakeTool = tool({
+  name: 'complete_gift_intake',
+  description:
+    'ギフト用の聞き取りが完了したら、集めた情報をまとめてハンドオフします。予算は含めず、味わい・香り・温度・ペアリングなどを整理してください。',
+  parameters: completeGiftIntakeSchema,
+  strict: true,
+  async execute(input, runContext): Promise<string> {
+    const ctx = getRuntimeContext(runContext as RuntimeRunContext);
+    const giftSession = ctx.session.gift;
+
+    if (!giftSession?.giftId || !giftSession?.sessionId) {
+      throw new Error('Gift session metadata is not configured.');
+    }
+
+    const payload: Record<string, unknown> = {
+      sessionId: giftSession.sessionId,
+      intakeSummary: input.intake ?? null,
+      handoffSummary: input.summary,
+    };
+
+    if (input.additional_notes) {
+      payload.additionalNotes = input.additional_notes;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/gift/${giftSession.giftId}/trigger-handoff`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        const message =
+          errorText || `Gift handoff failed (${response.status})`;
+        ctx.callbacks.onError?.(message);
+        throw new Error(message);
+      }
+
+      ctx.session.gift = {
+        ...giftSession,
+        status: 'handed_off',
+      };
+
+      ctx.callbacks.onGiftIntakeCompleted?.({
+        giftId: giftSession.giftId,
+        sessionId: giftSession.sessionId,
+        summary: input.summary,
+        intakeSummary: (input.intake ?? null) as IntakeSummary | null,
+      });
+
+      return JSON.stringify({
+        status: 'handed_off',
+        gift_id: giftSession.giftId,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Gift handoff failed';
+      ctx.callbacks.onError?.(message);
+      throw error;
+    }
+  },
+});
 
 async function handleRecommendationSubmission(
   parsed: AgentResponse,
@@ -430,6 +521,15 @@ export const recommendSakeTool = tool({
   async execute(input, runContext): Promise<string> {
     const ctx = getRuntimeContext(runContext as RuntimeRunContext);
 
+    const emitProgress = (
+      event: Omit<TextWorkerProgressEvent, 'timestamp'> & { timestamp?: string },
+    ) => {
+      ctx.callbacks.onProgressEvent?.({
+        ...event,
+        timestamp: event.timestamp ?? new Date().toISOString(),
+      });
+    };
+
     const metadata = input.metadata ?? null;
     const metadataPreferences = metadata?.preferences;
 
@@ -457,9 +557,21 @@ export const recommendSakeTool = tool({
 
     ctx.callbacks.onShopsUpdated?.([]);
 
+    let eventSource: EventSource | null = null;
+
     try {
       const summary = input.handoff_summary.trim();
       ctx.session.lastQuery = summary;
+      const runId = `${
+        ctx.session.traceGroupId ?? 'trace'
+      }:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      ctx.session.lastDelegationRunId = runId;
+
+      emitProgress({
+        type: 'status',
+        label: 'テキスト調査',
+        message: 'テキストエージェントに購入調査を依頼しました。',
+      });
 
       const currentSakePayload =
         metadata?.current_sake ??
@@ -529,6 +641,7 @@ export const recommendSakeTool = tool({
       const requestBody: Record<string, unknown> = {
         handoff_summary: summary,
         trace_group_id: ctx.session.traceGroupId ?? null,
+        run_id: runId,
       };
 
       const additionalContext = toCleanString(input.additional_context);
@@ -552,6 +665,30 @@ export const recommendSakeTool = tool({
       }
       if (Object.keys(metadataPayload).length > 0) {
         requestBody.metadata = metadataPayload;
+      }
+
+      if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+        try {
+          const progressUrl = `/api/text-worker/progress?run=${encodeURIComponent(runId)}`;
+          eventSource = new EventSource(progressUrl);
+          eventSource.onmessage = (event) => {
+            try {
+              const payload = JSON.parse(event.data) as TextWorkerProgressEvent;
+              emitProgress(payload);
+              if (payload.type === 'final' || payload.type === 'error') {
+                eventSource?.close();
+              }
+            } catch (parseError) {
+              console.warn('[TextWorker] Failed to parse progress event:', parseError);
+            }
+          };
+          eventSource.onerror = (evt) => {
+            console.warn('[TextWorker] Progress stream error', evt);
+            eventSource?.close();
+          };
+        } catch (error) {
+          console.warn('[TextWorker] Failed to open progress stream:', error);
+        }
       }
 
       const response = await fetch('/api/text-worker', {
@@ -586,8 +723,20 @@ export const recommendSakeTool = tool({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown error occurred';
+      emitProgress({
+        type: 'error',
+        label: 'テキスト調査エラー',
+        message,
+      });
       ctx.callbacks.onError?.(message);
       return JSON.stringify({ status: 'error', message });
+    }
+    finally {
+      try {
+        eventSource?.close();
+      } catch {
+        // ignore close errors
+      }
     }
   },
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic,
@@ -24,6 +24,7 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from '@/infrastructure/openai/agents/context';
+import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ interface VoiceChatProps {
   setIsRecording: (recording: boolean) => void;
   onSakeRecommended: (sake: Sake) => void;
   onOfferReady?: (offer: PurchaseOffer) => void;
+  onConnectionChange?: (isConnected: boolean) => void;
   preferences?: {
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -110,17 +112,21 @@ export default function VoiceChat({
   setIsRecording,
   onSakeRecommended,
   onOfferReady,
+  onConnectionChange,
   preferences,
   variant = 'full',
   isMinimized = false,
   onToggleMinimize,
 }: VoiceChatProps) {
+  const realtimeModel =
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
+  const [progressEvents, setProgressEvents] = useState<TextWorkerProgressEvent[]>([]);
 
   const bundleRef = useRef<VoiceAgentBundle | null>(null);
   const onSakeRecommendedRef = useRef(onSakeRecommended);
@@ -128,7 +134,74 @@ export default function VoiceChat({
   const latestSakeRef = useRef<Sake | null>(null);
   const preferencesRef = useRef(preferences);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
+  const assistantMessageOrderRef = useRef<string[]>([]);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const isCompact = variant === 'compact';
+  const isRecordingRef = useRef(isRecording);
+  const autoMutedRef = useRef(false);
+  const setIsRecordingStateRef = useRef(setIsRecording);
+
+  const formatProgressTime = (timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleTimeString('ja-JP', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return '';
+    }
+  };
+
+  const progressAccent = (type: TextWorkerProgressEvent['type']): string => {
+    switch (type) {
+      case 'tool_started':
+        return 'text-amber-500';
+      case 'tool_completed':
+      case 'final':
+        return 'text-emerald-500';
+      case 'tool_failed':
+      case 'error':
+        return 'text-destructive';
+      case 'reasoning':
+        return 'text-sky-500';
+      case 'message':
+        return 'text-muted-foreground';
+      default:
+        return 'text-primary';
+    }
+  };
+
+  const upsertAiMessage = useCallback(
+    (id: string, text: string, options: { append?: boolean } = {}) => {
+      if (!id || typeof text !== 'string') {
+        return;
+      }
+      const { append = false } = options;
+      setAiMessages((prev) => {
+        const order = assistantMessageOrderRef.current;
+        const index = order.indexOf(id);
+        if (index === -1) {
+          order.push(id);
+          assistantMessageIdsRef.current.add(id);
+          return [...prev, text];
+        }
+        const existing = prev[index] ?? '';
+        const nextText = append ? `${existing}${text}` : text;
+        if (nextText === existing) {
+          return prev;
+        }
+        const next = [...prev];
+        next[index] = nextText;
+        return next;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     onSakeRecommendedRef.current = onSakeRecommended;
@@ -139,8 +212,29 @@ export default function VoiceChat({
   }, [onOfferReady]);
 
   useEffect(() => {
+    if (!scrollAreaRef.current) {
+      return;
+    }
+    const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport instanceof HTMLElement) {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [aiMessages, progressEvents]);
+
+  useEffect(() => {
     preferencesRef.current = preferences;
   }, [preferences]);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  useEffect(() => {
+    setIsRecordingStateRef.current = setIsRecording;
+  }, [setIsRecording]);
 
   useEffect(() => {
     if (bundleRef.current) {
@@ -174,7 +268,31 @@ export default function VoiceChat({
       onOfferReady: (offer) => {
         pushSakeUpdate(offer.sake);
         setIsDelegating(false);
+        if (autoMutedRef.current && sessionRef.current) {
+          autoMutedRef.current = false;
+          try {
+            sessionRef.current.mute(false);
+          } catch (err) {
+            console.error('Failed to unmute after delegation:', err);
+          }
+          setIsRecordingStateRef.current(true);
+        }
         onOfferReadyRef.current?.(offer);
+      },
+      onProgressEvent: (event) => {
+        if (event.label === 'connected') {
+          return;
+        }
+        setProgressEvents((prev) => {
+          if (event.type === 'status' && event.label === 'テキスト調査') {
+            return [event];
+          }
+          const next = [...prev, event];
+          if (next.length > 15) {
+            next.splice(0, next.length - 15);
+          }
+          return next;
+        });
       },
       onError: (message) => {
         setError(message);
@@ -184,6 +302,7 @@ export default function VoiceChat({
 
     bundleRef.current = bundle;
     sessionRef.current = bundle.session;
+    assistantMessageOrderRef.current = [];
 
     const prefSeed = preferencesRef.current;
     if (prefSeed) {
@@ -200,9 +319,48 @@ export default function VoiceChat({
 
     type SessionEvents = RealtimeSessionEventTypes<AgentRuntimeContext>;
 
-    bundle.session.on('transport_event', (event: TransportEvent) => {
-      void event;
-    });
+    const handleTransportEvent = (event: TransportEvent) => {
+      if (!event || typeof event !== 'object') {
+        return;
+      }
+      const type = (event as { type?: unknown }).type;
+      if (typeof type !== 'string') {
+        return;
+      }
+      const itemId = (event as { item_id?: unknown }).item_id;
+      if (typeof itemId !== 'string') {
+        return;
+      }
+      if (type === 'response.output_text.delta') {
+        const delta = (event as { delta?: unknown }).delta;
+        if (typeof delta === 'string' && delta.length > 0) {
+          upsertAiMessage(itemId, delta, { append: true });
+        }
+        return;
+      }
+      if (type === 'response.output_text.done') {
+        const text = (event as { text?: unknown }).text;
+        if (typeof text === 'string') {
+          upsertAiMessage(itemId, text);
+        }
+        return;
+      }
+      if (type === 'response.output_audio_transcript.delta') {
+        const delta = (event as { delta?: unknown }).delta;
+        if (typeof delta === 'string' && delta.length > 0) {
+          upsertAiMessage(itemId, delta, { append: true });
+        }
+        return;
+      }
+      if (type === 'response.output_audio_transcript.done') {
+        const transcript = (event as { transcript?: unknown }).transcript;
+        if (typeof transcript === 'string') {
+          upsertAiMessage(itemId, transcript);
+        }
+      }
+    };
+
+    bundle.session.on('transport_event', handleTransportEvent);
 
     const extractAssistantTranscript = (item: unknown): string | null => {
       if (!item || typeof item !== 'object') {
@@ -248,37 +406,11 @@ export default function VoiceChat({
         item && typeof item === 'object' && 'itemId' in item
           ? (item as { itemId?: unknown }).itemId
           : null;
-      if (typeof rawId === 'string') {
-        const seen = assistantMessageIdsRef.current;
-        if (seen.has(rawId)) {
-          return;
-        }
-        seen.add(rawId);
-      }
-      setAiMessages((prev) => {
-        const last = prev.length > 0 ? prev[prev.length - 1] : null;
-        if (last && last.trim() === text) {
-          return prev;
-        }
-        return [...prev, text];
-      });
-    });
-
-    bundle.session.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
-      if (typeof finalText !== 'string') {
-        return;
-      }
-      const trimmed = finalText.trim();
-      if (!trimmed) {
-        return;
-      }
-      setAiMessages((prev) => {
-        const last = prev.length > 0 ? prev[prev.length - 1] : null;
-        if (last && last.trim() === trimmed) {
-          return prev;
-        }
-        return [...prev, trimmed];
-      });
+      const itemId =
+        typeof rawId === 'string'
+          ? rawId
+          : `assistant-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      upsertAiMessage(itemId, text);
     });
 
     bundle.session.on('agent_handoff', () => {
@@ -288,12 +420,34 @@ export default function VoiceChat({
     bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
       if (tool.name === 'recommend_sake') {
         setIsDelegating(true);
+        const currentSession = sessionRef.current;
+        if (currentSession && isRecordingRef.current) {
+          autoMutedRef.current = true;
+          try {
+            currentSession.mute(true);
+          } catch (err) {
+            console.error('Failed to auto-mute during delegation:', err);
+          }
+          setIsRecordingStateRef.current(false);
+        }
       }
     });
 
     bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
       if (tool.name === 'recommend_sake') {
         setIsDelegating(false);
+        if (autoMutedRef.current) {
+          autoMutedRef.current = false;
+          const currentSession = sessionRef.current;
+          if (currentSession) {
+            try {
+              currentSession.mute(false);
+            } catch (err) {
+              console.error('Failed to auto-unmute after delegation:', err);
+            }
+            setIsRecordingStateRef.current(true);
+          }
+        }
       }
     });
 
@@ -311,6 +465,7 @@ export default function VoiceChat({
     });
 
     return () => {
+      bundle.session.off('transport_event', handleTransportEvent);
       try {
         bundle.session.close();
       } catch (err) {
@@ -319,7 +474,7 @@ export default function VoiceChat({
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, []);
+  }, [preferences, upsertAiMessage]);
 
   const connectToSession = async () => {
     const currentSession = sessionRef.current;
@@ -350,6 +505,7 @@ export default function VoiceChat({
 
       await currentSession.connect({
         apiKey: data.value,
+        model: realtimeModel,
       });
       currentSession.mute(false);
 
@@ -380,7 +536,9 @@ export default function VoiceChat({
       setIsLoading(false);
       setIsRecording(true);
       assistantMessageIdsRef.current.clear();
+      assistantMessageOrderRef.current = [];
       setAiMessages([]);
+      onConnectionChange?.(true);
     } catch (err) {
       console.error('Failed to connect:', err);
       const message =
@@ -401,6 +559,10 @@ export default function VoiceChat({
     setIsDelegating(false);
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
+    assistantMessageOrderRef.current = [];
+    setProgressEvents([]);
+    autoMutedRef.current = false;
+    onConnectionChange?.(false);
   };
 
   const handleStartConversation = () => {
@@ -424,6 +586,7 @@ export default function VoiceChat({
       setError('マイクのミュート切り替えに失敗しました');
       return;
     }
+    autoMutedRef.current = false;
     if (error === 'マイクのミュート切り替えに失敗しました') {
       setError(null);
     }
@@ -440,9 +603,16 @@ export default function VoiceChat({
 
   // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center space-y-8 sm:space-y-10 lg:space-y-12">
-      <div className="flex flex-col items-center gap-5 sm:gap-6">
-        {!isConnected ? (
+    <div className="flex flex-col items-center w-full max-w-4xl mx-auto space-y-6">
+      {/* 接続前：マイクボタンのみ表示 */}
+      {!isConnected && (
+        <motion.div 
+          className="flex flex-col items-center gap-5 sm:gap-6"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          transition={{ duration: 0.3 }}
+        >
           <motion.div className="relative">
             <Button
               onClick={handleStartConversation}
@@ -470,8 +640,157 @@ export default function VoiceChat({
               </motion.div>
             </Button>
           </motion.div>
-        ) : (
-          <div className="flex items-center gap-6 sm:gap-8 lg:gap-10">
+
+          <motion.div
+            className="text-center space-y-2 px-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
+              {isLoading ? 'AIソムリエに接続中...' : 'マイクボタンを押してスタート'}
+            </h3>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* 接続後：チャットUI表示 */}
+      {isConnected && (
+        <motion.div
+          className="w-full space-y-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          {/* チャット表示エリア */}
+          <Card className="w-full shadow-2xl border-border/30 bg-card/95 backdrop-blur-sm">
+            <CardContent className="p-0">
+              <ScrollArea ref={scrollAreaRef} className="h-[60vh] sm:h-[65vh] max-h-[600px] p-4 sm:p-6">
+                <div className="space-y-4 sm:space-y-5">
+                  {aiMessages.length === 0 ? (
+                    <motion.div
+                      className="flex flex-col items-center justify-center h-full min-h-[200px] text-center space-y-3"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <div className="rounded-full bg-primary/10 p-4">
+                        <MessageSquare className="h-8 w-8 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-base font-medium text-foreground">
+                          会話を開始しました
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          お好みの日本酒についてお聞かせください
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    aiMessages.map((message, index) => (
+                      <motion.div
+                        key={`${index}-${message}`}
+                        className="flex items-start gap-3 sm:gap-4"
+                        initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        transition={{ 
+                          delay: Math.min(index * 0.05, 0.3),
+                          type: "spring",
+                          stiffness: 500,
+                          damping: 30
+                        }}
+                      >
+                        <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border-2 border-primary/30 shadow-md flex-shrink-0">
+                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
+                            <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-primary">
+                              AIソムリエ
+                            </span>
+                          </div>
+                          <div className="rounded-2xl rounded-tl-sm bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-3 sm:p-4 shadow-sm">
+                            <p className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                              {message}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* ステータスとプログレス */}
+          <div className="space-y-3">
+            {isDelegating && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="flex justify-center"
+              >
+                <Badge variant="secondary" className="gap-2 py-2 px-4">
+                  <Activity className="h-4 w-4 animate-pulse" />
+                  <span>テキストエージェントが購入候補を調査しています</span>
+                </Badge>
+              </motion.div>
+            )}
+
+            {progressEvents.length > 0 && (
+              <motion.div
+                key="progress-log"
+                className="w-full"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.25 }}
+              >
+                <Card className="shadow-lg border-border/30 bg-card/70 backdrop-blur">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="space-y-2">
+                      {progressEvents.map((event) => {
+                        const timeLabel = formatProgressTime(event.timestamp);
+                        const key = `${event.timestamp}-${event.type}-${event.label ?? 'event'}`;
+                        return (
+                          <div
+                            key={key}
+                            className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-xs sm:text-sm"
+                          >
+                            <span className="text-muted-foreground font-mono tabular-nums">
+                              {timeLabel}
+                            </span>
+                            <div className="flex-1">
+                              <div className={cn('font-semibold', progressAccent(event.type))}>
+                                {event.label ?? event.type}
+                              </div>
+                              {event.message && (
+                                <p className="text-muted-foreground leading-snug">
+                                  {event.message}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </div>
+
+          {/* コントロールボタン */}
+          <motion.div
+            className="flex items-center justify-center gap-6 sm:gap-8 pt-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -490,7 +809,6 @@ export default function VoiceChat({
               <AnimatePresence>
                 {isRecording && (
                   <>
-                    {/* パルスリング1 */}
                     <motion.div
                       className="absolute inset-0 rounded-full bg-primary/20 blur-md"
                       initial={{ scale: 1, opacity: 0.8 }}
@@ -502,7 +820,6 @@ export default function VoiceChat({
                         ease: "easeOut",
                       }}
                     />
-                    {/* パルスリング2 */}
                     <motion.div
                       className="absolute inset-0 rounded-full bg-primary/30 blur-sm"
                       initial={{ scale: 1, opacity: 0.6 }}
@@ -541,86 +858,34 @@ export default function VoiceChat({
                 </motion.div>
               </Button>
             </motion.div>
-          </div>
-        )}
-      </div>
+          </motion.div>
 
-      <motion.div
-        className="text-center space-y-2 sm:space-y-3 px-4"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
-          {isLoading
-            ? 'AIソムリエに接続中...'
-            : !isConnected
-              ? 'マイクボタンを押してスタート'
-              : isMuted
+          {/* ステータステキスト */}
+          <motion.div
+            className="text-center space-y-2 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <p className="text-sm sm:text-base text-muted-foreground">
+              {isMuted
                 ? 'ミュート中（AIには聞こえていません）'
                 : isDelegating
                   ? '購入情報を調査中です…'
                   : 'お話しください 🎤'}
-        </h3>
+            </p>
 
-        {error && (
-          <motion.p
-            className="text-destructive text-base font-medium"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            エラー: {error}
-          </motion.p>
-        )}
-      </motion.div>
-
-      <AnimatePresence>
-        {isDelegating && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <Badge variant="secondary" className="gap-2 py-2 px-4">
-              <Activity className="h-4 w-4 animate-pulse" />
-              <span>テキストエージェントが購入候補を調査しています</span>
-            </Badge>
+            {error && (
+              <motion.p
+                className="text-destructive text-sm font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                エラー: {error}
+              </motion.p>
+            )}
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {aiMessages.length > 0 && (
-        <Card className="w-full max-w-2xl shadow-2xl border-border/30">
-          <CardContent className="p-0">
-            <ScrollArea className="h-48 sm:h-56 p-5 sm:p-6">
-              <div className="space-y-3 sm:space-y-4">
-                {aiMessages.map((message, index) => (
-                  <motion.div
-                    key={`${index}-${message}`}
-                    className="flex items-start gap-3"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: Math.min(index * 0.05, 0.3) }}
-                  >
-                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border-2 border-primary/30 shadow-sm">
-                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                        <MessageSquare className="h-4 w-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary">
-                        AIソムリエ
-                      </div>
-                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                        {message}
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        </motion.div>
       )}
     </div>
   );
