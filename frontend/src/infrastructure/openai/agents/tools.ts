@@ -6,6 +6,7 @@ import {
   Sake,
   ShopListing,
 } from '@/domain/sake/types';
+import type { IntakeSummary } from '@/types/gift';
 import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import type {
   AgentRuntimeContext,
@@ -110,6 +111,95 @@ const agentResponseSchema = recommendationPayloadSchema.extend({
 });
 
 type AgentResponse = z.infer<typeof agentResponseSchema>;
+
+const giftIntakeSummarySchema = z
+  .object({
+    aroma: z.array(z.string()).nullable().optional(),
+    taste_profile: z.array(z.string()).nullable().optional(),
+    sweetness_dryness: z.string().nullable().optional(),
+    temperature_preference: z.array(z.string()).nullable().optional(),
+    food_pairing: z.array(z.string()).nullable().optional(),
+    drinking_frequency: z.string().nullable().optional(),
+    region_preference: z.array(z.string()).nullable().optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .nullable()
+  .optional();
+
+const completeGiftIntakeSchema = z.object({
+  summary: z.string().min(1),
+  intake: giftIntakeSummarySchema,
+  additional_notes: z.string().nullable().optional(),
+});
+
+export const completeGiftIntakeTool = tool({
+  name: 'complete_gift_intake',
+  description:
+    'ギフト用の聞き取りが完了したら、集めた情報をまとめてハンドオフします。予算は含めず、味わい・香り・温度・ペアリングなどを整理してください。',
+  parameters: completeGiftIntakeSchema,
+  strict: true,
+  async execute(input, runContext): Promise<string> {
+    const ctx = getRuntimeContext(runContext as RuntimeRunContext);
+    const giftSession = ctx.session.gift;
+
+    if (!giftSession?.giftId || !giftSession?.sessionId) {
+      throw new Error('Gift session metadata is not configured.');
+    }
+
+    const payload: Record<string, unknown> = {
+      sessionId: giftSession.sessionId,
+      intakeSummary: input.intake ?? null,
+      handoffSummary: input.summary,
+    };
+
+    if (input.additional_notes) {
+      payload.additionalNotes = input.additional_notes;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/gift/${giftSession.giftId}/trigger-handoff`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        const message =
+          errorText || `Gift handoff failed (${response.status})`;
+        ctx.callbacks.onError?.(message);
+        throw new Error(message);
+      }
+
+      ctx.session.gift = {
+        ...giftSession,
+        status: 'handed_off',
+      };
+
+      ctx.callbacks.onGiftIntakeCompleted?.({
+        giftId: giftSession.giftId,
+        sessionId: giftSession.sessionId,
+        summary: input.summary,
+        intakeSummary: (input.intake ?? null) as IntakeSummary | null,
+      });
+
+      return JSON.stringify({
+        status: 'handed_off',
+        gift_id: giftSession.giftId,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Gift handoff failed';
+      ctx.callbacks.onError?.(message);
+      throw error;
+    }
+  },
+});
 
 async function handleRecommendationSubmission(
   parsed: AgentResponse,

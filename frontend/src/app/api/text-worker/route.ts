@@ -119,6 +119,12 @@ const handoffRequestMetadataSchema = z
     notes: z.string().nullable().optional(),
     preferences: z.unknown().optional(),
     current_sake: z.record(z.unknown()).nullable().optional(),
+    // Gift mode specific fields
+    gift_mode: z.boolean().optional(),
+    budget_min: z.number().optional(),
+    budget_max: z.number().optional(),
+    recipient_name: z.string().nullable().optional(),
+    occasion: z.string().nullable().optional(),
   })
   .catchall(z.unknown())
   .nullable()
@@ -137,6 +143,9 @@ const handoffRequestSchema = z.object({
   conversation_context: z.string().nullable().optional(),
   user_profile: z.unknown().optional(),
   current_sake: z.unknown().optional(),
+  // Gift mode
+  mode: z.string().optional(),
+  gift_id: z.string().optional(),
 });
 
 const HTTP_URL_PATTERN = /^https?:\/\//i;
@@ -506,6 +515,13 @@ export async function POST(req: NextRequest) {
         ? metadataResult.include_alternatives
         : true;
 
+  // Gift mode detection
+  const isGiftMode = parsed.mode === 'gift' || metadataResult.gift_mode === true;
+  const giftBudgetMin = metadataResult.budget_min;
+  const giftBudgetMax = metadataResult.budget_max;
+  const recipientName = metadataResult.recipient_name;
+  const occasion = metadataResult.occasion;
+
   const metadataExtras: Record<string, unknown> = { ...metadataResult };
   delete metadataExtras.include_alternatives;
   delete metadataExtras.focus;
@@ -513,6 +529,11 @@ export async function POST(req: NextRequest) {
   delete metadataExtras.preferences;
   delete metadataExtras.current_sake;
   delete metadataExtras.preference_note;
+  delete metadataExtras.gift_mode;
+  delete metadataExtras.budget_min;
+  delete metadataExtras.budget_max;
+  delete metadataExtras.recipient_name;
+  delete metadataExtras.occasion;
   const extrasNarrative = describeValue(metadataExtras);
 
   const openaiClient = new OpenAI({
@@ -551,6 +572,16 @@ export async function POST(req: NextRequest) {
 - ユーザー嗜好とフォーカスに基づき、日本酒を厳選して推薦する
 - 公式EC、正規代理店、百貨店、専門店など信頼性の高い販売サイトを優先し、価格・在庫・配送見込み・出典URLを明記する
 - 情報は必ず複数ソースで裏取りし、根拠URLを "origin_sources" にまとめる
+${isGiftMode ? `
+### ギフトモード特別指示
+このリクエストはギフト推薦です。以下の点に特に注意してください：
+- 予算範囲: ${giftBudgetMin ? `${giftBudgetMin}円〜${giftBudgetMax}円` : '指定なし'}
+${occasion ? `- 用途: ${occasion}` : ''}
+${recipientName ? `- 贈る相手: ${recipientName}` : ''}
+- ギフト包装が可能な販売店を優先する
+- 高品質で贈答用に適した銘柄を選ぶ
+- のし・メッセージカード対応などのギフトサービス情報も確認する
+` : ''}
 
 ### スピード重視の進め方
 - まずは必要条件を箇条書きで整理し、単一の \`web_search\` クエリで候補・販売先・最新価格をまとめて取得する。香り・価格帯・ペアリング用途・ギフト用途を1本の検索語に含めて複数候補を同時に集めること。
@@ -559,7 +590,7 @@ export async function POST(req: NextRequest) {
 - reasoning やメモは要点を簡潔にまとめ、冗長な重複説明は避ける。
 
 ### 手順
-1. 必要に応じて \`web_search\` を呼び出し、候補となる日本酒・販売ページ・価格・在庫情報を取得する。
+1. 必要に応じて \`web_search\` を呼び出し、候補となる日本酒・販売ページ・価格・在庫情報を取得する。${isGiftMode ? 'ギフト対応可能なショップを優先する。' : ''}
 2. 検索結果から条件に最も合う銘柄を評価し、香味・造り・ペアリング・提供温度・価格帯を整理する。可能なら味わいを 1〜5 のスコアで "flavor_profile" に入れる。
 3. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
 4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する。
@@ -577,6 +608,23 @@ export async function POST(req: NextRequest) {
       : 'ユーザーの嗜好に合う日本酒を提案し、購入可能なショップ情報（価格・在庫・配送目安）をまとめてください。';
 
   const contextSections: string[] = [];
+
+  // Gift mode specific context
+  if (isGiftMode) {
+    const giftContext: string[] = ['【ギフトモード】'];
+    if (giftBudgetMin && giftBudgetMax) {
+      giftContext.push(`予算: ${giftBudgetMin}円〜${giftBudgetMax}円`);
+    }
+    if (occasion) {
+      giftContext.push(`用途: ${occasion}`);
+    }
+    if (recipientName) {
+      giftContext.push(`贈る相手: ${recipientName}`);
+    }
+    giftContext.push('※ギフト包装・のし対応可能な販売店を優先してください');
+    contextSections.push(giftContext.join('\n'));
+  }
+
   if (preferenceNarrative) {
     contextSections.push(`嗜好や要望のメモ:\n${preferenceNarrative}`);
   }

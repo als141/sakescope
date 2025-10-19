@@ -3,6 +3,7 @@ import {
   Sake,
   ShopListing,
 } from '@/domain/sake/types';
+import type { IntakeSummary } from '@/types/gift';
 import type { TextWorkerProgressEvent } from '@/types/textWorker';
 
 export interface AgentOrchestrationCallbacks {
@@ -11,6 +12,12 @@ export interface AgentOrchestrationCallbacks {
   onShopsUpdated?: (shops: ShopListing[]) => void;
   onError?: (error: string) => void;
   onProgressEvent?: (event: TextWorkerProgressEvent) => void;
+  onGiftIntakeCompleted?: (payload: {
+    giftId: string;
+    sessionId: string;
+    summary: string;
+    intakeSummary: IntakeSummary | null;
+  }) => void;
 }
 
 export interface AgentUserPreferences {
@@ -27,6 +34,11 @@ export interface AgentRuntimeSessionState {
   lastQuery?: string;
   traceGroupId?: string;
   lastDelegationRunId?: string;
+  gift?: {
+    giftId: string;
+    sessionId: string;
+    status?: 'collecting' | 'handed_off';
+  };
 }
 
 export interface AgentRuntimeContext {

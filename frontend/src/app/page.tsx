@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Settings, Volume2, Sparkles, ArrowLeft } from 'lucide-react';
+import { Mic, Settings, Volume2, Sparkles, ArrowLeft, Gift } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
 import SakeHistory from '@/components/SakeHistory';
+import CreateGiftModal from '@/components/CreateGiftModal';
 import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
@@ -18,6 +20,7 @@ export default function Home() {
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [isVoiceChatMinimized, setIsVoiceChatMinimized] = useState(false);
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+  const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -175,15 +178,56 @@ export default function Home() {
             
             {/* 右側ナビゲーション */}
             <div className="flex items-center gap-3 sm:gap-4">
-              <Link href="/settings">
-                <Button
-                  variant="outline"
-                  size="icon-lg"
-                  className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
-                >
-                  <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-              </Link>
+              <SignedOut>
+                <>
+                  <SignInButton mode="modal">
+                    <Button
+                      variant="outline"
+                      size="default"
+                      className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
+                    >
+                      <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                      <span className="hidden sm:inline">ギフトを贈る</span>
+                    </Button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <Button className="h-10 sm:h-11 px-4 sm:px-6 shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300">
+                      無料登録
+                    </Button>
+                  </SignUpButton>
+                </>
+              </SignedOut>
+              <SignedIn>
+                <>
+                  <Button
+                    onClick={() => setIsGiftModalOpen(true)}
+                    variant="outline"
+                    size="default"
+                    className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
+                  >
+                    <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                    <span className="hidden sm:inline">ギフトを贈る</span>
+                  </Button>
+                  <Link href="/settings">
+                    <Button
+                      variant="outline"
+                      size="icon-lg"
+                      className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
+                    >
+                      <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                  </Link>
+                  <UserButton
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        avatarBox:
+                          'h-10 w-10 sm:h-11 sm:w-11 border border-border/50 rounded-full shadow-sm',
+                      },
+                    }}
+                  />
+                </>
+              </SignedIn>
             </div>
           </div>
         </motion.header>
@@ -306,6 +350,13 @@ export default function Home() {
           />
         </div>
 
+        {/* Gift Modal */}
+        <SignedIn>
+          <CreateGiftModal
+            isOpen={isGiftModalOpen}
+            onClose={() => setIsGiftModalOpen(false)}
+          />
+        </SignedIn>
       </div>
     </div>
   );
