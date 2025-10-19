@@ -470,20 +470,11 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     pendingEchoRef.current.add(trimmed);
     appendUserMessage(trimmed, 'text');
     try {
-      sessionRef.current.sendMessage(
-        {
-          type: 'message',
-          role: 'user',
-          content: [{ type: 'input_text', text: `${TEXT_PREFIX} ${trimmed}` }],
-        },
-        {
-          response: {
-            modalities: ['text'],
-            instructions:
-              'ユーザーがテキスト入力を行ったので、テキストのみで短く応答してください。音声は生成しないでください。',
-          },
-        },
-      );
+      sessionRef.current.sendMessage({
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: `${TEXT_PREFIX} ${trimmed}` }],
+      });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'メッセージ送信に失敗しました';

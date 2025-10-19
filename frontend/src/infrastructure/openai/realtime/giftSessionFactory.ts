@@ -43,7 +43,7 @@ export function createGiftRealtimeBundle(
       gift_session_id: sessionId,
     },
     config: {
-      outputModalities: ['audio', 'text'],
+      outputModalities: ['audio'],
       audio: {
         input: { format: 'pcm16' },
         output: { voice: 'alloy', format: 'pcm16' },
