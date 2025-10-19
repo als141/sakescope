@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles } from 'lucide-react';
+import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles, Search } from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -31,6 +31,7 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
   const tastingNotes = sake.tastingNotes ?? [];
   const servingTemperatures = sake.servingTemperature ?? [];
   const foodPairing = sake.foodPairing ?? [];
+  const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(sake.name)}`;
 
   return (
     <motion.div
@@ -99,9 +100,26 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                   transition={{ delay: 0.2, duration: 0.5 }}
                 >
                   <div className="space-y-3 mb-4">
-                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text leading-tight">
-                      {sake.name}
-                    </h1>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text leading-tight">
+                        {sake.name}
+                      </h1>
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                      >
+                        <a
+                          href={googleSearchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${sake.name} をGoogleで検索`}
+                        >
+                          <Search className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                       {sake.region && (
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">

@@ -12,6 +12,7 @@ import {
   Clock,
   ExternalLink,
   ListChecks,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -74,6 +75,10 @@ function formatDateTime(value: string | null | undefined) {
   } catch {
     return value;
   }
+}
+
+function buildGoogleSearchUrl(keyword: string) {
+  return `https://www.google.com/search?q=${encodeURIComponent(keyword)}`;
 }
 
 function buildIntakeSummary(summary: IntakeSummary | null) {
@@ -288,9 +293,26 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                   <div className="text-sm font-semibold text-primary uppercase tracking-wide">
                                     メイン推薦
                                   </div>
-                                  <h3 className="text-xl font-semibold text-foreground">
-                                    {gift.recommendation.sake.name}
-                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="text-xl font-semibold text-foreground">
+                                      {gift.recommendation.sake.name}
+                                    </h3>
+                                    <Button
+                                      asChild
+                                      variant="outline"
+                                      size="icon-sm"
+                                      className="h-7 w-7"
+                                    >
+                                      <a
+                                        href={buildGoogleSearchUrl(gift.recommendation.sake.name)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label={`${gift.recommendation.sake.name} をGoogleで検索`}
+                                      >
+                                        <Search className="h-3.5 w-3.5" />
+                                      </a>
+                                    </Button>
+                                  </div>
                                   <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
                                     {gift.recommendation.summary}
                                   </p>
@@ -347,8 +369,25 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                         className="rounded-xl border border-border/50 bg-background/80 p-4 space-y-2"
                                       >
                                         <div className="flex flex-wrap items-center justify-between gap-2">
-                                          <div className="font-semibold text-foreground">
-                                            {alt.sake.name}
+                                          <div className="flex items-center gap-2">
+                                            <div className="font-semibold text-foreground">
+                                              {alt.sake.name}
+                                            </div>
+                                            <Button
+                                              asChild
+                                              variant="outline"
+                                              size="icon-sm"
+                                              className="h-7 w-7"
+                                            >
+                                              <a
+                                                href={buildGoogleSearchUrl(alt.sake.name)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                aria-label={`${alt.sake.name} をGoogleで検索`}
+                                              >
+                                                <Search className="h-3.5 w-3.5" />
+                                              </a>
+                                            </Button>
                                           </div>
                                           <span className="text-xs text-muted-foreground">
                                             販売候補: {alt.shops.length} 件
