@@ -15,11 +15,18 @@ type SupabaseGiftRecord = {
   status: GiftStatus;
   created_at: string;
   updated_at: string;
-  gift_recommendations: {
-    recommendations: unknown;
-    model: string | null;
-    created_at: string;
-  } | null;
+  gift_recommendations:
+    | {
+        recommendations: unknown;
+        model: string | null;
+        created_at: string;
+      }
+    | Array<{
+        recommendations: unknown;
+        model: string | null;
+        created_at: string;
+      }>
+    | null;
   gift_sessions: Array<{
     id: string;
     intake_summary: unknown;
@@ -137,9 +144,21 @@ export default async function GiftDashboardPage() {
         return bTime - aTime;
       })[0];
 
-    const recommendationRecord = gift.gift_recommendations?.recommendations ?? null;
-    const recommendationCreatedAt = gift.gift_recommendations?.created_at ?? null;
-    const recommendationModel = gift.gift_recommendations?.model ?? null;
+    const recommendationEntries = Array.isArray(gift.gift_recommendations)
+      ? gift.gift_recommendations
+      : gift.gift_recommendations
+        ? [gift.gift_recommendations]
+        : [];
+    const latestRecommendation =
+      recommendationEntries
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )[0] ?? null;
+    const recommendationRecord = latestRecommendation?.recommendations ?? null;
+    const recommendationCreatedAt = latestRecommendation?.created_at ?? null;
+    const recommendationModel = latestRecommendation?.model ?? null;
     const recommendation = mapGiftRecommendationPayload(
       recommendationRecord,
       recommendationCreatedAt ?? undefined,

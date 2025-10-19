@@ -16,6 +16,12 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 
+const isCreateGiftResponse = (payload: unknown): payload is CreateGiftResponse => {
+  if (!payload || typeof payload !== 'object') return false;
+  const record = payload as Record<string, unknown>;
+  return typeof record.giftId === 'string' && typeof record.shareUrl === 'string';
+};
+
 interface CreateGiftModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,7 +34,6 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
-
   const [formData, setFormData] = useState<CreateGiftRequest>({
     occasion: '',
     recipientFirstName: '',
@@ -51,14 +56,24 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
         body: JSON.stringify(formData),
       });
 
-      const data: CreateGiftResponse = await response.json();
+      const data: unknown = await response.json();
 
       if (response.status === 401) {
         throw new Error('ギフト機能をご利用いただくにはサインインが必要です。サインイン後にもう一度お試しください。');
       }
 
       if (!response.ok) {
-        throw new Error(data.error || 'ギフトの作成に失敗しました');
+        const errorMessage =
+          typeof data === 'object' && data && 'error' in data
+            ? typeof (data as Record<string, unknown>).error === 'string'
+              ? ((data as Record<string, unknown>).error as string)
+              : 'ギフトの作成に失敗しました'
+            : 'ギフトの作成に失敗しました';
+        throw new Error(errorMessage);
+      }
+
+      if (!isCreateGiftResponse(data)) {
+        throw new Error('ギフトの作成に失敗しました');
       }
 
       setShareUrl(data.shareUrl);
