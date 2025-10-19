@@ -118,6 +118,8 @@ export default function VoiceChat({
   isMinimized = false,
   onToggleMinimize,
 }: VoiceChatProps) {
+  const realtimeModel =
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -446,6 +448,7 @@ export default function VoiceChat({
 
       await currentSession.connect({
         apiKey: data.value,
+        model: realtimeModel,
       });
       currentSession.mute(false);
 

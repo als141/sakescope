@@ -18,6 +18,8 @@ export function createRealtimeVoiceBundle(
 ): VoiceAgentBundle {
   const voiceAgent = createVoiceAgent();
   const traceGroupId = createTraceGroupId();
+  const realtimeModel =
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
 
   const runtimeContext: AgentRuntimeContext = {
     callbacks,
@@ -37,6 +39,7 @@ export function createRealtimeVoiceBundle(
       channel: 'voice',
       conversation_id: traceGroupId,
     },
+    model: realtimeModel,
     config: {
       outputModalities: ['audio'],
       audio: {

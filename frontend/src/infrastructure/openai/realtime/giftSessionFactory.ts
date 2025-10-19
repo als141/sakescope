@@ -20,6 +20,8 @@ export function createGiftRealtimeBundle(
 ): GiftAgentBundle {
   const agent = createGiftAgent();
   const traceGroupId = createTraceGroupId();
+  const realtimeModel =
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
 
   const runtimeContext: AgentRuntimeContext = {
     callbacks,
@@ -42,11 +44,21 @@ export function createGiftRealtimeBundle(
       gift_id: giftId,
       gift_session_id: sessionId,
     },
+    model: realtimeModel,
     config: {
       outputModalities: ['audio'],
       audio: {
-        input: { format: 'pcm16' },
-        output: { voice: 'alloy', format: 'pcm16' },
+        input: {
+          format: { type: 'audio/pcm', rate: 24000 },
+          transcription: { model: 'gpt-4o-mini-transcribe' },
+          turnDetection: { type: 'semantic_vad' },
+          noiseReduction: null,
+        },
+        output: {
+          format: { type: 'audio/pcm', rate: 24000 },
+          voice: 'alloy',
+          speed: 1,
+        },
       },
     },
   });

@@ -185,6 +185,8 @@ function transformRecommendationPayload(payload: unknown): RecommendationViewMod
 }
 
 export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatProps) {
+  const realtimeModel =
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const bundleRef = useRef<GiftAgentBundle | null>(null);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
@@ -400,7 +402,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
         throw new Error(details);
       }
 
-      await sessionRef.current.connect({ apiKey: data.value });
+      await sessionRef.current.connect({ apiKey: data.value, model: realtimeModel });
       sessionRef.current.mute(false);
       setIsMuted(false);
       setIsConnected(true);
