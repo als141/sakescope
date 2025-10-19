@@ -188,6 +188,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
   const realtimeModel =
     process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
+  const connectedSessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const bundleRef = useRef<GiftAgentBundle | null>(null);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
   const userMessageIdsRef = useRef<Set<string>>(new Set());
@@ -267,6 +268,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
         setIsCompleting(false);
         setIsConnected(false);
         onCompleted?.({ summary, intakeSummary: intake });
+        connectedSessionRef.current = null;
         try {
           sessionRef.current?.close();
         } catch {
@@ -277,6 +279,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
 
     bundleRef.current = bundle;
     sessionRef.current = bundle.session;
+    connectedSessionRef.current = null;
     setHasAttemptedConnect(false);
 
     type SessionEvents = RealtimeSessionEventTypes<AgentRuntimeContext>;
@@ -358,6 +361,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
       const msg = extractErrorMessage(event) ?? '通信エラーが発生しました';
       setError(msg);
       setIsConnecting(false);
+      connectedSessionRef.current = null;
     };
 
     bundle.session.on('history_added', handleHistoryAdded);
@@ -374,6 +378,9 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     });
 
     return () => {
+      if (connectedSessionRef.current === bundle.session) {
+        connectedSessionRef.current = null;
+      }
       try {
         bundle.session.close();
       } catch {
@@ -385,7 +392,15 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
   }, [giftId, sessionId, appendAssistantMessage, appendUserMessage, addMessage, onCompleted]);
 
   const connectToSession = useCallback(async () => {
-    if (!sessionRef.current) return;
+    const session = sessionRef.current;
+    if (!session) {
+      return;
+    }
+    if (connectedSessionRef.current === session) {
+      return;
+    }
+
+    connectedSessionRef.current = session;
     setIsConnecting(true);
     setError(null);
     try {
@@ -402,8 +417,17 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
         throw new Error(details);
       }
 
-      await sessionRef.current.connect({ apiKey: data.value, model: realtimeModel });
-      sessionRef.current.mute(false);
+      await session.connect({ apiKey: data.value, model: realtimeModel });
+      if (connectedSessionRef.current !== session) {
+        setIsConnecting(false);
+        try {
+          session.close();
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      session.mute(false);
       setIsMuted(false);
       setIsConnected(true);
       setIsConnecting(false);
@@ -415,18 +439,25 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
         timestamp: new Date(),
       });
     } catch (err) {
+      if (connectedSessionRef.current === session) {
+        connectedSessionRef.current = null;
+      }
       const message =
         err instanceof Error ? err.message : '接続に失敗しました';
       setError(message);
       setIsConnecting(false);
       setIsConnected(false);
       try {
-        sessionRef.current?.close();
+        if (session === sessionRef.current) {
+          sessionRef.current?.close();
+        } else {
+          session.close();
+        }
       } catch {
         // ignore
       }
     }
-  }, [addMessage]);
+  }, [addMessage, realtimeModel]);
 
   useEffect(() => {
     if (
@@ -459,6 +490,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     if (isConnecting || isConnected || isFinished) {
       return;
     }
+    connectedSessionRef.current = null;
     setHasAttemptedConnect(false);
     setError(null);
   };

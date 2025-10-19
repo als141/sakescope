@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -22,6 +22,7 @@ export default function GiftPage() {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [isAgeConfirming, setIsAgeConfirming] = useState(false);
   const [ageConfirmError, setAgeConfirmError] = useState<string | null>(null);
+  const lastValidatedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function validateToken() {
@@ -46,14 +47,22 @@ export default function GiftPage() {
       } catch (err) {
         console.error('Error validating token:', err);
         setError('リンクの検証中にエラーが発生しました');
+        lastValidatedTokenRef.current = null;
       } finally {
         setIsValidating(false);
       }
     }
 
-    if (token) {
-      void validateToken();
+    if (!token) {
+      return;
     }
+
+    if (lastValidatedTokenRef.current === token) {
+      return;
+    }
+
+    lastValidatedTokenRef.current = token;
+    void validateToken();
   }, [token]);
 
   const handleAgeConfirm = async () => {
