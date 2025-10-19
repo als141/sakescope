@@ -11,7 +11,7 @@ const messageSchema = z.object({
 });
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const GIFT_MODEL = process.env.OPENAI_GIFT_MODEL ?? 'gpt-5-nano';
+const GIFT_MODEL = process.env.OPENAI_GIFT_MODEL ?? 'gpt-5-mini';
 
 if (!OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is not configured');

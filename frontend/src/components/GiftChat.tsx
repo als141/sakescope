@@ -133,22 +133,57 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     });
   }, [addMessage]);
 
-  const appendAssistantMessage = useCallback((id: string, text: string, mode: 'text' | 'voice') => {
-    if (!text.trim()) return;
-    addMessage({
-      id,
-      role: 'assistant',
-      text,
-      mode,
-      timestamp: new Date(),
-    });
-  }, [addMessage]);
+  const upsertAssistantMessage = useCallback(
+    (
+      id: string,
+      text: string,
+      mode: 'text' | 'voice',
+      options: { append?: boolean } = {},
+    ) => {
+      if (!id || typeof text !== 'string') {
+        return;
+      }
+      const { append = false } = options;
+      assistantMessageIdsRef.current.add(id);
+      setMessages((prev) => {
+        const index = prev.findIndex((message) => message.id === id && message.role === 'assistant');
+        if (index === -1) {
+          const next: ChatMessage = {
+            id,
+            role: 'assistant',
+            text,
+            mode,
+            timestamp: new Date(),
+          };
+          return [...prev, next];
+        }
+        const existing = prev[index];
+        const updatedText = append ? `${existing.text}${text}` : text;
+        if (updatedText === existing.text && existing.mode === mode) {
+          return prev;
+        }
+        const nextMessage: ChatMessage = {
+          ...existing,
+          text: updatedText,
+          mode,
+          timestamp: new Date(),
+        };
+        const next = [...prev];
+        next[index] = nextMessage;
+        return next;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!scrollAreaRef.current) return;
     const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
     if (viewport instanceof HTMLElement) {
-      viewport.scrollTop = viewport.scrollHeight;
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   }, [messages]);
 
@@ -222,18 +257,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
         : `${role}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
       if (role === 'assistant') {
-        if (assistantMessageIdsRef.current.has(itemId) && parsed.mode === 'voice') {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === itemId && m.role === 'assistant'
-                ? { ...m, text: parsed.text, timestamp: new Date() }
-                : m,
-            ),
-          );
-          return;
-        }
-        assistantMessageIdsRef.current.add(itemId);
-        appendAssistantMessage(itemId, parsed.text, parsed.mode);
+        upsertAssistantMessage(itemId, parsed.text, parsed.mode);
       } else {
         const cleaned = parsed.text.startsWith(TEXT_PREFIX)
           ? parsed.text.slice(TEXT_PREFIX.length).trim()
@@ -258,7 +282,49 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
       connectedSessionRef.current = null;
     };
 
+    const handleTransportEvent = (event: SessionEvents['transport_event'][0]) => {
+      if (!event || typeof event !== 'object') {
+        return;
+      }
+      const type = (event as { type?: unknown }).type;
+      if (typeof type !== 'string') {
+        return;
+      }
+      const itemId = (event as { item_id?: unknown }).item_id;
+      if (typeof itemId !== 'string') {
+        return;
+      }
+      if (type === 'response.output_text.delta') {
+        const delta = (event as { delta?: unknown }).delta;
+        if (typeof delta === 'string' && delta.length > 0) {
+          upsertAssistantMessage(itemId, delta, 'text', { append: true });
+        }
+        return;
+      }
+      if (type === 'response.output_text.done') {
+        const finalText = (event as { text?: unknown }).text;
+        if (typeof finalText === 'string') {
+          upsertAssistantMessage(itemId, finalText, 'text');
+        }
+        return;
+      }
+      if (type === 'response.output_audio_transcript.delta') {
+        const transcriptDelta = (event as { delta?: unknown }).delta;
+        if (typeof transcriptDelta === 'string' && transcriptDelta.length > 0) {
+          upsertAssistantMessage(itemId, transcriptDelta, 'voice', { append: true });
+        }
+        return;
+      }
+      if (type === 'response.output_audio_transcript.done') {
+        const transcript = (event as { transcript?: unknown }).transcript;
+        if (typeof transcript === 'string') {
+          upsertAssistantMessage(itemId, transcript, 'voice');
+        }
+      }
+    };
+
     bundle.session.on('history_added', handleHistoryAdded);
+    bundle.session.on('transport_event', handleTransportEvent);
     bundle.session.on('error', handleError);
     bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
       if (tool.name === 'complete_gift_intake') {
@@ -272,6 +338,9 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     });
 
     return () => {
+      bundle.session.off('history_added', handleHistoryAdded);
+      bundle.session.off('transport_event', handleTransportEvent);
+      bundle.session.off('error', handleError);
       if (connectedSessionRef.current === bundle.session) {
         connectedSessionRef.current = null;
       }
@@ -283,7 +352,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, [giftId, sessionId, appendAssistantMessage, appendUserMessage, addMessage, onCompleted]);
+  }, [giftId, sessionId, upsertAssistantMessage, appendUserMessage, addMessage, onCompleted]);
 
   const connectToSession = useCallback(async () => {
     const session = sessionRef.current;

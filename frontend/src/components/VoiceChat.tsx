@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic,
@@ -134,6 +134,8 @@ export default function VoiceChat({
   const latestSakeRef = useRef<Sake | null>(null);
   const preferencesRef = useRef(preferences);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
+  const assistantMessageOrderRef = useRef<string[]>([]);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const isCompact = variant === 'compact';
   const isRecordingRef = useRef(isRecording);
   const autoMutedRef = useRef(false);
@@ -174,6 +176,33 @@ export default function VoiceChat({
     }
   };
 
+  const upsertAiMessage = useCallback(
+    (id: string, text: string, options: { append?: boolean } = {}) => {
+      if (!id || typeof text !== 'string') {
+        return;
+      }
+      const { append = false } = options;
+      setAiMessages((prev) => {
+        const order = assistantMessageOrderRef.current;
+        const index = order.indexOf(id);
+        if (index === -1) {
+          order.push(id);
+          assistantMessageIdsRef.current.add(id);
+          return [...prev, text];
+        }
+        const existing = prev[index] ?? '';
+        const nextText = append ? `${existing}${text}` : text;
+        if (nextText === existing) {
+          return prev;
+        }
+        const next = [...prev];
+        next[index] = nextText;
+        return next;
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     onSakeRecommendedRef.current = onSakeRecommended;
   }, [onSakeRecommended]);
@@ -181,6 +210,19 @@ export default function VoiceChat({
   useEffect(() => {
     onOfferReadyRef.current = onOfferReady;
   }, [onOfferReady]);
+
+  useEffect(() => {
+    if (!scrollAreaRef.current) {
+      return;
+    }
+    const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    if (viewport instanceof HTMLElement) {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [aiMessages, progressEvents]);
 
   useEffect(() => {
     preferencesRef.current = preferences;
@@ -260,6 +302,7 @@ export default function VoiceChat({
 
     bundleRef.current = bundle;
     sessionRef.current = bundle.session;
+    assistantMessageOrderRef.current = [];
 
     const prefSeed = preferencesRef.current;
     if (prefSeed) {
@@ -276,9 +319,48 @@ export default function VoiceChat({
 
     type SessionEvents = RealtimeSessionEventTypes<AgentRuntimeContext>;
 
-    bundle.session.on('transport_event', (event: TransportEvent) => {
-      void event;
-    });
+    const handleTransportEvent = (event: TransportEvent) => {
+      if (!event || typeof event !== 'object') {
+        return;
+      }
+      const type = (event as { type?: unknown }).type;
+      if (typeof type !== 'string') {
+        return;
+      }
+      const itemId = (event as { item_id?: unknown }).item_id;
+      if (typeof itemId !== 'string') {
+        return;
+      }
+      if (type === 'response.output_text.delta') {
+        const delta = (event as { delta?: unknown }).delta;
+        if (typeof delta === 'string' && delta.length > 0) {
+          upsertAiMessage(itemId, delta, { append: true });
+        }
+        return;
+      }
+      if (type === 'response.output_text.done') {
+        const text = (event as { text?: unknown }).text;
+        if (typeof text === 'string') {
+          upsertAiMessage(itemId, text);
+        }
+        return;
+      }
+      if (type === 'response.output_audio_transcript.delta') {
+        const delta = (event as { delta?: unknown }).delta;
+        if (typeof delta === 'string' && delta.length > 0) {
+          upsertAiMessage(itemId, delta, { append: true });
+        }
+        return;
+      }
+      if (type === 'response.output_audio_transcript.done') {
+        const transcript = (event as { transcript?: unknown }).transcript;
+        if (typeof transcript === 'string') {
+          upsertAiMessage(itemId, transcript);
+        }
+      }
+    };
+
+    bundle.session.on('transport_event', handleTransportEvent);
 
     const extractAssistantTranscript = (item: unknown): string | null => {
       if (!item || typeof item !== 'object') {
@@ -324,37 +406,11 @@ export default function VoiceChat({
         item && typeof item === 'object' && 'itemId' in item
           ? (item as { itemId?: unknown }).itemId
           : null;
-      if (typeof rawId === 'string') {
-        const seen = assistantMessageIdsRef.current;
-        if (seen.has(rawId)) {
-          return;
-        }
-        seen.add(rawId);
-      }
-      setAiMessages((prev) => {
-        const last = prev.length > 0 ? prev[prev.length - 1] : null;
-        if (last && last.trim() === text) {
-          return prev;
-        }
-        return [...prev, text];
-      });
-    });
-
-    bundle.session.on('agent_end', (...[, , finalText]: SessionEvents['agent_end']) => {
-      if (typeof finalText !== 'string') {
-        return;
-      }
-      const trimmed = finalText.trim();
-      if (!trimmed) {
-        return;
-      }
-      setAiMessages((prev) => {
-        const last = prev.length > 0 ? prev[prev.length - 1] : null;
-        if (last && last.trim() === trimmed) {
-          return prev;
-        }
-        return [...prev, trimmed];
-      });
+      const itemId =
+        typeof rawId === 'string'
+          ? rawId
+          : `assistant-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+      upsertAiMessage(itemId, text);
     });
 
     bundle.session.on('agent_handoff', () => {
@@ -409,6 +465,7 @@ export default function VoiceChat({
     });
 
     return () => {
+      bundle.session.off('transport_event', handleTransportEvent);
       try {
         bundle.session.close();
       } catch (err) {
@@ -417,7 +474,7 @@ export default function VoiceChat({
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, []);
+  }, [preferences, upsertAiMessage]);
 
   const connectToSession = async () => {
     const currentSession = sessionRef.current;
@@ -479,6 +536,7 @@ export default function VoiceChat({
       setIsLoading(false);
       setIsRecording(true);
       assistantMessageIdsRef.current.clear();
+      assistantMessageOrderRef.current = [];
       setAiMessages([]);
       onConnectionChange?.(true);
     } catch (err) {
@@ -501,6 +559,7 @@ export default function VoiceChat({
     setIsDelegating(false);
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
+    assistantMessageOrderRef.current = [];
     setProgressEvents([]);
     autoMutedRef.current = false;
     onConnectionChange?.(false);
@@ -606,7 +665,7 @@ export default function VoiceChat({
           {/* チャット表示エリア */}
           <Card className="w-full shadow-2xl border-border/30 bg-card/95 backdrop-blur-sm">
             <CardContent className="p-0">
-              <ScrollArea className="h-[60vh] sm:h-[65vh] max-h-[600px] p-4 sm:p-6">
+              <ScrollArea ref={scrollAreaRef} className="h-[60vh] sm:h-[65vh] max-h-[600px] p-4 sm:p-6">
                 <div className="space-y-4 sm:space-y-5">
                   {aiMessages.length === 0 ? (
                     <motion.div
