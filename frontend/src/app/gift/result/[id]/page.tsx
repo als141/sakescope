@@ -2,17 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, AlertCircle, Gift, ArrowLeft, ExternalLink, Package } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Loader2, AlertCircle, Gift, ArrowLeft, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/lib/supabase';
-import type { Gift as GiftType, GiftRecommendation } from '@/types/gift';
+import type { Gift as GiftType } from '@/types/gift';
 import SakeDisplay from '@/components/SakeDisplay';
-import type { Sake, PurchaseOffer } from '@/domain/sake/types';
+import type { PurchaseOffer } from '@/domain/sake/types';
+import { mapGiftRecommendationPayload } from '@/lib/giftRecommendation';
 
 export default function GiftResultPage() {
   const params = useParams();
@@ -22,12 +22,12 @@ export default function GiftResultPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gift, setGift] = useState<GiftType | null>(null);
-  const [recommendation, setRecommendation] = useState<GiftRecommendation | null>(null);
   const [offer, setOffer] = useState<PurchaseOffer | null>(null);
 
   useEffect(() => {
     async function loadGiftResult() {
       try {
+        setOffer(null);
         // Fetch gift data
         const { data: giftData, error: giftError } = await supabase
           .from('gifts')
@@ -52,47 +52,12 @@ export default function GiftResultPage() {
             .single();
 
           if (!recError && recData) {
-            setRecommendation(recData as GiftRecommendation);
-
-            // Transform recommendation to PurchaseOffer format
-            const recPayload = recData.recommendations as any;
-            if (recPayload?.sake && recPayload?.shops) {
-              const transformedOffer: PurchaseOffer = {
-                sake: {
-                  id: recPayload.sake.id || null,
-                  name: recPayload.sake.name,
-                  brewery: recPayload.sake.brewery || null,
-                  region: recPayload.sake.region || null,
-                  type: recPayload.sake.type || null,
-                  alcohol: recPayload.sake.alcohol || null,
-                  sakeValue: recPayload.sake.sake_value || null,
-                  acidity: recPayload.sake.acidity || null,
-                  description: recPayload.sake.description || null,
-                  tastingNotes: recPayload.sake.tasting_notes || null,
-                  foodPairing: recPayload.sake.food_pairing || null,
-                  servingTemperature: recPayload.sake.serving_temperature || null,
-                  imageUrl: recPayload.sake.image_url,
-                  originSources: recPayload.sake.origin_sources || null,
-                  priceRange: recPayload.sake.price_range || null,
-                  flavorProfile: recPayload.sake.flavor_profile || null,
-                },
-                shops: recPayload.shops.map((shop: any) => ({
-                  retailer: shop.retailer,
-                  url: shop.url,
-                  price: shop.price,
-                  priceText: shop.price_text,
-                  currency: shop.currency || 'JPY',
-                  availability: shop.availability,
-                  deliveryEstimate: shop.delivery_estimate,
-                  source: shop.source,
-                  notes: shop.notes,
-                })),
-                summary: recPayload.summary,
-                reasoning: recPayload.reasoning,
-                tastingHighlights: recPayload.tasting_highlights || null,
-                servingSuggestions: recPayload.serving_suggestions || null,
-              };
-              setOffer(transformedOffer);
+            const mappedOffer = mapGiftRecommendationPayload(
+              recData.recommendations,
+              recData.created_at ?? undefined,
+            );
+            if (mappedOffer) {
+              setOffer(mappedOffer);
             }
           }
 

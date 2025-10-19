@@ -19,9 +19,10 @@ import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 interface CreateGiftModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: (payload: CreateGiftResponse) => void;
 }
 
-export default function CreateGiftModal({ isOpen, onClose }: CreateGiftModalProps) {
+export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGiftModalProps) {
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export default function CreateGiftModal({ isOpen, onClose }: CreateGiftModalProp
 
       setShareUrl(data.shareUrl);
       setStep('success');
+      onCreated?.(data);
     } catch (err) {
       console.error('Error creating gift:', err);
       setError(err instanceof Error ? err.message : 'エラーが発生しました');
@@ -91,11 +93,19 @@ export default function CreateGiftModal({ isOpen, onClose }: CreateGiftModalProp
     });
     setError(null);
     setShareUrl('');
+    setCopied(false);
+    setIsLoading(false);
     onClose();
   };
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <div className="flex items-center gap-3">

@@ -1,3 +1,5 @@
+import type { PurchaseOffer } from '@/domain/sake/types';
+
 export type GiftStatus =
   | 'DRAFT'
   | 'LINK_CREATED'
@@ -94,4 +96,22 @@ export interface IntakeSummary {
   drinking_frequency?: string;
   region_preference?: string[];
   notes?: string;
+}
+
+export interface GiftDashboardItem {
+  id: string;
+  recipientFirstName: string | null;
+  occasion: string | null;
+  budgetMin: number;
+  budgetMax: number;
+  messageToRecipient: string | null;
+  status: GiftStatus;
+  createdAt: string;
+  updatedAt: string;
+  intakeSummary: IntakeSummary | null;
+  intakeCompletedAt: string | null;
+  ageConfirmed: boolean;
+  recommendation: PurchaseOffer | null;
+  recommendationCreatedAt: string | null;
+  recommendationModel: string | null;
 }

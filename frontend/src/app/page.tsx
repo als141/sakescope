@@ -8,7 +8,6 @@ import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
 import SakeHistory from '@/components/SakeHistory';
-import CreateGiftModal from '@/components/CreateGiftModal';
 import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ export default function Home() {
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [isVoiceChatMinimized, setIsVoiceChatMinimized] = useState(false);
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
-  const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [preferences, setPreferences] = useState<{
     flavor_preference?: string | null;
     body_preference?: string | null;
@@ -200,13 +198,15 @@ export default function Home() {
               <SignedIn>
                 <>
                   <Button
-                    onClick={() => setIsGiftModalOpen(true)}
+                    asChild
                     variant="outline"
                     size="default"
                     className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
                   >
-                    <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                    <span className="hidden sm:inline">ギフトを贈る</span>
+                    <Link href="/gift">
+                      <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                      <span className="hidden sm:inline">ギフトを贈る</span>
+                    </Link>
                   </Button>
                   <Link href="/settings">
                     <Button
@@ -350,13 +350,6 @@ export default function Home() {
           />
         </div>
 
-        {/* Gift Modal */}
-        <SignedIn>
-          <CreateGiftModal
-            isOpen={isGiftModalOpen}
-            onClose={() => setIsGiftModalOpen(false)}
-          />
-        </SignedIn>
       </div>
     </div>
   );
