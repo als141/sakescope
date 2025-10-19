@@ -626,10 +626,10 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
               </div>
             </div>
             <CardTitle className="text-2xl font-bold">
-              ありがとうございました！
+              会話は終了しました！
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              いただいたお話をもとに、日本酒ソムリエが最適な1本を選定しています。
+              後ほど送り主からのご連絡をお待ちください。いただいたお話をもとに、日本酒ソムリエが最適な1本を選定しています。
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
