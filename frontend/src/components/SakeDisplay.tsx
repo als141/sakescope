@@ -3,7 +3,18 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles, Search } from 'lucide-react';
+import {
+  MapPin,
+  Thermometer,
+  Wine,
+  DollarSign,
+  Utensils,
+  ShoppingBag,
+  ExternalLink,
+  Sparkles,
+  Search,
+  BookOpen,
+} from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -32,6 +43,7 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
   const servingTemperatures = sake.servingTemperature ?? [];
   const foodPairing = sake.foodPairing ?? [];
   const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(sake.name)}`;
+  const story = offer?.story ?? null;
 
   return (
     <motion.div
@@ -144,6 +156,25 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                     {sake.description ?? '詳細データを取得しています。'}
                   </p>
                 </motion.div>
+
+                {story && (
+                  <motion.div
+                    className="rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5 space-y-2"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35, duration: 0.5 }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                      <h3 className="text-sm sm:text-base font-semibold text-foreground">
+                        ストーリー
+                      </h3>
+                    </div>
+                    <p className="text-sm sm:text-base text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      {story}
+                    </p>
+                  </motion.div>
+                )}
 
                 {/* Technical Specs - Compact */}
                 {(sake.alcohol || sake.sakeValue || sake.acidity) && (

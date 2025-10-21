@@ -73,6 +73,7 @@ type MappedRecommendationCore = {
   tastingHighlights?: string[];
   servingSuggestions?: string[];
   shops: ShopListing[];
+  story?: string;
 };
 
 function mapRecommendationCore(
@@ -113,6 +114,10 @@ function mapRecommendationCore(
     tastingHighlights: toOptionalStringArray(payload.tasting_highlights),
     servingSuggestions: toOptionalStringArray(payload.serving_suggestions),
     shops,
+    story:
+      typeof payload.story === 'string' && payload.story.trim().length > 0
+        ? payload.story.trim()
+        : undefined,
   };
 }
 
@@ -139,6 +144,7 @@ export function mapGiftRecommendationPayload(
     servingSuggestions: core.servingSuggestions,
     shops: core.shops,
     updatedAt: updatedAt ?? new Date().toISOString(),
+    story: core.story,
   };
 
   if (Array.isArray(record.alternatives)) {
@@ -161,6 +167,7 @@ export function mapGiftRecommendationPayload(
         shops: mapped.shops,
         tastingHighlights: mapped.tastingHighlights,
         servingSuggestions: mapped.servingSuggestions,
+        story: mapped.story,
       });
     }
     if (alternatives.length > 0) {

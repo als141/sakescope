@@ -82,6 +82,7 @@ const recommendationSchemaInput = z.object({
   tasting_highlights: z.array(z.string()).nullable(),
   serving_suggestions: z.array(z.string()).nullable(),
   shops: z.array(shopSchema).min(1),
+  story: z.string().nullable(),
 });
 
 const recommendationSchemaOutput = z.object({
@@ -91,6 +92,7 @@ const recommendationSchemaOutput = z.object({
   tasting_highlights: z.array(z.string()).nullable(),
   serving_suggestions: z.array(z.string()).nullable(),
   shops: z.array(shopSchema).min(1),
+  story: z.string().nullable(),
 });
 
 const finalPayloadInputSchema = recommendationSchemaInput.extend({
@@ -572,6 +574,7 @@ export async function POST(req: NextRequest) {
 - ユーザー嗜好とフォーカスに基づき、日本酒を厳選して推薦する
 - 公式EC、正規代理店、百貨店、専門店など信頼性の高い販売サイトを優先し、価格・在庫・配送見込み・出典URLを明記する
 - 情報は必ず複数ソースで裏取りし、根拠URLを "origin_sources" にまとめる
+- 銘柄の背景・蔵元のこだわり・受賞歴など、会話で語れるストーリーを調査し、1〜3文のナラティブを \`story\` にまとめる
 ${isGiftMode ? `
 ### ギフトモード特別指示
 このリクエストはギフト推薦です。以下の点に特に注意してください：
@@ -585,7 +588,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 
 ### スピード重視の進め方
 - まずは必要条件を箇条書きで整理し、単一の \`web_search\` クエリで候補・販売先・最新価格をまとめて取得する。香り・価格帯・ペアリング用途・ギフト用途を1本の検索語に含めて複数候補を同時に集めること。
-- 追加の \`web_search\` は情報が欠落している場合のみ最大1回まで行う（例: 最適候補の在庫が不明／価格が取得できない場合など）。無目的な再検索は禁止。
+- 追加の \`web_search\` は情報が欠落している場合のみ最大1回まで行う（例: 最適候補の在庫が不明／価格やストーリー背景が取得できない場合など）。無目的な再検索は禁止。
 - 画像URLは販売ページや信頼できる資料に直接画像リンクがある場合のみ採用し、見つからない場合はもっとも信頼性の高い商品ページURLを一時的に \`image_url\` に入力する。サーバーが最終的に画像を抽出するため専用ツールを呼び出す必要はない。
 - reasoning やメモは要点を簡潔にまとめ、冗長な重複説明は避ける。
 
@@ -594,11 +597,13 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 2. 検索結果から条件に最も合う銘柄を評価し、香味・造り・ペアリング・提供温度・価格帯を整理する。可能なら味わいを 1〜5 のスコアで "flavor_profile" に入れる。
 3. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
 4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する。
+5. 醸造背景や蔵元エピソード、味わいの物語を確認し、出典を添えて \`story\` にまとめる。
 
 ### 出力
 - 最終的な回答は必ず一度だけ 'finalize_recommendation' を呼び出し、JSONを返す
 - 定量情報が取れない場合は null を指定し、根拠文に明記する
 - 追加で確認すべきことがあれば 'follow_up_prompt' に短く提案を書く
+- \`story\` には会話で紹介できる小話や造り手の背景を日本語で1〜3文にまとめ、事実確認できない伝聞は避ける。根拠URLは \`origin_sources\` に含める。
     `.trim(),
   });
 
