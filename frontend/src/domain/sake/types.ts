@@ -72,6 +72,7 @@ export interface AlternativeRecommendation {
   shops: ShopListing[];
   tastingHighlights?: string[];
   servingSuggestions?: string[];
+  story?: string;
 }
 
 export interface PurchaseOffer {
@@ -85,4 +86,5 @@ export interface PurchaseOffer {
   updatedAt: string;
   alternatives?: AlternativeRecommendation[];
   followUpPrompt?: string;
+  story?: string;
 }

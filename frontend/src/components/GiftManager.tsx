@@ -13,6 +13,7 @@ import {
   ExternalLink,
   ListChecks,
   Search,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -317,6 +318,15 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                     {gift.recommendation.summary}
                                   </p>
                                 </div>
+                                {gift.recommendation.story && (
+                                  <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                    <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wide mb-2">
+                                      <BookOpen className="h-4 w-4" />
+                                      <span>ストーリー</span>
+                                    </div>
+                                    {gift.recommendation.story}
+                                  </div>
+                                )}
                                 {gift.recommendation.tastingHighlights?.length ? (
                                   <div className="text-sm text-muted-foreground space-y-1">
                                     <div className="font-semibold text-foreground">味わいの特徴</div>
@@ -396,6 +406,15 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                         <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
                                           {alt.summary}
                                         </p>
+                                        {alt.story && (
+                                          <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                            <div className="flex items-center gap-1.5 font-semibold text-primary uppercase tracking-wide mb-1">
+                                              <BookOpen className="h-3.5 w-3.5" />
+                                              <span>ストーリー</span>
+                                            </div>
+                                            {alt.story}
+                                          </div>
+                                        )}
                                       </div>
                                     ))}
                                   </div>

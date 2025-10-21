@@ -103,6 +103,7 @@ const recommendationPayloadSchema = z.object({
   tasting_highlights: z.array(z.string()).nullable(),
   serving_suggestions: z.array(z.string()).nullable(),
   shops: z.array(shopListingSchema).min(1),
+  story: z.string().nullable(),
 });
 
 const agentResponseSchema = recommendationPayloadSchema.extend({
@@ -229,6 +230,7 @@ async function handleRecommendationSubmission(
     shops,
     updatedAt: new Date().toISOString(),
     followUpPrompt: parsed.follow_up_prompt ?? undefined,
+    story: parsed.story ?? undefined,
     alternatives: parsed.alternatives
       ? parsed.alternatives.map((alt) => ({
           sake: mapSakePayload(alt.sake),
@@ -247,6 +249,7 @@ async function handleRecommendationSubmission(
           })),
           tastingHighlights: alt.tasting_highlights ?? undefined,
           servingSuggestions: alt.serving_suggestions ?? undefined,
+          story: alt.story ?? undefined,
         }))
       : undefined,
   };
@@ -496,7 +499,7 @@ function buildProfileHint(
 export const recommendSakeTool = tool({
   name: 'recommend_sake',
   description:
-    '雑談で引き出した要望をまとめてテキストエージェントに渡し、日本酒の推薦JSONを取得します。購入や在庫の確認もこのツールを使ってください。',
+    '雑談で引き出した要望をまとめてテキストエージェントに渡し、日本酒の推薦JSONを取得します。JSONにはsummaryやreasoningに加えてストーリー(\`story\`)も含まれます。購入や在庫の確認もこのツールを使ってください。',
   parameters: z.object({
     handoff_summary: z
       .string()
