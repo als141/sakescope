@@ -1,6 +1,9 @@
+import { handoff } from '@openai/agents';
 import { RealtimeAgent } from '@openai/agents-realtime';
-import { recommendSakeTool } from './tools';
+import type { RunContext } from '@openai/agents-core';
+import { executeRecommendSakeDelegation, recommendSakeInputSchema } from './tools';
 import type { AgentRuntimeContext } from './context';
+import { createVoiceSummaryAgent } from './voiceSummaryAgentFactory';
 
 const VOICE_INSTRUCTIONS = `
 あなたは日本酒コンシェルジュ。だけど堅くしゃべらない。敬語禁止、ため口オンリー。
@@ -21,11 +24,35 @@ const VOICE_INSTRUCTIONS = `
 - 無理に1回で決めない。聞き返してOK。
 `.trim();
 
+const voiceSummaryAgent = createVoiceSummaryAgent();
+
+const recommendSakeHandoff = handoff(voiceSummaryAgent, {
+  toolNameOverride: 'recommend_sake',
+  toolDescriptionOverride:
+    '雑談で引き出した要望をまとめてテキストエージェントに渡し、日本酒の推薦JSONを取得します。購入や在庫の確認もこのハンドオフを使ってください。',
+  inputType: recommendSakeInputSchema,
+  async onHandoff(runContext, input) {
+    const runtime = runContext.context as AgentRuntimeContext | undefined;
+    if (!runtime) {
+      throw new Error('Runtime context is not available for the voice handoff.');
+    }
+
+    if (!input) {
+      throw new Error('recommend_sake handoff input is missing.');
+    }
+
+    await executeRecommendSakeDelegation(
+      input,
+      runContext as RunContext<AgentRuntimeContext>,
+    );
+  },
+});
+
 export function createVoiceAgent() {
   return new RealtimeAgent<AgentRuntimeContext>({
     name: 'Sake Sommelier Voice',
     instructions: VOICE_INSTRUCTIONS,
     voice: 'alloy',
-    tools: [recommendSakeTool],
+    handoffs: [recommendSakeHandoff],
   });
 }

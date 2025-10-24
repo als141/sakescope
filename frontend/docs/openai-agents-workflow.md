@@ -2,7 +2,7 @@
 
 1. **Voice intake** – the WebRTC session (`RealtimeSession`) runs with the voice-oriented `RealtimeAgent`.  
 2. **Preference acquisition** – the voice agent gathers flavour, body, budget, and pairing cues through conversation.  
-3. **Task delegation** – once ready (or when the guest asks for pricing/links), the voice agent calls the single function tool `recommend_sake`, passing a natural-language summary of the conversation (and optional metadata such as extracted preferences). The payload is forwarded to `/api/text-worker` together with the shared trace ID.  
+3. **Task delegation** – once準備が整うと、ボイスエージェントは公式 handoff `recommend_sake` を呼び出し、会話サマリーや抽出した嗜好メタデータを引き継ぎます。ハンドオフ先のフォローアップエージェントが感謝と今後の流れを伝えつつ、同じトレースIDで `/api/text-worker` に非同期リクエストを送信します。  
 4. **Research loop** – the server text worker (Agents SDK + `gpt-5-mini`) orchestrates a ReAct loop:
    - Hosted `web_search` gathers product facts, availability, and pricing from trusted retailers.  
    - Intermediate reasoning turns evaluate candidates and, if needed, repeat searches until a confident match is found.  
@@ -14,7 +14,7 @@
 
 - Voice agent  
   - Model: `gpt-realtime-mini` (session established via ephemeral client secret).  
-  - Tools: `recommend_sake` — the only callable function; everything else (UI submission) is handled locally after the server response.  
+  - Handoffs: `recommend_sake` — 会話サマリーをテキストエージェントへ渡し、フォローアップエージェントに制御を切り替える公式 handoff。UI 反映はブラウザ側コールバックが担当。  
 
 - Text worker agent (server-side API)  
   - Model: `gpt-5-mini` via `OpenAIResponsesModel`.  

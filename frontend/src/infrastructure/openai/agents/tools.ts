@@ -6,16 +6,13 @@ import {
   Sake,
   ShopListing,
 } from '@/domain/sake/types';
-import type { IntakeSummary } from '@/types/gift';
 import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from './context';
 
-type RuntimeRunContext = RunContext<{
-  history: unknown[];
-} & AgentRuntimeContext>;
+type RuntimeRunContext = RunContext<AgentRuntimeContext>;
 
 function getRuntimeContext(runContext?: RuntimeRunContext): AgentRuntimeContext {
   const ctx = runContext?.context;
@@ -111,95 +108,6 @@ const agentResponseSchema = recommendationPayloadSchema.extend({
 });
 
 type AgentResponse = z.infer<typeof agentResponseSchema>;
-
-const giftIntakeSummarySchema = z
-  .object({
-    aroma: z.array(z.string()).nullable().optional(),
-    taste_profile: z.array(z.string()).nullable().optional(),
-    sweetness_dryness: z.string().nullable().optional(),
-    temperature_preference: z.array(z.string()).nullable().optional(),
-    food_pairing: z.array(z.string()).nullable().optional(),
-    drinking_frequency: z.string().nullable().optional(),
-    region_preference: z.array(z.string()).nullable().optional(),
-    notes: z.string().nullable().optional(),
-  })
-  .nullable()
-  .optional();
-
-const completeGiftIntakeSchema = z.object({
-  summary: z.string().min(1),
-  intake: giftIntakeSummarySchema,
-  additional_notes: z.string().nullable().optional(),
-});
-
-export const completeGiftIntakeTool = tool({
-  name: 'complete_gift_intake',
-  description:
-    'ギフト用の聞き取りが完了したら、集めた情報をまとめてハンドオフします。予算は含めず、味わい・香り・温度・ペアリングなどを整理してください。',
-  parameters: completeGiftIntakeSchema,
-  strict: true,
-  async execute(input, runContext): Promise<string> {
-    const ctx = getRuntimeContext(runContext as RuntimeRunContext);
-    const giftSession = ctx.session.gift;
-
-    if (!giftSession?.giftId || !giftSession?.sessionId) {
-      throw new Error('Gift session metadata is not configured.');
-    }
-
-    const payload: Record<string, unknown> = {
-      sessionId: giftSession.sessionId,
-      intakeSummary: input.intake ?? null,
-      handoffSummary: input.summary,
-    };
-
-    if (input.additional_notes) {
-      payload.additionalNotes = input.additional_notes;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/gift/${giftSession.giftId}/trigger-handoff`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        const message =
-          errorText || `Gift handoff failed (${response.status})`;
-        ctx.callbacks.onError?.(message);
-        throw new Error(message);
-      }
-
-      ctx.session.gift = {
-        ...giftSession,
-        status: 'handed_off',
-      };
-
-      ctx.callbacks.onGiftIntakeCompleted?.({
-        giftId: giftSession.giftId,
-        sessionId: giftSession.sessionId,
-        summary: input.summary,
-        intakeSummary: (input.intake ?? null) as IntakeSummary | null,
-      });
-
-      return JSON.stringify({
-        status: 'handed_off',
-        gift_id: giftSession.giftId,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Gift handoff failed';
-      ctx.callbacks.onError?.(message);
-      throw error;
-    }
-  },
-});
 
 async function handleRecommendationSubmission(
   parsed: AgentResponse,
@@ -493,250 +401,267 @@ function buildProfileHint(
 
   return formatPreferenceHint(payload);
 }
+
+export const recommendSakeInputSchema = z.object({
+  handoff_summary: z
+    .string()
+    .min(1)
+    .describe('ユーザーの要望・嗜好・条件を自然言語でまとめた短い文章'),
+  additional_context: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('補足の会話内容や背景があれば追記してください'),
+  preference_note: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('嗜好やこだわりを自然文でまとめてください'),
+  include_alternatives: z.boolean().nullable().optional(),
+  focus: z.string().nullable().optional(),
+  conversation_context: z.string().nullable().optional(),
+  metadata: handoffMetadataSchema.optional(),
+});
+
+export type RecommendSakeInput = z.infer<typeof recommendSakeInputSchema>;
+
+export async function executeRecommendSakeDelegation(
+  input: RecommendSakeInput,
+  runContext: RuntimeRunContext,
+): Promise<{ serialized: string; parsed: AgentResponse | null }> {
+  const ctx = getRuntimeContext(runContext);
+
+  const emitProgress = (
+    event: Omit<TextWorkerProgressEvent, 'timestamp'> & { timestamp?: string },
+  ) => {
+    ctx.callbacks.onProgressEvent?.({
+      ...event,
+      timestamp: event.timestamp ?? new Date().toISOString(),
+    });
+  };
+
+  const metadata = input.metadata ?? null;
+  const metadataPreferences = metadata?.preferences;
+
+  const normalizedProfile = normalizePreferenceRecord(metadataPreferences);
+  if (normalizedProfile) {
+    ctx.session.userPreferences = {
+      ...ctx.session.userPreferences,
+      ...normalizedProfile,
+    };
+  }
+
+  const effectiveProfile = ctx.session.userPreferences;
+  const includeAlternatives =
+    typeof input.include_alternatives === 'boolean'
+      ? input.include_alternatives
+      : typeof metadata?.include_alternatives === 'boolean'
+        ? metadata.include_alternatives
+        : true;
+  const focus =
+    toCleanString(input.focus) ?? toCleanString(metadata?.focus);
+  const conversationContext =
+    toCleanString(input.conversation_context) ??
+    toCleanString(metadata?.conversation_context);
+  const notes = toCleanString(metadata?.notes);
+
+  ctx.callbacks.onShopsUpdated?.([]);
+
+  let eventSource: EventSource | null = null;
+  let parsedPayload: AgentResponse | null = null;
+  let serialized = JSON.stringify({ status: 'error', message: 'unknown' });
+
+  try {
+    const summary = input.handoff_summary.trim();
+    ctx.session.lastQuery = summary;
+    const runId = `${
+      ctx.session.traceGroupId ?? 'trace'
+    }:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    ctx.session.lastDelegationRunId = runId;
+
+    emitProgress({
+      type: 'status',
+      label: 'テキスト調査',
+      message: 'テキストエージェントに購入調査を依頼しました。',
+    });
+
+    const currentSakePayload =
+      metadata?.current_sake ??
+      (ctx.session.currentSake
+        ? {
+            id: ctx.session.currentSake.id ?? null,
+            name: ctx.session.currentSake.name ?? null,
+            brewery: ctx.session.currentSake.brewery ?? null,
+            region: ctx.session.currentSake.region ?? null,
+            type: ctx.session.currentSake.type ?? null,
+            alcohol:
+              typeof ctx.session.currentSake.alcohol === 'number'
+                ? ctx.session.currentSake.alcohol
+                : null,
+            notes: toCleanString(ctx.session.currentSake.description),
+          }
+        : null);
+
+    const preferenceHints = new Set<string>();
+    const addHint = (value: unknown) => {
+      const text = formatPreferenceHint(value);
+      if (text) {
+        preferenceHints.add(text);
+      }
+    };
+
+    addHint(input.preference_note);
+    addHint(metadata?.preference_note);
+    addHint(metadataPreferences);
+    const profileHint = buildProfileHint(effectiveProfile);
+    if (profileHint) {
+      preferenceHints.add(profileHint);
+    }
+
+    const preferenceNote =
+      preferenceHints.size > 0
+        ? Array.from(preferenceHints).join(' / ')
+        : null;
+
+    const metadataPayload: Record<string, unknown> = {};
+    if (notes) {
+      metadataPayload.notes = notes;
+    }
+    const metadataPreferenceText = formatPreferenceHint(metadataPreferences);
+    if (metadataPreferenceText) {
+      metadataPayload.preferences = metadataPreferenceText;
+    }
+    const cleanMetadataPreferenceNote = toCleanString(
+      metadata?.preference_note,
+    );
+    if (cleanMetadataPreferenceNote) {
+      metadataPayload.preference_note = cleanMetadataPreferenceNote;
+    }
+    if (conversationContext) {
+      metadataPayload.conversation_context = conversationContext;
+    }
+    if (currentSakePayload) {
+      metadataPayload.current_sake = currentSakePayload;
+    }
+    if (preferenceNote) {
+      const existing = toCleanString(metadataPayload.preference_note);
+      metadataPayload.preference_note = existing
+        ? `${existing} / ${preferenceNote}`
+        : preferenceNote;
+    }
+
+    const requestBody: Record<string, unknown> = {
+      handoff_summary: summary,
+      trace_group_id: ctx.session.traceGroupId ?? null,
+      run_id: runId,
+    };
+
+    const additionalContext = toCleanString(input.additional_context);
+    if (additionalContext) {
+      requestBody.additional_context = additionalContext;
+    }
+    if (conversationContext) {
+      requestBody.conversation_context = conversationContext;
+    }
+    if (preferenceNote) {
+      requestBody.preference_note = preferenceNote;
+    }
+    if (typeof includeAlternatives === 'boolean') {
+      requestBody.include_alternatives = includeAlternatives;
+    }
+    if (focus) {
+      requestBody.focus = focus;
+    }
+    if (currentSakePayload) {
+      requestBody.current_sake = currentSakePayload;
+    }
+    if (Object.keys(metadataPayload).length > 0) {
+      requestBody.metadata = metadataPayload;
+    }
+
+    if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+      try {
+        const progressUrl = `/api/text-worker/progress?run=${encodeURIComponent(runId)}`;
+        eventSource = new EventSource(progressUrl);
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data) as TextWorkerProgressEvent;
+            emitProgress(payload);
+            if (payload.type === 'final' || payload.type === 'error') {
+              eventSource?.close();
+            }
+          } catch (parseError) {
+            console.warn('[TextWorker] Failed to parse progress event:', parseError);
+          }
+        };
+        eventSource.onerror = (evt) => {
+          console.warn('[TextWorker] Progress stream error', evt);
+          eventSource?.close();
+        };
+      } catch (error) {
+        console.warn('[TextWorker] Failed to open progress stream:', error);
+      }
+    }
+
+    const response = await fetch('/api/text-worker', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.text();
+      ctx.callbacks.onError?.(
+        errorPayload || `Text worker request failed (${response.status})`,
+      );
+      serialized = JSON.stringify({
+        status: 'error',
+        message: errorPayload,
+      });
+      return { serialized, parsed: null };
+    }
+
+    const rawPayload = await response.json();
+    parsedPayload = agentResponseSchema.parse(rawPayload);
+
+    await handleRecommendationSubmission(parsedPayload, runContext);
+
+    serialized = JSON.stringify(parsedPayload);
+    return { serialized, parsed: parsedPayload };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown error occurred';
+    emitProgress({
+      type: 'error',
+      label: 'テキスト調査エラー',
+      message,
+    });
+    ctx.callbacks.onError?.(message);
+    serialized = JSON.stringify({ status: 'error', message });
+    return { serialized, parsed: null };
+  } finally {
+    try {
+      eventSource?.close();
+    } catch {
+      // ignore close errors
+    }
+  }
+}
+
 export const recommendSakeTool = tool({
   name: 'recommend_sake',
   description:
     '雑談で引き出した要望をまとめてテキストエージェントに渡し、日本酒の推薦JSONを取得します。購入や在庫の確認もこのツールを使ってください。',
-  parameters: z.object({
-    handoff_summary: z
-      .string()
-      .min(1)
-      .describe('ユーザーの要望・嗜好・条件を自然言語でまとめた短い文章'),
-    additional_context: z
-      .string()
-      .nullable()
-      .optional()
-      .describe('補足の会話内容や背景があれば追記してください'),
-    preference_note: z
-      .string()
-      .nullable()
-      .optional()
-      .describe('嗜好やこだわりを自然文でまとめてください'),
-    include_alternatives: z.boolean().nullable().optional(),
-    focus: z.string().nullable().optional(),
-    conversation_context: z.string().nullable().optional(),
-    metadata: handoffMetadataSchema.optional(),
-  }),
+  parameters: recommendSakeInputSchema,
   strict: true,
   async execute(input, runContext): Promise<string> {
-    const ctx = getRuntimeContext(runContext as RuntimeRunContext);
-
-    const emitProgress = (
-      event: Omit<TextWorkerProgressEvent, 'timestamp'> & { timestamp?: string },
-    ) => {
-      ctx.callbacks.onProgressEvent?.({
-        ...event,
-        timestamp: event.timestamp ?? new Date().toISOString(),
-      });
-    };
-
-    const metadata = input.metadata ?? null;
-    const metadataPreferences = metadata?.preferences;
-
-    const normalizedProfile = normalizePreferenceRecord(metadataPreferences);
-    if (normalizedProfile) {
-      ctx.session.userPreferences = {
-        ...ctx.session.userPreferences,
-        ...normalizedProfile,
-      };
-    }
-
-    const effectiveProfile = ctx.session.userPreferences;
-    const includeAlternatives =
-      typeof input.include_alternatives === 'boolean'
-        ? input.include_alternatives
-        : typeof metadata?.include_alternatives === 'boolean'
-          ? metadata.include_alternatives
-          : true;
-    const focus =
-      toCleanString(input.focus) ?? toCleanString(metadata?.focus);
-    const conversationContext =
-      toCleanString(input.conversation_context) ??
-      toCleanString(metadata?.conversation_context);
-    const notes = toCleanString(metadata?.notes);
-
-    ctx.callbacks.onShopsUpdated?.([]);
-
-    let eventSource: EventSource | null = null;
-
-    try {
-      const summary = input.handoff_summary.trim();
-      ctx.session.lastQuery = summary;
-      const runId = `${
-        ctx.session.traceGroupId ?? 'trace'
-      }:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-      ctx.session.lastDelegationRunId = runId;
-
-      emitProgress({
-        type: 'status',
-        label: 'テキスト調査',
-        message: 'テキストエージェントに購入調査を依頼しました。',
-      });
-
-      const currentSakePayload =
-        metadata?.current_sake ??
-        (ctx.session.currentSake
-          ? {
-              id: ctx.session.currentSake.id ?? null,
-              name: ctx.session.currentSake.name ?? null,
-              brewery: ctx.session.currentSake.brewery ?? null,
-              region: ctx.session.currentSake.region ?? null,
-              type: ctx.session.currentSake.type ?? null,
-              alcohol:
-                typeof ctx.session.currentSake.alcohol === 'number'
-                  ? ctx.session.currentSake.alcohol
-                  : null,
-              notes: toCleanString(ctx.session.currentSake.description),
-            }
-          : null);
-
-      const preferenceHints = new Set<string>();
-      const addHint = (value: unknown) => {
-        const text = formatPreferenceHint(value);
-        if (text) {
-          preferenceHints.add(text);
-        }
-      };
-
-      addHint(input.preference_note);
-      addHint(metadata?.preference_note);
-      addHint(metadataPreferences);
-      const profileHint = buildProfileHint(effectiveProfile);
-      if (profileHint) {
-        preferenceHints.add(profileHint);
-      }
-
-      const preferenceNote =
-        preferenceHints.size > 0
-          ? Array.from(preferenceHints).join(' / ')
-          : null;
-
-      const metadataPayload: Record<string, unknown> = {};
-      if (notes) {
-        metadataPayload.notes = notes;
-      }
-      const metadataPreferenceText = formatPreferenceHint(metadataPreferences);
-      if (metadataPreferenceText) {
-        metadataPayload.preferences = metadataPreferenceText;
-      }
-      const cleanMetadataPreferenceNote = toCleanString(
-        metadata?.preference_note,
-      );
-      if (cleanMetadataPreferenceNote) {
-        metadataPayload.preference_note = cleanMetadataPreferenceNote;
-      }
-      if (conversationContext) {
-        metadataPayload.conversation_context = conversationContext;
-      }
-      if (currentSakePayload) {
-        metadataPayload.current_sake = currentSakePayload;
-      }
-      if (preferenceNote) {
-        const existing = toCleanString(metadataPayload.preference_note);
-        metadataPayload.preference_note = existing
-          ? `${existing} / ${preferenceNote}`
-          : preferenceNote;
-      }
-
-      const requestBody: Record<string, unknown> = {
-        handoff_summary: summary,
-        trace_group_id: ctx.session.traceGroupId ?? null,
-        run_id: runId,
-      };
-
-      const additionalContext = toCleanString(input.additional_context);
-      if (additionalContext) {
-        requestBody.additional_context = additionalContext;
-      }
-      if (conversationContext) {
-        requestBody.conversation_context = conversationContext;
-      }
-      if (preferenceNote) {
-        requestBody.preference_note = preferenceNote;
-      }
-      if (typeof includeAlternatives === 'boolean') {
-        requestBody.include_alternatives = includeAlternatives;
-      }
-      if (focus) {
-        requestBody.focus = focus;
-      }
-      if (currentSakePayload) {
-        requestBody.current_sake = currentSakePayload;
-      }
-      if (Object.keys(metadataPayload).length > 0) {
-        requestBody.metadata = metadataPayload;
-      }
-
-      if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
-        try {
-          const progressUrl = `/api/text-worker/progress?run=${encodeURIComponent(runId)}`;
-          eventSource = new EventSource(progressUrl);
-          eventSource.onmessage = (event) => {
-            try {
-              const payload = JSON.parse(event.data) as TextWorkerProgressEvent;
-              emitProgress(payload);
-              if (payload.type === 'final' || payload.type === 'error') {
-                eventSource?.close();
-              }
-            } catch (parseError) {
-              console.warn('[TextWorker] Failed to parse progress event:', parseError);
-            }
-          };
-          eventSource.onerror = (evt) => {
-            console.warn('[TextWorker] Progress stream error', evt);
-            eventSource?.close();
-          };
-        } catch (error) {
-          console.warn('[TextWorker] Failed to open progress stream:', error);
-        }
-      }
-
-      const response = await fetch('/api/text-worker', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorPayload = await response.text();
-        ctx.callbacks.onError?.(
-          errorPayload || `Text worker request failed (${response.status})`,
-        );
-        return JSON.stringify({
-          status: 'error',
-          message: errorPayload,
-        });
-      }
-
-      const rawPayload = await response.json();
-      const parsedPayload = agentResponseSchema.parse(rawPayload);
-
-      await handleRecommendationSubmission(
-        parsedPayload,
-        runContext as RuntimeRunContext,
-      );
-
-      return JSON.stringify(parsedPayload);
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      emitProgress({
-        type: 'error',
-        label: 'テキスト調査エラー',
-        message,
-      });
-      ctx.callbacks.onError?.(message);
-      return JSON.stringify({ status: 'error', message });
-    }
-    finally {
-      try {
-        eventSource?.close();
-      } catch {
-        // ignore close errors
-      }
-    }
+    const { serialized } = await executeRecommendSakeDelegation(
+      input,
+      runContext as RuntimeRunContext,
+    );
+    return serialized;
   },
 });

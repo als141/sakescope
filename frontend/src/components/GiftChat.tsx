@@ -279,6 +279,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
       const msg = extractErrorMessage(event) ?? '通信エラーが発生しました';
       setError(msg);
       setIsConnecting(false);
+      setIsCompleting(false);
       connectedSessionRef.current = null;
     };
 
@@ -323,24 +324,20 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
       }
     };
 
+    const handleAgentHandoff = () => {
+      setIsCompleting(true);
+    };
+
     bundle.session.on('history_added', handleHistoryAdded);
     bundle.session.on('transport_event', handleTransportEvent);
     bundle.session.on('error', handleError);
-    bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
-      if (tool.name === 'complete_gift_intake') {
-        setIsCompleting(true);
-      }
-    });
-    bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
-      if (tool.name === 'complete_gift_intake') {
-        setIsCompleting(false);
-      }
-    });
+    bundle.session.on('agent_handoff', handleAgentHandoff);
 
     return () => {
       bundle.session.off('history_added', handleHistoryAdded);
       bundle.session.off('transport_event', handleTransportEvent);
       bundle.session.off('error', handleError);
+      bundle.session.off('agent_handoff', handleAgentHandoff);
       if (connectedSessionRef.current === bundle.session) {
         connectedSessionRef.current = null;
       }

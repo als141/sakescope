@@ -413,43 +413,21 @@ export default function VoiceChat({
       upsertAiMessage(itemId, text);
     });
 
-    bundle.session.on('agent_handoff', () => {
+    const handleAgentHandoff = () => {
       setIsDelegating(true);
-    });
-
-    bundle.session.on('agent_tool_start', (...[, , tool]: SessionEvents['agent_tool_start']) => {
-      if (tool.name === 'recommend_sake') {
-        setIsDelegating(true);
-        const currentSession = sessionRef.current;
-        if (currentSession && isRecordingRef.current) {
-          autoMutedRef.current = true;
-          try {
-            currentSession.mute(true);
-          } catch (err) {
-            console.error('Failed to auto-mute during delegation:', err);
-          }
-          setIsRecordingStateRef.current(false);
+      const currentSession = sessionRef.current;
+      if (currentSession && isRecordingRef.current) {
+        autoMutedRef.current = true;
+        try {
+          currentSession.mute(true);
+        } catch (err) {
+          console.error('Failed to auto-mute during handoff:', err);
         }
+        setIsRecordingStateRef.current(false);
       }
-    });
+    };
 
-    bundle.session.on('agent_tool_end', (...[, , tool]: SessionEvents['agent_tool_end']) => {
-      if (tool.name === 'recommend_sake') {
-        setIsDelegating(false);
-        if (autoMutedRef.current) {
-          autoMutedRef.current = false;
-          const currentSession = sessionRef.current;
-          if (currentSession) {
-            try {
-              currentSession.mute(false);
-            } catch (err) {
-              console.error('Failed to auto-unmute after delegation:', err);
-            }
-            setIsRecordingStateRef.current(true);
-          }
-        }
-      }
-    });
+    bundle.session.on('agent_handoff', handleAgentHandoff);
 
     bundle.session.on('error', (event: SessionEvents['error'][0]) => {
       const rawMsg = extractErrorMessage(event);
@@ -471,6 +449,7 @@ export default function VoiceChat({
       } catch (err) {
         console.warn('Error closing session', err);
       }
+      bundle.session.off('agent_handoff', handleAgentHandoff);
       bundleRef.current = null;
       sessionRef.current = null;
     };
