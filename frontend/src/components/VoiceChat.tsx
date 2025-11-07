@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic,
@@ -24,11 +25,9 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from '@/infrastructure/openai/agents/context';
-import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -126,7 +125,9 @@ export default function VoiceChat({
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
-  const [progressEvents, setProgressEvents] = useState<TextWorkerProgressEvent[]>([]);
+  const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [currentSubtitle, setCurrentSubtitle] = useState('');
+  const [isMouthOpenFrame, setIsMouthOpenFrame] = useState(false);
 
   const bundleRef = useRef<VoiceAgentBundle | null>(null);
   const onSakeRecommendedRef = useRef(onSakeRecommended);
@@ -135,46 +136,32 @@ export default function VoiceChat({
   const preferencesRef = useRef(preferences);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
   const assistantMessageOrderRef = useRef<string[]>([]);
-  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const isCompact = variant === 'compact';
   const isRecordingRef = useRef(isRecording);
   const autoMutedRef = useRef(false);
+  const avatarSpeechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mouthAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const setIsRecordingStateRef = useRef(setIsRecording);
 
-  const formatProgressTime = (timestamp: string): string => {
-    try {
-      const date = new Date(timestamp);
-      if (Number.isNaN(date.getTime())) {
-        return '';
-      }
-      return date.toLocaleTimeString('ja-JP', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-    } catch {
-      return '';
+  const openAvatarMouth = useCallback(() => {
+    if (avatarSpeechTimeoutRef.current) {
+      clearTimeout(avatarSpeechTimeoutRef.current);
+      avatarSpeechTimeoutRef.current = null;
     }
-  };
+    setIsAvatarSpeaking(true);
+    setIsMouthOpenFrame(true);
+  }, []);
 
-  const progressAccent = (type: TextWorkerProgressEvent['type']): string => {
-    switch (type) {
-      case 'tool_started':
-        return 'text-amber-500';
-      case 'tool_completed':
-      case 'final':
-        return 'text-emerald-500';
-      case 'tool_failed':
-      case 'error':
-        return 'text-destructive';
-      case 'reasoning':
-        return 'text-sky-500';
-      case 'message':
-        return 'text-muted-foreground';
-      default:
-        return 'text-primary';
+  const scheduleAvatarMouthClose = useCallback((delay = 220) => {
+    if (avatarSpeechTimeoutRef.current) {
+      clearTimeout(avatarSpeechTimeoutRef.current);
     }
-  };
+    avatarSpeechTimeoutRef.current = setTimeout(() => {
+      setIsAvatarSpeaking(false);
+      setIsMouthOpenFrame(false);
+      avatarSpeechTimeoutRef.current = null;
+    }, delay);
+  }, []);
 
   const upsertAiMessage = useCallback(
     (id: string, text: string, options: { append?: boolean } = {}) => {
@@ -212,17 +199,12 @@ export default function VoiceChat({
   }, [onOfferReady]);
 
   useEffect(() => {
-    if (!scrollAreaRef.current) {
+    if (aiMessages.length === 0) {
+      setCurrentSubtitle('');
       return;
     }
-    const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-    if (viewport instanceof HTMLElement) {
-      viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior: 'smooth',
-      });
-    }
-  }, [aiMessages, progressEvents]);
+    setCurrentSubtitle(aiMessages[aiMessages.length - 1] ?? '');
+  }, [aiMessages]);
 
   useEffect(() => {
     preferencesRef.current = preferences;
@@ -235,6 +217,47 @@ export default function VoiceChat({
   useEffect(() => {
     setIsRecordingStateRef.current = setIsRecording;
   }, [setIsRecording]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      if (avatarSpeechTimeoutRef.current) {
+        clearTimeout(avatarSpeechTimeoutRef.current);
+        avatarSpeechTimeoutRef.current = null;
+      }
+      if (mouthAnimationIntervalRef.current) {
+        clearInterval(mouthAnimationIntervalRef.current);
+        mouthAnimationIntervalRef.current = null;
+      }
+      setIsAvatarSpeaking(false);
+      setIsMouthOpenFrame(false);
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (isAvatarSpeaking) {
+      if (!mouthAnimationIntervalRef.current) {
+        mouthAnimationIntervalRef.current = setInterval(() => {
+          setIsMouthOpenFrame((prev) => !prev);
+        }, 160 + Math.random() * 80);
+      }
+    } else if (mouthAnimationIntervalRef.current) {
+      clearInterval(mouthAnimationIntervalRef.current);
+      mouthAnimationIntervalRef.current = null;
+      setIsMouthOpenFrame(false);
+    }
+  }, [isAvatarSpeaking]);
+
+  useEffect(
+    () => () => {
+      if (avatarSpeechTimeoutRef.current) {
+        clearTimeout(avatarSpeechTimeoutRef.current);
+      }
+      if (mouthAnimationIntervalRef.current) {
+        clearInterval(mouthAnimationIntervalRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (bundleRef.current) {
@@ -278,21 +301,6 @@ export default function VoiceChat({
           setIsRecordingStateRef.current(true);
         }
         onOfferReadyRef.current?.(offer);
-      },
-      onProgressEvent: (event) => {
-        if (event.label === 'connected') {
-          return;
-        }
-        setProgressEvents((prev) => {
-          if (event.type === 'status' && event.label === 'テキスト調査') {
-            return [event];
-          }
-          const next = [...prev, event];
-          if (next.length > 15) {
-            next.splice(0, next.length - 15);
-          }
-          return next;
-        });
       },
       onError: (message) => {
         setError(message);
@@ -345,10 +353,19 @@ export default function VoiceChat({
         }
         return;
       }
+      if (type === 'response.output_audio.delta') {
+        openAvatarMouth();
+        return;
+      }
+      if (type === 'response.output_audio.done') {
+        scheduleAvatarMouthClose();
+        return;
+      }
       if (type === 'response.output_audio_transcript.delta') {
         const delta = (event as { delta?: unknown }).delta;
         if (typeof delta === 'string' && delta.length > 0) {
           upsertAiMessage(itemId, delta, { append: true });
+          openAvatarMouth();
         }
         return;
       }
@@ -356,7 +373,13 @@ export default function VoiceChat({
         const transcript = (event as { transcript?: unknown }).transcript;
         if (typeof transcript === 'string') {
           upsertAiMessage(itemId, transcript);
+          scheduleAvatarMouthClose(320);
         }
+        return;
+      }
+      if (type === 'response.completed') {
+        scheduleAvatarMouthClose();
+        return;
       }
     };
 
@@ -560,7 +583,12 @@ export default function VoiceChat({
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
     assistantMessageOrderRef.current = [];
-    setProgressEvents([]);
+    if (avatarSpeechTimeoutRef.current) {
+      clearTimeout(avatarSpeechTimeoutRef.current);
+      avatarSpeechTimeoutRef.current = null;
+    }
+    setIsAvatarSpeaking(false);
+    setCurrentSubtitle('');
     autoMutedRef.current = false;
     onConnectionChange?.(false);
   };
@@ -595,6 +623,30 @@ export default function VoiceChat({
 
   const isMuted = isConnected && !isRecording;
 
+  const statusText = (() => {
+    if (isLoading) {
+      return 'AIソムリエに接続中...';
+    }
+    if (!isConnected) {
+      return 'マイクボタンを押して会話を始めてください';
+    }
+    if (isDelegating) {
+      return '購入情報を調査中です…';
+    }
+    if (isMuted) {
+      return 'ミュート中（AIには聞こえていません）';
+    }
+    return 'お話しください 🎤';
+  })();
+
+  const subtitleFallback = isConnected
+    ? 'AIソムリエが話すとここに字幕がリアルタイム表示されます'
+    : 'まずはマイクボタンで会話を始めましょう';
+
+  const subtitleDisplay = (currentSubtitle?.trim() || subtitleFallback).trim();
+  const avatarImageSrc =
+    isAvatarSpeaking && isMouthOpenFrame ? '/ai-avatar/open.png' : '/ai-avatar/close.png';
+
   useEffect(() => () => {
     try {
       sessionRef.current?.close();
@@ -604,280 +656,56 @@ export default function VoiceChat({
   // Full variant (大画面表示)
   const fullContent = (
     <div className="flex flex-col items-center w-full max-w-4xl mx-auto space-y-6">
-      {/* 接続前：マイクボタンのみ表示 */}
-      {!isConnected && (
-        <motion.div 
-          className="flex flex-col items-center gap-5 sm:gap-6"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{ duration: 0.3 }}
-        >
-          <motion.div className="relative">
-            <Button
-              onClick={handleStartConversation}
-              disabled={isLoading}
-              size="xl"
-              className={cn(
-                "relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0",
-                "bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600",
-                "shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]",
-                "hover:scale-105 active:scale-100",
-                "transition-all duration-300",
-                "border-4 border-primary-200/20",
-                "disabled:opacity-70"
-              )}
-            >
-              <motion.div
-                animate={isLoading ? { rotate: 360 } : {}}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
-                ) : (
-                  <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
-                )}
-              </motion.div>
-            </Button>
-          </motion.div>
-
+      {!isConnected ? (
+        <>
           <motion.div
-            className="text-center space-y-2 px-4"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            className="flex flex-col items-center gap-5 sm:gap-6"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
           >
-            <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
-              {isLoading ? 'AIソムリエに接続中...' : 'マイクボタンを押してスタート'}
-            </h3>
-          </motion.div>
-        </motion.div>
-      )}
-
-      {/* 接続後：チャットUI表示 */}
-      {isConnected && (
-        <motion.div
-          className="w-full space-y-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        >
-          {/* チャット表示エリア */}
-          <Card className="w-full shadow-2xl border-border/30 bg-card/95 backdrop-blur-sm">
-            <CardContent className="p-0">
-              <ScrollArea ref={scrollAreaRef} className="h-[60vh] sm:h-[65vh] max-h-[600px] p-4 sm:p-6">
-                <div className="space-y-4 sm:space-y-5">
-                  {aiMessages.length === 0 ? (
-                    <motion.div
-                      className="flex flex-col items-center justify-center h-full min-h-[200px] text-center space-y-3"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      <div className="rounded-full bg-primary/10 p-4">
-                        <MessageSquare className="h-8 w-8 text-primary" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-base font-medium text-foreground">
-                          会話を開始しました
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          お好みの日本酒についてお聞かせください
-                        </p>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    aiMessages.map((message, index) => (
-                      <motion.div
-                        key={`${index}-${message}`}
-                        className="flex items-start gap-3 sm:gap-4"
-                        initial={{ opacity: 0, x: -20, scale: 0.95 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        transition={{ 
-                          delay: Math.min(index * 0.05, 0.3),
-                          type: "spring",
-                          stiffness: 500,
-                          damping: 30
-                        }}
-                      >
-                        <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border-2 border-primary/30 shadow-md flex-shrink-0">
-                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/10 text-primary">
-                            <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                              AIソムリエ
-                            </span>
-                          </div>
-                          <div className="rounded-2xl rounded-tl-sm bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-3 sm:p-4 shadow-sm">
-                            <p className="text-sm sm:text-base leading-relaxed text-foreground whitespace-pre-wrap">
-                              {message}
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* ステータスとプログレス */}
-          <div className="space-y-3">
-            {isDelegating && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="flex justify-center"
-              >
-                <Badge variant="secondary" className="gap-2 py-2 px-4">
-                  <Activity className="h-4 w-4 animate-pulse" />
-                  <span>テキストエージェントが購入候補を調査しています</span>
-                </Badge>
-              </motion.div>
-            )}
-
-            {progressEvents.length > 0 && (
-              <motion.div
-                key="progress-log"
-                className="w-full"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.25 }}
-              >
-                <Card className="shadow-lg border-border/30 bg-card/70 backdrop-blur">
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="space-y-2">
-                      {progressEvents.map((event) => {
-                        const timeLabel = formatProgressTime(event.timestamp);
-                        const key = `${event.timestamp}-${event.type}-${event.label ?? 'event'}`;
-                        return (
-                          <div
-                            key={key}
-                            className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-xs sm:text-sm"
-                          >
-                            <span className="text-muted-foreground font-mono tabular-nums">
-                              {timeLabel}
-                            </span>
-                            <div className="flex-1">
-                              <div className={cn('font-semibold', progressAccent(event.type))}>
-                                {event.label ?? event.type}
-                              </div>
-                              {event.message && (
-                                <p className="text-muted-foreground leading-snug">
-                                  {event.message}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </div>
-
-          {/* コントロールボタン */}
-          <motion.div
-            className="flex items-center justify-center gap-6 sm:gap-8 pt-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Button
-                onClick={handleStopConversation}
-                size="xl"
-                variant="destructive"
-                className="h-14 w-14 sm:h-16 sm:w-16 rounded-full p-0 shadow-xl hover:shadow-destructive/50 transition-all"
-              >
-                <PhoneOff className="h-7 w-7 sm:h-9 sm:w-9" />
-              </Button>
-            </motion.div>
-
             <motion.div className="relative">
-              <AnimatePresence>
-                {isRecording && (
-                  <>
-                    <motion.div
-                      className="absolute inset-0 rounded-full bg-primary/20 blur-md"
-                      initial={{ scale: 1, opacity: 0.8 }}
-                      animate={{ scale: 2.2, opacity: 0 }}
-                      exit={{ scale: 1, opacity: 0.8 }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeOut",
-                      }}
-                    />
-                    <motion.div
-                      className="absolute inset-0 rounded-full bg-primary/30 blur-sm"
-                      initial={{ scale: 1, opacity: 0.6 }}
-                      animate={{ scale: 2.5, opacity: 0 }}
-                      exit={{ scale: 1, opacity: 0.6 }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeOut",
-                        delay: 0.5,
-                      }}
-                    />
-                  </>
-                )}
-              </AnimatePresence>
-
               <Button
-                onClick={handleToggleMute}
+                onClick={handleStartConversation}
+                disabled={isLoading}
                 size="xl"
-                variant={isMuted ? "secondary" : "default"}
                 className={cn(
-                  "relative h-18 w-18 sm:h-20 sm:w-20 lg:h-24 lg:w-24 rounded-full p-0 shadow-xl transition-all duration-300",
-                  !isMuted && "bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:shadow-emerald-500/50",
-                  "hover:scale-105 active:scale-100"
+                  'relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0',
+                  'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
+                  'shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]',
+                  'hover:scale-105 active:scale-100',
+                  'transition-all duration-300',
+                  'border-4 border-primary-200/20',
+                  'disabled:opacity-70',
                 )}
               >
                 <motion.div
-                  animate={isRecording ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
+                  animate={isLoading ? { rotate: 360 } : {}}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                 >
-                  {isMuted ? (
-                    <MicOff className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+                  {isLoading ? (
+                    <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
                   ) : (
-                    <Mic className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
+                    <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
                   )}
                 </motion.div>
               </Button>
             </motion.div>
           </motion.div>
 
-          {/* ステータステキスト */}
           <motion.div
-            className="text-center space-y-2 px-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
+            className="text-center space-y-2 sm:space-y-3 px-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
           >
-            <p className="text-sm sm:text-base text-muted-foreground">
-              {isMuted
-                ? 'ミュート中（AIには聞こえていません）'
-                : isDelegating
-                  ? '購入情報を調査中です…'
-                  : 'お話しください 🎤'}
-            </p>
-
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground tracking-tight">
+              {statusText}
+            </h3>
             {error && (
               <motion.p
-                className="text-destructive text-sm font-medium"
+                className="text-destructive text-base font-medium"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
@@ -885,10 +713,136 @@ export default function VoiceChat({
               </motion.p>
             )}
           </motion.div>
+        </>
+      ) : (
+        <motion.div
+          key="avatar-stage"
+          className="w-full"
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        >
+          <Card className="shadow-2xl border-border/30 bg-card/90 backdrop-blur">
+            <CardContent className="p-6 sm:p-10 flex flex-col items-center gap-6 sm:gap-8">
+              <div className="w-full flex items-center justify-between text-[0.65rem] tracking-[0.4em] uppercase text-muted-foreground">
+                <div
+                  className={cn(
+                    'flex items-center gap-2 rounded-full border px-4 py-1 transition-colors',
+                    isConnected ? 'border-emerald-400/70 text-emerald-400' : 'border-border/70',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'h-2 w-2 rounded-full',
+                      isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-muted-foreground/40',
+                    )}
+                  />
+                  {isConnected ? 'LIVE' : 'STANDBY'}
+                </div>
+                <span className="tracking-[0.3em]">
+                  {isMuted ? 'MUTED' : 'LISTENING'}
+                </span>
+              </div>
+
+              <div className="relative w-full flex flex-col items-center">
+                <motion.div
+                  className="absolute inset-6 sm:inset-8 rounded-[2.5rem] border border-primary/40"
+                  animate={
+                    isAvatarSpeaking
+                      ? { scale: [1, 1.03, 1], opacity: [0.5, 0.85, 0.5] }
+                      : { opacity: 0.25 }
+                  }
+                  transition={{
+                    duration: isAvatarSpeaking ? 1.2 : 0.6,
+                    repeat: isAvatarSpeaking ? Infinity : 0,
+                    ease: 'easeInOut',
+                  }}
+                />
+                <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-b from-primary/15 via-primary/5 to-transparent blur-xl opacity-70" />
+                <div className="relative w-[240px] h-[240px] sm:w-[320px] sm:h-[320px] flex items-center justify-center">
+                  <Image
+                    src={avatarImageSrc}
+                    alt="AIソムリエのアバター"
+                    fill
+                    sizes="(max-width: 768px) 240px, 320px"
+                    className="object-contain drop-shadow-2xl pointer-events-none select-none"
+                    priority
+                  />
+                </div>
+                {isDelegating && (
+                  <Badge
+                    variant="secondary"
+                    className="absolute -bottom-4 flex items-center gap-2 px-4 py-2 text-xs"
+                  >
+                    <Activity className="h-4 w-4 animate-pulse" />
+                    購入候補を調査中
+                  </Badge>
+                )}
+              </div>
+
+              <motion.div
+                className="w-full max-w-2xl text-center"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="rounded-2xl border border-border/60 bg-background/80 px-6 py-4 shadow-inner">
+                  <p className="text-lg sm:text-2xl font-semibold leading-relaxed">
+                    {subtitleDisplay}
+                  </p>
+                </div>
+              </motion.div>
+
+              <div className="w-full flex flex-col items-center gap-3 sm:gap-4">
+                <div className="w-full flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={handleToggleMute}
+                    variant={isMuted ? 'secondary' : 'default'}
+                    className={cn(
+                      'flex-1 h-12 sm:h-14 text-base font-semibold shadow-lg',
+                      !isMuted &&
+                        'bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 hover:from-emerald-400 hover:via-emerald-500 hover:to-emerald-400',
+                    )}
+                  >
+                    {isMuted ? (
+                      <MicOff className="mr-2 h-5 w-5" />
+                    ) : (
+                      <Mic className="mr-2 h-5 w-5" />
+                    )}
+                    {isMuted ? 'ミュート解除' : 'ミュート'}
+                  </Button>
+                  <Button
+                    onClick={handleStopConversation}
+                    variant="destructive"
+                    className="flex-1 h-12 sm:h-14 text-base font-semibold shadow-lg"
+                  >
+                    <PhoneOff className="mr-2 h-5 w-5" />
+                    終了
+                  </Button>
+                </div>
+
+                <div className="text-center space-y-2">
+                  <p
+                    className={cn(
+                      'text-sm leading-relaxed',
+                      error ? 'text-muted-foreground/70 line-through' : 'text-muted-foreground',
+                    )}
+                  >
+                    {statusText}
+                  </p>
+                  {error && (
+                    <p className="text-destructive text-sm font-semibold">
+                      エラー: {error}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       )}
     </div>
   );
+
 
   // Minimized variant (最小化表示 - 右下に固定)
   if (variant === 'compact' && isMinimized) {
