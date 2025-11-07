@@ -44,7 +44,7 @@ export function createRealtimeVoiceBundle(
       outputModalities: ['audio'],
       audio: {
         input: { format: 'pcm16' },
-        output: { voice: 'alloy', format: 'pcm16' },
+        output: { voice: 'cedar', format: 'pcm16' },
       },
     },
   });
