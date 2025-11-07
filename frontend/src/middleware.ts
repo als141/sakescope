@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/text-worker(.*)',
   '/api/client-secret(.*)',
   '/api/sake-recommendations(.*)',
+  '/embed(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
