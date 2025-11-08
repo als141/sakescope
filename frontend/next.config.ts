@@ -5,6 +5,7 @@ const EMBED_PARENT_SITES = [
   'https://sakescope.vercel.app',
   'http://localhost:3000',
   'https://capable-panda-53.accounts.dev',
+  'https://portfolio.atoriba.jp',
 ];
 
 const nextConfig: NextConfig = {
