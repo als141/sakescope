@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Mic,
   MicOff,
@@ -11,10 +11,11 @@ import {
   PhoneOff,
   Activity,
 } from 'lucide-react';
-import type {
-  RealtimeSession,
-  RealtimeSessionEventTypes,
-  TransportEvent,
+import {
+  OpenAIRealtimeWebRTC,
+  type RealtimeSession,
+  type RealtimeSessionEventTypes,
+  type TransportEvent,
 } from '@openai/agents-realtime';
 import { Sake, PurchaseOffer } from '@/domain/sake/types';
 import {
@@ -125,9 +126,11 @@ export default function VoiceChat({
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
-  const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
+  const [isTransportAudioStreaming, setIsTransportAudioStreamingRaw] = useState(false);
+  const [isRemoteAudioPlaying, setIsRemoteAudioPlayingRaw] = useState(false);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [isMouthOpenFrame, setIsMouthOpenFrame] = useState(false);
+  const isAvatarSpeaking = isTransportAudioStreaming || isRemoteAudioPlaying;
 
   const bundleRef = useRef<VoiceAgentBundle | null>(null);
   const onSakeRecommendedRef = useRef(onSakeRecommended);
@@ -142,26 +145,126 @@ export default function VoiceChat({
   const avatarSpeechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mouthAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const setIsRecordingStateRef = useRef(setIsRecording);
+  const transportAudioStreamingRef = useRef(isTransportAudioStreaming);
+  const remoteAudioPlayingRef = useRef(isRemoteAudioPlaying);
+  const remoteAudioTrackCleanupRef = useRef<(() => void) | null>(null);
+  const peerTrackListenerCleanupRef = useRef<(() => void) | null>(null);
+
+  const setTransportAudioStreamingState = useCallback((next: boolean) => {
+    transportAudioStreamingRef.current = next;
+    setIsTransportAudioStreamingRaw(next);
+    if (next) {
+      setIsMouthOpenFrame(true);
+    } else if (!remoteAudioPlayingRef.current) {
+      setIsMouthOpenFrame(false);
+    }
+  }, [setIsMouthOpenFrame]);
+
+  const setRemoteAudioPlayingState = useCallback((next: boolean) => {
+    remoteAudioPlayingRef.current = next;
+    setIsRemoteAudioPlayingRaw(next);
+    if (next) {
+      setIsMouthOpenFrame(true);
+    } else if (!transportAudioStreamingRef.current) {
+      setIsMouthOpenFrame(false);
+    }
+  }, [setIsMouthOpenFrame]);
+
+  const cleanupRemoteAudioMonitoring = useCallback(() => {
+    remoteAudioTrackCleanupRef.current?.();
+    remoteAudioTrackCleanupRef.current = null;
+    peerTrackListenerCleanupRef.current?.();
+    peerTrackListenerCleanupRef.current = null;
+  }, []);
+
+  const attachTrackHandlers = useCallback(
+    (track: MediaStreamTrack | null | undefined) => {
+      if (!track) {
+        return;
+      }
+      remoteAudioTrackCleanupRef.current?.();
+      const handleUnmute = () => {
+        setRemoteAudioPlayingState(true);
+      };
+      const handleSilence = () => {
+        setRemoteAudioPlayingState(false);
+      };
+      track.addEventListener('unmute', handleUnmute);
+      track.addEventListener('mute', handleSilence);
+      track.addEventListener('ended', handleSilence);
+      remoteAudioTrackCleanupRef.current = () => {
+        track.removeEventListener('unmute', handleUnmute);
+        track.removeEventListener('mute', handleSilence);
+        track.removeEventListener('ended', handleSilence);
+      };
+      if (track.muted) {
+        handleSilence();
+      } else {
+        handleUnmute();
+      }
+    },
+    [setRemoteAudioPlayingState],
+  );
+
+  const monitorRemoteAudioTrack = useCallback(() => {
+    cleanupRemoteAudioMonitoring();
+    const currentSession = sessionRef.current;
+    if (!currentSession) {
+      return;
+    }
+    const transport = currentSession.transport;
+    if (!(transport instanceof OpenAIRealtimeWebRTC)) {
+      return;
+    }
+    const peerConnection = transport.connectionState?.peerConnection;
+    if (!peerConnection) {
+      return;
+    }
+
+    const handleTrackEvent = (event: RTCTrackEvent) => {
+      const firstStream = event.streams?.[0];
+      if (firstStream) {
+        const [streamTrack] = firstStream.getAudioTracks();
+        if (streamTrack) {
+          attachTrackHandlers(streamTrack);
+          return;
+        }
+      }
+      if (event.track?.kind === 'audio') {
+        attachTrackHandlers(event.track);
+      }
+    };
+
+    peerConnection.addEventListener('track', handleTrackEvent);
+    peerTrackListenerCleanupRef.current = () => {
+      peerConnection.removeEventListener('track', handleTrackEvent);
+    };
+
+    const initialReceiver = peerConnection
+      .getReceivers()
+      .find((receiver) => receiver.track?.kind === 'audio');
+    if (initialReceiver?.track) {
+      attachTrackHandlers(initialReceiver.track);
+    }
+  }, [attachTrackHandlers, cleanupRemoteAudioMonitoring]);
 
   const openAvatarMouth = useCallback(() => {
     if (avatarSpeechTimeoutRef.current) {
       clearTimeout(avatarSpeechTimeoutRef.current);
       avatarSpeechTimeoutRef.current = null;
     }
-    setIsAvatarSpeaking(true);
-    setIsMouthOpenFrame(true);
-  }, []);
+    setTransportAudioStreamingState(true);
+  }, [setTransportAudioStreamingState]);
 
   const scheduleAvatarMouthClose = useCallback((delay = 220) => {
     if (avatarSpeechTimeoutRef.current) {
       clearTimeout(avatarSpeechTimeoutRef.current);
     }
     avatarSpeechTimeoutRef.current = setTimeout(() => {
-      setIsAvatarSpeaking(false);
-      setIsMouthOpenFrame(false);
+      setTransportAudioStreamingState(false);
       avatarSpeechTimeoutRef.current = null;
     }, delay);
-  }, []);
+  }, [setTransportAudioStreamingState]);
 
   const upsertAiMessage = useCallback(
     (id: string, text: string, options: { append?: boolean } = {}) => {
@@ -228,10 +331,17 @@ export default function VoiceChat({
         clearInterval(mouthAnimationIntervalRef.current);
         mouthAnimationIntervalRef.current = null;
       }
-      setIsAvatarSpeaking(false);
+      cleanupRemoteAudioMonitoring();
+      setTransportAudioStreamingState(false);
+      setRemoteAudioPlayingState(false);
       setIsMouthOpenFrame(false);
     }
-  }, [isConnected]);
+  }, [
+    cleanupRemoteAudioMonitoring,
+    isConnected,
+    setRemoteAudioPlayingState,
+    setTransportAudioStreamingState,
+  ]);
 
   useEffect(() => {
     if (isAvatarSpeaking) {
@@ -255,8 +365,9 @@ export default function VoiceChat({
       if (mouthAnimationIntervalRef.current) {
         clearInterval(mouthAnimationIntervalRef.current);
       }
+      cleanupRemoteAudioMonitoring();
     },
-    [],
+    [cleanupRemoteAudioMonitoring],
   );
 
   useEffect(() => {
@@ -497,7 +608,7 @@ export default function VoiceChat({
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, [preferences, upsertAiMessage]);
+  }, [openAvatarMouth, preferences, scheduleAvatarMouthClose, upsertAiMessage]);
 
   const connectToSession = async () => {
     const currentSession = sessionRef.current;
@@ -531,6 +642,7 @@ export default function VoiceChat({
         model: realtimeModel,
       });
       currentSession.mute(false);
+      monitorRemoteAudioTrack();
 
       const prefs = preferencesRef.current;
       if (prefs) {
@@ -575,6 +687,9 @@ export default function VoiceChat({
     if (sessionRef.current) {
       sessionRef.current.close();
     }
+    cleanupRemoteAudioMonitoring();
+    setTransportAudioStreamingState(false);
+    setRemoteAudioPlayingState(false);
     setIsConnected(false);
     setIsRecording(false);
     setIsLoading(false);
@@ -587,7 +702,7 @@ export default function VoiceChat({
       clearTimeout(avatarSpeechTimeoutRef.current);
       avatarSpeechTimeoutRef.current = null;
     }
-    setIsAvatarSpeaking(false);
+    setIsMouthOpenFrame(false);
     setCurrentSubtitle('');
     autoMutedRef.current = false;
     onConnectionChange?.(false);
