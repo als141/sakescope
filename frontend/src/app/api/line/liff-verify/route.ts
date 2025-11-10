@@ -34,16 +34,23 @@ async function verifyIdToken(idToken: string, clientId: string) {
 }
 
 async function fetchFriendStatus(accessToken: string) {
-  const res = await fetch('https://api.line.me/friendship/v1/status', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  try {
+    const res = await fetch('https://api.line.me/friendship/v1/status', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-  if (!res.ok) {
-    throw new Error('友だちステータスの取得に失敗しました。');
+    if (!res.ok) {
+      return { friendFlag: null, error: `status ${res.status}` };
+    }
+
+    const data = (await res.json()) as { friendFlag: boolean };
+    return { friendFlag: data.friendFlag, error: null };
+  } catch (error) {
+    return {
+      friendFlag: null,
+      error: error instanceof Error ? error.message : 'unknown error',
+    };
   }
-
-  const data = (await res.json()) as { friendFlag: boolean };
-  return data.friendFlag;
 }
 
 async function issueLinkToken(lineUserId: string, channelAccessToken: string) {
@@ -93,9 +100,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const friendFlag = await fetchFriendStatus(body.accessToken);
+    const { friendFlag, error: friendCheckError } = await fetchFriendStatus(body.accessToken);
 
-    if (!friendFlag) {
+    if (friendFlag === false) {
       return NextResponse.json(
         { error: '連携前にLINE公式アカウントを友だち追加してください。' },
         { status: 400 },
@@ -137,7 +144,7 @@ export async function POST(req: NextRequest) {
 
     const accountLinkUrl = `https://access.line.me/dialog/bot/accountLink?linkToken=${linkToken}&nonce=${nonce}`;
 
-    return NextResponse.json({ accountLinkUrl, expiresAt });
+    return NextResponse.json({ accountLinkUrl, expiresAt, friendFlag, friendCheckError });
   } catch (error) {
     console.error('Error during LIFF verification', error);
 

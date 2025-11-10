@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { hashToken } from '@/lib/tokenUtils';
 import type { ValidateTokenResponse } from '@/types/gift';
+import { notifyGiftLinkOpened } from '@/server/line/pushClient';
 
 const validateTokenSchema = z.object({
   token: z.string().min(1),
@@ -100,6 +101,20 @@ export async function POST(req: NextRequest) {
         { valid: false, error: 'Failed to create session' },
         { status: 500 }
       );
+    }
+
+    const { data: giftMeta } = await supabase
+      .from('gifts')
+      .select('sender_user_id')
+      .eq('id', tokenData.gift_id)
+      .maybeSingle();
+
+    if (giftMeta?.sender_user_id) {
+      void notifyGiftLinkOpened({
+        supabase,
+        userId: giftMeta.sender_user_id,
+        origin: req.nextUrl.origin,
+      });
     }
 
     return NextResponse.json<ValidateTokenResponse>({
