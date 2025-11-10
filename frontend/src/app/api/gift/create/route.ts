@@ -111,10 +111,10 @@ export async function POST(req: NextRequest) {
 
 function buildGiftShareUrl(token: string, origin: string) {
   const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+  const params = new URLSearchParams({ t: token }).toString();
   if (liffId) {
-    const base = `https://miniapp.line.me/${liffId}`;
-    const qs = new URLSearchParams({ t: token }).toString();
-    return `${base}?${qs}`;
+    // LIFF permanent link: append the relative path (/liff/gift) to ensure correct route
+    return `https://miniapp.line.me/${liffId}/liff/gift?${params}`;
   }
   return `${origin}/gift/${token}`;
 }
