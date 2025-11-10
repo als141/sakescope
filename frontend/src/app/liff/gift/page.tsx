@@ -25,7 +25,13 @@ export default function LiffGiftPage() {
 
       await liff.init({ liffId });
       setMessage('ギフトページに移動しています…');
-      window.location.replace(`/gift/${token}`);
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const target = appUrl
+        ? `${appUrl.replace(/\/$/, '')}/gift/${token}`
+        : `${window.location.origin}/gift/${token}`;
+
+      window.location.href = target;
     };
 
     bootstrap().catch((error) => {
