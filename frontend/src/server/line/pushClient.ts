@@ -10,6 +10,24 @@ type LineMessage = {
 
 type Supabase = SupabaseClient<any, any, any>;
 
+type GiftContext = {
+  giftId: string;
+  origin: string;
+  occasion?: string | null;
+  recipientName?: string | null;
+};
+
+function formatGiftContext({ occasion, recipientName }: GiftContext) {
+  const parts: string[] = [];
+  if (recipientName) {
+    parts.push(`宛先: ${recipientName}`);
+  }
+  if (occasion) {
+    parts.push(`シーン: ${occasion}`);
+  }
+  return parts.join(' / ');
+}
+
 async function getLineUserId(
   supabase: Supabase,
   userId: string,
@@ -28,7 +46,7 @@ async function getLineUserId(
   return data?.line_user_id ?? null;
 }
 
-export async function pushLineMessagesForUser({
+async function pushLineMessagesForUser({
   supabase,
   userId,
   messages,
@@ -73,43 +91,30 @@ export async function pushLineMessagesForUser({
   }
 }
 
-export async function notifyGiftLinkOpened({
-  supabase,
-  userId,
-  origin,
-}: {
-  supabase: Supabase;
-  userId: string;
-  origin: string;
-}) {
-  return pushLineMessagesForUser({
-    supabase,
-    userId,
-    messages: [
-      { type: 'text', text: 'ギフトリンクが開かれ、会話が開始されました。' },
-      { type: 'text', text: `${origin.replace(/\/$/, '')}/gift で進捗を確認できます。` },
-    ],
-  });
+export async function notifyGiftLinkOpened(options: GiftContext & { supabase: Supabase; userId: string }) {
+  const { supabase, userId, giftId, origin, recipientName, occasion } = options;
+  const contextLine = formatGiftContext({ occasion, recipientName, giftId, origin });
+  const progressUrl = `${origin.replace(/\/$/, '')}/gift`;
+  const messages: LineMessage[] = [
+    { type: 'text', text: 'ギフトリンクが開かれ、会話が開始されました。' },
+    { type: 'text', text: `進捗を見る: ${progressUrl}` },
+  ];
+  if (contextLine) {
+    messages.unshift({ type: 'text', text: contextLine });
+  }
+  return pushLineMessagesForUser({ supabase, userId, messages });
 }
 
-export async function notifyGiftRecommendationReady({
-  supabase,
-  userId,
-  giftId,
-  origin,
-}: {
-  supabase: Supabase;
-  userId: string;
-  giftId: string;
-  origin: string;
-}) {
+export async function notifyGiftRecommendationReady(options: GiftContext & { supabase: Supabase; userId: string }) {
+  const { supabase, userId, giftId, origin, recipientName, occasion } = options;
   const url = `${origin.replace(/\/$/, '')}/gift/result/${giftId}`;
-  return pushLineMessagesForUser({
-    supabase,
-    userId,
-    messages: [
-      { type: 'text', text: 'ギフト推薦が完成しました！' },
-      { type: 'text', text: `結果を見る: ${url}` },
-    ],
-  });
+  const contextLine = formatGiftContext({ occasion, recipientName, giftId, origin });
+  const messages: LineMessage[] = [
+    { type: 'text', text: 'ギフト推薦が完成しました！' },
+    { type: 'text', text: `結果を見る: ${url}` },
+  ];
+  if (contextLine) {
+    messages.unshift({ type: 'text', text: contextLine });
+  }
+  return pushLineMessagesForUser({ supabase, userId, messages });
 }

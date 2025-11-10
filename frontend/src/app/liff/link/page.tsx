@@ -6,7 +6,12 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type ServerResponse =
-  | { accountLinkUrl: string; expiresAt: string }
+  | {
+      accountLinkUrl: string;
+      expiresAt: string;
+      friendFlag: boolean | null;
+      friendCheckError?: string | null;
+    }
   | { status: 'already_linked' }
   | { error: string };
 
@@ -14,6 +19,7 @@ export default function LiffLinkPage() {
   const [status, setStatus] = useState('LINEログインを確認しています…');
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
+  const [friendHint, setFriendHint] = useState<string | null>(null);
 
   useEffect(() => {
     let aborted = false;
@@ -27,17 +33,13 @@ export default function LiffLinkPage() {
 
       await liff.init({ liffId });
 
-      if (!liff.isLoggedIn()) {
-        liff.login();
+      const tokens = getLiffTokens();
+      if (!tokens) {
+        // liff.login() がトリガーされた場合、この関数は redirect 後に再度実行される
         return;
       }
 
-      const idToken = liff.getIDToken();
-      const accessToken = liff.getAccessToken();
-
-      if (!idToken || !accessToken) {
-        throw new Error('LINEアカウント情報の取得に失敗しました。');
-      }
+      const { idToken, accessToken } = tokens;
 
       setStatus('LINEアカウントを検証しています…');
       const response = await fetch('/api/line/liff-verify', {
@@ -59,6 +61,13 @@ export default function LiffLinkPage() {
       }
 
       if ('accountLinkUrl' in data) {
+        if (data.friendFlag === false) {
+          setFriendHint('まずは公式アカウントを友だち追加してください。');
+        } else if (!data.friendFlag && data.friendCheckError) {
+          setFriendHint(`友だち状態の確認に失敗しました (${data.friendCheckError})`);
+        } else {
+          setFriendHint(null);
+        }
         setStatus('LINEアカウント連携を完了してください…');
         window.location.href = data.accountLinkUrl;
         return;
@@ -84,6 +93,9 @@ export default function LiffLinkPage() {
       <div className="space-y-3">
         <p className="text-lg font-semibold">{status}</p>
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {friendHint && !error && (
+          <p className="text-sm text-muted-foreground">{friendHint}</p>
+        )}
       </div>
       {isProcessing && !error && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
       {error && (
@@ -96,4 +108,21 @@ export default function LiffLinkPage() {
       )}
     </div>
   );
+}
+
+function getLiffTokens() {
+  const idToken = liff.getIDToken();
+  const accessToken = liff.getAccessToken();
+
+  if (idToken && accessToken) {
+    return { idToken, accessToken };
+  }
+
+  if (!liff.isLoggedIn()) {
+    liff.login();
+    return null;
+  }
+
+  // ログイン済みだがトークンが未取得の場合は再初期化を促す
+  throw new Error('LINEトークンを取得できませんでした。アプリを開き直してください。');
 }

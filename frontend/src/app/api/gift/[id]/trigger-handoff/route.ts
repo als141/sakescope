@@ -161,6 +161,8 @@ export async function POST(
             userId: gift.sender_user_id,
             giftId,
             origin: req.nextUrl.origin,
+            recipientName: gift.recipient_first_name,
+            occasion: gift.occasion,
           });
 
           console.log(`Gift recommendation ready for gift ${giftId}`);

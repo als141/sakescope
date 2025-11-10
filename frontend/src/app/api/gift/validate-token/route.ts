@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     const { data: giftMeta } = await supabase
       .from('gifts')
-      .select('sender_user_id')
+      .select('sender_user_id, recipient_first_name, occasion')
       .eq('id', tokenData.gift_id)
       .maybeSingle();
 
@@ -114,6 +114,9 @@ export async function POST(req: NextRequest) {
         supabase,
         userId: giftMeta.sender_user_id,
         origin: req.nextUrl.origin,
+        giftId: tokenData.gift_id,
+        recipientName: giftMeta.recipient_first_name,
+        occasion: giftMeta.occasion,
       });
     }
 
