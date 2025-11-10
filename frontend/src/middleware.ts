@@ -49,7 +49,7 @@ function handleLiffStateRewrite(request: NextRequest) {
   }
 
   const target = new URL(decoded, url.origin);
-  return NextResponse.rewrite(target);
+  return NextResponse.redirect(target, { status: 307 });
 }
 
 export const config = {
