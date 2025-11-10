@@ -28,7 +28,7 @@ export default function LiffLinkPage() {
       await liff.init({ liffId });
 
       if (!liff.isLoggedIn()) {
-        liff.login({ scope: 'openid profile' });
+        liff.login();
         return;
       }
 
