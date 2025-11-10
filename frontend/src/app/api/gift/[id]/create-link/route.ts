@@ -74,7 +74,7 @@ export async function POST(
       );
     }
 
-    const shareUrl = `${req.nextUrl.origin}/gift/${token}`;
+    const shareUrl = buildGiftShareUrl(token, req.nextUrl.origin);
 
     return NextResponse.json({
       shareUrl,
@@ -87,4 +87,14 @@ export async function POST(
       { status: 500 },
     );
   }
+}
+
+function buildGiftShareUrl(token: string, origin: string) {
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+  if (liffId) {
+    const base = `https://miniapp.line.me/${liffId}`;
+    const qs = new URLSearchParams({ t: token }).toString();
+    return `${base}?${qs}`;
+  }
+  return `${origin}/gift/${token}`;
 }

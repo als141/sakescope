@@ -84,9 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate share URL
-    const origin = req.nextUrl.origin;
-    const shareUrl = `${origin}/gift/${token}`;
+    const shareUrl = buildGiftShareUrl(token, req.nextUrl.origin);
 
     const response: CreateGiftResponse = {
       giftId: gift.id,
@@ -109,4 +107,14 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function buildGiftShareUrl(token: string, origin: string) {
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+  if (liffId) {
+    const base = `https://miniapp.line.me/${liffId}`;
+    const qs = new URLSearchParams({ t: token }).toString();
+    return `${base}?${qs}`;
+  }
+  return `${origin}/gift/${token}`;
 }
