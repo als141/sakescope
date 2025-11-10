@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, Save, Check, Settings as SettingsIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Check, Settings as SettingsIcon, Sparkles, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -114,6 +114,26 @@ export default function SettingsPage() {
             あなたの好みを設定して、より精度の高いレコメンドを受け取りましょう
           </p>
         </header>
+
+        {/* LINE Integration CTA */}
+        <Card className="w-full max-w-4xl mx-auto mb-8 border-primary/20 bg-primary/5">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-primary text-primary-foreground p-3">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">LINE連携で通知を受け取る</CardTitle>
+                <CardDescription>
+                  推薦結果をLINEで即時受信。友だち追加とワンタップ連携で完了します。
+                </CardDescription>
+              </div>
+            </div>
+            <Button asChild>
+              <Link href="/settings/line">LINE連携を設定</Link>
+            </Button>
+          </CardHeader>
+        </Card>
 
         {/* Settings Card */}
         <motion.div

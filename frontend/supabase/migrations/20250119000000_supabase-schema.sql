@@ -94,6 +94,27 @@ create table public.notifications (
 create index idx_notifications_user_id on public.notifications(user_id, read_at);
 create index idx_notifications_created_at on public.notifications(created_at desc);
 
+-- LINE account linking tables
+create table public.user_line_accounts (
+  user_id text primary key,
+  line_user_id text unique not null,
+  display_name text,
+  friend_flag boolean,
+  linked_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.line_link_nonces (
+  nonce text primary key,
+  user_id text not null,
+  line_user_id text not null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
+create index idx_line_link_nonces_user_id on public.line_link_nonces(user_id);
+create index idx_line_link_nonces_expires_at on public.line_link_nonces(expires_at);
+
 -- Row Level Security (RLS) policies
 
 -- Enable RLS on all tables
@@ -103,6 +124,8 @@ alter table public.gift_sessions enable row level security;
 alter table public.gift_messages enable row level security;
 alter table public.gift_recommendations enable row level security;
 alter table public.notifications enable row level security;
+alter table public.user_line_accounts enable row level security;
+alter table public.line_link_nonces enable row level security;
 
 -- Gifts: Sender can read/update their own gifts
 create policy "Senders can read own gifts"
@@ -169,6 +192,8 @@ grant all on public.gift_sessions to service_role;
 grant all on public.gift_messages to service_role;
 grant all on public.gift_recommendations to service_role;
 grant all on public.notifications to service_role;
+grant all on public.user_line_accounts to service_role;
+grant all on public.line_link_nonces to service_role;
 
 -- Comments for documentation
 comment on table public.gifts is 'Stores gift information created by authenticated senders';
@@ -177,3 +202,10 @@ comment on table public.gift_sessions is 'Recipient conversation sessions for pr
 comment on table public.gift_messages is 'Minimal conversation logs (anonymized)';
 comment on table public.gift_recommendations is 'Text agent results sent only to senders';
 comment on table public.notifications is 'Notification queue for sender updates';
+comment on table public.user_line_accounts is 'Maps Clerk users to their linked LINE Messaging API user IDs';
+comment on table public.line_link_nonces is 'Stores short-lived nonces used during LINE account linking';
+
+create trigger update_user_line_accounts_updated_at
+  before update on public.user_line_accounts
+  for each row
+  execute function update_updated_at_column();

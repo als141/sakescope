@@ -155,6 +155,13 @@ export async function POST(
             },
           });
 
+          await pushLineNotification({
+            supabase,
+            userId: gift.sender_user_id,
+            giftId,
+            origin: req.nextUrl.origin,
+          });
+
           console.log(`Gift recommendation ready for gift ${giftId}`);
         } else {
           console.error('Text worker failed:', await response.text());
@@ -191,5 +198,54 @@ export async function POST(
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+const LINE_PUSH_ENDPOINT = 'https://api.line.me/v2/bot/message/push';
+
+async function pushLineNotification({
+  supabase,
+  userId,
+  giftId,
+  origin,
+}: {
+  supabase: ReturnType<typeof createServerSupabaseClient>;
+  userId: string;
+  giftId: string;
+  origin: string;
+}) {
+  const channelAccessToken = process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN;
+
+  if (!channelAccessToken) {
+    return;
+  }
+
+  const { data: account } = await supabase
+    .from('user_line_accounts')
+    .select('line_user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!account?.line_user_id) {
+    return;
+  }
+
+  const messages = [
+    { type: 'text', text: 'ギフトの推薦が完了しました。' },
+    { type: 'text', text: `${origin}/gift/result/${giftId}` },
+  ];
+
+  const res = await fetch(LINE_PUSH_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${channelAccessToken}`,
+    },
+    body: JSON.stringify({ to: account.line_user_id, messages }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => 'unknown error');
+    console.error('Failed to push LINE notification', errText);
   }
 }

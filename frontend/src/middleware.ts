@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/gift/(.*)',  // Gift pages are public (recipients don't need to log in)
+  '/liff/gift(.*)',
   '/api/gift/validate-token(.*)',
   '/api/gift/session/(.*)',
   '/api/gift/:id/trigger-handoff',
@@ -13,6 +14,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/client-secret(.*)',
   '/api/sake-recommendations(.*)',
   '/embed(.*)',
+  '/api/line/webhook(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
