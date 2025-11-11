@@ -27,6 +27,7 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from '@/infrastructure/openai/agents/context';
+import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -143,6 +144,8 @@ export default function VoiceChat({
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [reasoningSummaryJa, setReasoningSummaryJa] = useState('');
+  const [isTranslatingSummary, setIsTranslatingSummary] = useState(false);
 
   const bundleRef = useRef<VoiceAgentBundle | null>(null);
   const onSakeRecommendedRef = useRef(onSakeRecommended);
@@ -159,6 +162,7 @@ export default function VoiceChat({
   const setIsRecordingStateRef = useRef(setIsRecording);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const translateAbortControllerRef = useRef<AbortController | null>(null);
   const isChatMode = interactionMode === 'chat';
 
   const openAvatarMouth = useCallback(() => {
@@ -180,6 +184,80 @@ export default function VoiceChat({
       avatarSpeechTimeoutRef.current = null;
     }, delay);
   }, []);
+
+  const translateReasoningSummary = useCallback(async (summary: string) => {
+    const trimmed = summary.trim();
+    if (!trimmed) {
+      setReasoningSummaryEn('');
+      setReasoningSummaryJa('');
+      setIsTranslatingSummary(false);
+      return;
+    }
+    setIsTranslatingSummary(true);
+    setReasoningSummaryJa('');
+    if (translateAbortControllerRef.current) {
+      translateAbortControllerRef.current.abort();
+      translateAbortControllerRef.current = null;
+    }
+    const controller = new AbortController();
+    translateAbortControllerRef.current = controller;
+    try {
+      const response = await fetch('/api/reasoning-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ summary: trimmed }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const details = await response.text().catch(() => 'Translation failed');
+        throw new Error(details || 'Translation failed');
+      }
+      const data = (await response.json().catch(() => null)) as
+        | { translation?: string }
+        | null;
+      if (controller.signal.aborted) {
+        return;
+      }
+      const translated =
+        typeof data?.translation === 'string' && data.translation.trim().length > 0
+          ? data.translation.trim()
+          : trimmed;
+      setReasoningSummaryJa(translated);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      console.error('Failed to translate reasoning summary:', err);
+      setReasoningSummaryJa(trimmed);
+      setError((prev) => prev ?? '推論サマリの翻訳に失敗しました');
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsTranslatingSummary(false);
+        translateAbortControllerRef.current = null;
+      }
+    }
+  }, []);
+
+  const handleTextWorkerProgress = useCallback(
+    (event: TextWorkerProgressEvent) => {
+      if (event.type === 'reasoning' && typeof event.message === 'string') {
+        const text = event.message.trim();
+        if (text.length > 0) {
+          void translateReasoningSummary(text);
+        }
+      }
+      if (event.type === 'final' || event.type === 'error') {
+        if (translateAbortControllerRef.current) {
+          translateAbortControllerRef.current.abort();
+          translateAbortControllerRef.current = null;
+        }
+        setIsTranslatingSummary(false);
+      }
+    },
+    [translateReasoningSummary],
+  );
 
   const upsertAssistantChatMessage = useCallback((id: string, text: string) => {
     if (!id) {
@@ -319,6 +397,10 @@ export default function VoiceChat({
       if (mouthAnimationIntervalRef.current) {
         clearInterval(mouthAnimationIntervalRef.current);
       }
+      if (translateAbortControllerRef.current) {
+        translateAbortControllerRef.current.abort();
+        translateAbortControllerRef.current = null;
+      }
     },
     [],
   );
@@ -370,6 +452,7 @@ export default function VoiceChat({
         setError(message);
         setIsDelegating(false);
       },
+      onProgressEvent: handleTextWorkerProgress,
     });
 
     bundleRef.current = bundle;
@@ -561,7 +644,13 @@ export default function VoiceChat({
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, [preferences, upsertAiMessage, openAvatarMouth, scheduleAvatarMouthClose]);
+  }, [
+    preferences,
+    upsertAiMessage,
+    openAvatarMouth,
+    scheduleAvatarMouthClose,
+    handleTextWorkerProgress,
+  ]);
 
   const connectToSession = useCallback(
     async (mode: InteractionMode) => {
@@ -662,6 +751,12 @@ export default function VoiceChat({
     setChatMessages([]);
     setChatDockOpen(false);
     setChatInput('');
+    setReasoningSummaryJa('');
+    setIsTranslatingSummary(false);
+    if (translateAbortControllerRef.current) {
+      translateAbortControllerRef.current.abort();
+      translateAbortControllerRef.current = null;
+    }
     if (avatarSpeechTimeoutRef.current) {
       clearTimeout(avatarSpeechTimeoutRef.current);
       avatarSpeechTimeoutRef.current = null;
@@ -808,7 +903,11 @@ export default function VoiceChat({
       : 'AIソムリエが話すとここに字幕がリアルタイム表示されます'
     : 'まずはマイクボタンで会話を始めましょう';
 
-  const subtitleDisplay = (currentSubtitle?.trim() || subtitleFallback).trim();
+  const baseSubtitle = (currentSubtitle?.trim() || subtitleFallback).trim();
+  const reasoningSummaryDisplay =
+    reasoningSummaryJa && reasoningSummaryJa.trim().length > 0
+      ? reasoningSummaryJa.trim()
+      : '';
   const avatarImageSrc =
     isAvatarSpeaking && isMouthOpenFrame ? '/ai-avatar/open.png' : '/ai-avatar/close.png';
 
@@ -983,9 +1082,28 @@ export default function VoiceChat({
                 animate={{ opacity: 1, y: 0 }}
               >
                 <div className="rounded-2xl border border-border/60 bg-background/80 px-6 py-4 shadow-inner">
-                  <p className="text-lg sm:text-2xl font-semibold leading-relaxed">
-                    {subtitleDisplay}
-                  </p>
+                  {reasoningSummaryDisplay ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.3em] text-primary flex items-center justify-center gap-2">
+                        推論サマリ
+                        {isTranslatingSummary && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        )}
+                      </div>
+                      <p className="text-lg sm:text-2xl font-semibold leading-relaxed whitespace-pre-wrap">
+                        {reasoningSummaryDisplay}
+                      </p>
+                      {baseSubtitle && baseSubtitle !== reasoningSummaryDisplay && (
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                          {baseSubtitle}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-lg sm:text-2xl font-semibold leading-relaxed">
+                      {baseSubtitle}
+                    </p>
+                  )}
                 </div>
               </motion.div>
 

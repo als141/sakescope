@@ -15,6 +15,8 @@ const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
 
 const REASONING_EFFORT_LEVELS = ['minimal', 'low', 'medium', 'high'] as const;
 type ReasoningEffortLevel = (typeof REASONING_EFFORT_LEVELS)[number];
+const REASONING_SUMMARY_LEVELS = ['auto', 'concise', 'detailed'] as const;
+type ReasoningSummaryLevel = (typeof REASONING_SUMMARY_LEVELS)[number];
 const VERBOSITY_LEVELS = ['low', 'medium', 'high'] as const;
 type VerbosityLevel = (typeof VERBOSITY_LEVELS)[number];
 
@@ -34,6 +36,12 @@ const TEXT_AGENT_REASONING_EFFORT: ReasoningEffortLevel = normalizeEnvEnum(
   process.env.TEXT_AGENT_REASONING_EFFORT,
   REASONING_EFFORT_LEVELS,
   'low',
+);
+
+const TEXT_AGENT_REASONING_SUMMARY: ReasoningSummaryLevel = normalizeEnvEnum(
+  process.env.TEXT_AGENT_REASONING_SUMMARY,
+  REASONING_SUMMARY_LEVELS,
+  'detailed',
 );
 
 const TEXT_AGENT_VERBOSITY: VerbosityLevel = normalizeEnvEnum(
@@ -581,6 +589,7 @@ export async function POST(req: NextRequest) {
     modelSettings: {
       reasoning: {
         effort: TEXT_AGENT_REASONING_EFFORT,
+        summary: TEXT_AGENT_REASONING_SUMMARY,
       },
       text: {
         verbosity: TEXT_AGENT_VERBOSITY,
