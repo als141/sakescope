@@ -182,20 +182,30 @@ export async function enqueueGiftRecommendationJob(
   const runId = `${payload.traceGroupId ?? 'gift'}:${Date.now().toString(36)}${Math.random()
     .toString(36)
     .slice(2, 6)}`;
-  const metadata = {
+  const jobMetadata = {
     ...payload.metadata,
     gift_id: payload.gift.id,
     job_id: jobId,
     trace_group_id: payload.traceGroupId ?? null,
   };
+  const openaiMetadata: Record<string, string> = {
+    gift_id: payload.gift.id,
+    job_id: jobId,
+  };
+  if (payload.traceGroupId) {
+    openaiMetadata.trace_group_id = payload.traceGroupId;
+  }
   const { systemPrompt, userPrompt } = buildGuidance(payload);
 
   const response = await openaiClient.responses.create({
     model: TEXT_MODEL,
     reasoning: { effort: 'medium' },
     input: [
-      { role: 'system', content: [{ type: 'text', text: systemPrompt }] },
-      { role: 'user', content: [{ type: 'text', text: userPrompt }] },
+      {
+        role: 'system',
+        content: [{ type: 'input_text', text: systemPrompt }],
+      },
+      { role: 'user', content: [{ type: 'input_text', text: userPrompt }] },
     ],
     tools: [
       {
@@ -207,7 +217,7 @@ export async function enqueueGiftRecommendationJob(
         },
       },
     ],
-    metadata,
+    metadata: openaiMetadata,
     temperature: 0.2,
     max_output_tokens: 1600,
     background: true,
@@ -230,7 +240,7 @@ export async function enqueueGiftRecommendationJob(
       response_id: response.id,
       run_id: runId,
       status,
-      metadata,
+      metadata: jobMetadata,
       handoff_summary: payload.handoffSummary ?? null,
       last_error: null,
       started_at: status === 'RUNNING' ? new Date().toISOString() : null,
