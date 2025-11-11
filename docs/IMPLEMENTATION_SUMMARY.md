@@ -100,6 +100,21 @@ Sakescopeに日本酒ギフト機能を実装しました。この機能によ�
 18. **`frontend/.env.example`**
     - 環境変数テンプレート
 
+19. **`frontend/src/server/textWorkerSchemas.ts`**
+    - テキストワーカー/Responses共有のZodスキーマとJSON Schema定義
+
+20. **`frontend/src/server/giftJobService.ts`**
+    - gift_jobsへのジョブ登録、イベント記録、失敗時処理ユーティリティ
+
+21. **`frontend/src/app/api/cron/gift-jobs/route.ts`**
+    - Vercel Cron から起動され、OpenAI Responses backgroundジョブの完了監視とDB反映を担当
+
+22. **`frontend/src/app/api/gift/jobs/[id]/events/route.ts`**
+    - gift_job_events を SSE で配信する進捗ストリームAPI
+
+23. **`frontend/vercel.json`**
+    - `/api/cron/gift-jobs` を 2分間隔でスケジュールするCron設定
+
 ## 主要機能
 
 ### 1. セキュリティ
@@ -126,6 +141,12 @@ Sakescopeに日本酒ギフト機能を実装しました。この機能によ�
 - ✅ テキストワーカーのギフトモード
 - ✅ 構造化された嗜好抽出
 - ✅ 予算範囲での推薦
+
+### 5. バックグラウンド処理
+- ✅ OpenAI Responses API の `background` モードでギフト推薦ジョブを起動
+- ✅ `gift_jobs` / `gift_job_events` による永続キューと進捗ログ
+- ✅ Vercel Cron (`/api/cron/gift-jobs`) で完了検知とSupabaseへの反映
+- ✅ `/api/gift/jobs/[id]/events` のSSEで後追い視聴可能な進捗ストリーム
 
 ## セットアップ手順
 

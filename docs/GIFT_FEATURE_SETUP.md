@@ -198,3 +198,9 @@ vercel --prod
 4. OpenAI APIの残高があるか
 
 それでも解決しない場合は、GitHubのIssuesで報告してください。
+## 10. バックグラウンドジョブ設定
+
+- `frontend/vercel.json` で `/api/cron/gift-jobs` を 2 分間隔の Vercel Cron に登録済み。
+- Vercel ダッシュボード > Project Settings > Cron Jobs でエントリが有効になっているか確認。
+- Cron は Supabase の service role で `gift_jobs` を確認し、OpenAI Responses の完了を検知して `gift_recommendations` を更新します。
+- `NEXT_PUBLIC_APP_URL` が正しい本番URLになっていることを確認（通知時のURL生成に使用）。

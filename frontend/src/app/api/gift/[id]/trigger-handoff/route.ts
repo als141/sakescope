@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createServerSupabaseClient } from '@/lib/supabase';
-import { notifyGiftRecommendationReady } from '@/server/line/pushClient';
+import { enqueueGiftRecommendationJob } from '@/server/giftJobService';
+import type { Gift } from '@/types/gift';
 
 const handoffSchema = z.object({
   sessionId: z.string().uuid(),
@@ -87,105 +88,47 @@ export async function POST(
       );
     }
 
-    // Trigger text worker in the background (non-blocking)
-    // We'll call the text-worker API with gift mode enabled
     const metadataPayload: Record<string, unknown> = {
       gift_mode: true,
       budget_min: gift.budget_min,
       budget_max: gift.budget_max,
-      preferences: normalizedIntake,
       recipient_name: gift.recipient_first_name,
       occasion: gift.occasion,
       additional_notes: additionalNotes ?? null,
+      preferences: normalizedIntake,
     };
 
     if (handoffSummary) {
       metadataPayload.summary = handoffSummary;
     }
 
-    if (additionalNotes) {
-      metadataPayload.notes = additionalNotes;
-    }
-
-    const textWorkerPayload = {
-      mode: 'gift',
-      gift_id: giftId,
-      handoff_summary:
-        handoffSummary ??
-        'ギフト受け取り側からの嗜好情報に基づき、最適な日本酒を推薦してください。',
-      metadata: metadataPayload,
-      trace_group_id: `gift-${giftId}`,
+    const giftRecord: Gift = {
+      id: gift.id,
+      sender_user_id: gift.sender_user_id,
+      recipient_first_name: gift.recipient_first_name,
+      occasion: gift.occasion,
+      budget_min: gift.budget_min,
+      budget_max: gift.budget_max,
+      message_to_recipient: gift.message_to_recipient,
+      status: gift.status,
+      created_at: gift.created_at,
+      updated_at: gift.updated_at,
     };
 
-    // Fire and forget - call text worker in background
-    fetch(`${req.nextUrl.origin}/api/text-worker`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(textWorkerPayload),
-    })
-      .then(async (response) => {
-        if (response.ok) {
-          const result = await response.json();
-
-          // Save recommendation to database
-          await supabase.from('gift_recommendations').upsert({
-            gift_id: giftId,
-            recommendations: result,
-            model: 'text-agent',
-          });
-
-          // Update gift status to RECOMMEND_READY
-          await supabase
-            .from('gifts')
-            .update({
-              status: 'RECOMMEND_READY',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', giftId);
-
-          // Create notification for sender
-          await supabase.from('notifications').insert({
-            user_id: gift.sender_user_id,
-            type: 'gift_recommend_ready',
-            payload: {
-              gift_id: giftId,
-              occasion: gift.occasion,
-              recipient_name: gift.recipient_first_name,
-            },
-          });
-
-          await notifyGiftRecommendationReady({
-            supabase,
-            userId: gift.sender_user_id,
-            giftId,
-            origin: req.nextUrl.origin,
-            recipientName: gift.recipient_first_name,
-            occasion: gift.occasion,
-          });
-
-          console.log(`Gift recommendation ready for gift ${giftId}`);
-        } else {
-          console.error('Text worker failed:', await response.text());
-
-          // Update gift status to error state (use CLOSED for now)
-          await supabase
-            .from('gifts')
-            .update({
-              status: 'CLOSED',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', giftId);
-        }
-      })
-      .catch((error) => {
-        console.error('Error calling text worker:', error);
-      });
+    const job = await enqueueGiftRecommendationJob(supabase, {
+      gift: giftRecord,
+      metadata: metadataPayload,
+      handoffSummary,
+      additionalNotes,
+      preferences: normalizedIntake,
+      traceGroupId: `gift-${giftId}`,
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Handoff triggered successfully',
+      jobId: job.id,
+      responseId: job.response_id,
     });
   } catch (error) {
     console.error('Error in gift handoff:', error);

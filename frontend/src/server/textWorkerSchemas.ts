@@ -1,0 +1,214 @@
+import { z } from 'zod';
+
+export const shopSchema = z.object({
+  retailer: z.string(),
+  url: z.string().min(1, '商品リンクのURLを指定してください'),
+  price: z.number().nullable(),
+  price_text: z.string().nullable(),
+  currency: z.string().nullable(),
+  availability: z.string().nullable(),
+  delivery_estimate: z.string().nullable(),
+  source: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
+export const flavorProfileSchema = z
+  .object({
+    sweetness: z.number().nullable(),
+    lightness: z.number().nullable(),
+    complexity: z.number().nullable(),
+    fruitiness: z.number().nullable(),
+  })
+  .nullable();
+
+export const sakeSchemaInput = z.object({
+  id: z.string().nullable(),
+  name: z.string(),
+  brewery: z.string().nullable(),
+  region: z.string().nullable(),
+  type: z.string().nullable(),
+  alcohol: z.number().nullable(),
+  sake_value: z.number().nullable(),
+  acidity: z.number().nullable(),
+  description: z.string().nullable(),
+  tasting_notes: z.array(z.string()).nullable(),
+  food_pairing: z.array(z.string()).nullable(),
+  serving_temperature: z.array(z.string()).nullable(),
+  image_url: z
+    .string()
+    .min(1)
+    .describe(
+      'Direct image URL (e.g., https://example.com/image.jpg) - must be an actual image file, not a product page',
+    ),
+  origin_sources: z.array(z.string()).nullable(),
+  price_range: z.string().nullable(),
+  flavor_profile: flavorProfileSchema,
+});
+
+export const sakeSchemaOutput = z.object({
+  id: z.string().nullable(),
+  name: z.string(),
+  brewery: z.string().nullable(),
+  region: z.string().nullable(),
+  type: z.string().nullable(),
+  alcohol: z.number().nullable(),
+  sake_value: z.number().nullable(),
+  acidity: z.number().nullable(),
+  description: z.string().nullable(),
+  tasting_notes: z.array(z.string()).nullable(),
+  food_pairing: z.array(z.string()).nullable(),
+  serving_temperature: z.array(z.string()).nullable(),
+  image_url: z.string().url(),
+  origin_sources: z.array(z.string()).nullable(),
+  price_range: z.string().nullable(),
+  flavor_profile: flavorProfileSchema,
+});
+
+export const recommendationSchemaInput = z.object({
+  sake: sakeSchemaInput,
+  summary: z.string(),
+  reasoning: z.string(),
+  tasting_highlights: z.array(z.string()).nullable(),
+  serving_suggestions: z.array(z.string()).nullable(),
+  shops: z.array(shopSchema).min(1),
+});
+
+export const recommendationSchemaOutput = z.object({
+  sake: sakeSchemaOutput,
+  summary: z.string(),
+  reasoning: z.string(),
+  tasting_highlights: z.array(z.string()).nullable(),
+  serving_suggestions: z.array(z.string()).nullable(),
+  shops: z.array(shopSchema).min(1),
+});
+
+export const finalPayloadInputSchema = recommendationSchemaInput.extend({
+  alternatives: z.array(recommendationSchemaInput).nullable(),
+  follow_up_prompt: z.string().nullable(),
+});
+
+export const finalPayloadOutputSchema = recommendationSchemaOutput.extend({
+  alternatives: z.array(recommendationSchemaOutput).nullable(),
+  follow_up_prompt: z.string().nullable(),
+});
+
+export type FinalPayloadInput = z.infer<typeof finalPayloadInputSchema>;
+export type FinalPayloadOutput = z.infer<typeof finalPayloadOutputSchema>;
+
+export const finalPayloadJsonSchema = {
+  $id: 'SakeGiftRecommendation',
+  type: 'object',
+  additionalProperties: false,
+  required: ['sake', 'summary', 'reasoning', 'shops'],
+  properties: {
+    sake: { $ref: '#/$defs/sake' },
+    summary: { type: 'string' },
+    reasoning: { type: 'string' },
+    tasting_highlights: {
+      type: ['array', 'null'],
+      items: { type: 'string' },
+    },
+    serving_suggestions: {
+      type: ['array', 'null'],
+      items: { type: 'string' },
+    },
+    shops: {
+      type: 'array',
+      minItems: 1,
+      items: { $ref: '#/$defs/shop' },
+    },
+    alternatives: {
+      type: ['array', 'null'],
+      items: { $ref: '#/$defs/recommendation' },
+    },
+    follow_up_prompt: { type: ['string', 'null'] },
+  },
+  $defs: {
+    flavor_profile: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      properties: {
+        sweetness: { type: ['number', 'null'] },
+        lightness: { type: ['number', 'null'] },
+        complexity: { type: ['number', 'null'] },
+        fruitiness: { type: ['number', 'null'] },
+      },
+    },
+    sake: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['name', 'image_url'],
+      properties: {
+        id: { type: ['string', 'null'] },
+        name: { type: 'string' },
+        brewery: { type: ['string', 'null'] },
+        region: { type: ['string', 'null'] },
+        type: { type: ['string', 'null'] },
+        alcohol: { type: ['number', 'null'] },
+        sake_value: { type: ['number', 'null'] },
+        acidity: { type: ['number', 'null'] },
+        description: { type: ['string', 'null'] },
+        tasting_notes: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+        },
+        food_pairing: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+        },
+        serving_temperature: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+        },
+        image_url: { type: 'string', format: 'uri' },
+        origin_sources: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+        },
+        price_range: { type: ['string', 'null'] },
+        flavor_profile: { $ref: '#/$defs/flavor_profile' },
+      },
+    },
+    shop: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['retailer', 'url'],
+      properties: {
+        retailer: { type: 'string' },
+        url: { type: 'string', format: 'uri-reference' },
+        price: { type: ['number', 'null'] },
+        price_text: { type: ['string', 'null'] },
+        currency: { type: ['string', 'null'] },
+        availability: { type: ['string', 'null'] },
+        delivery_estimate: { type: ['string', 'null'] },
+        source: { type: ['string', 'null'] },
+        notes: { type: ['string', 'null'] },
+      },
+    },
+    recommendation: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['sake', 'summary', 'reasoning', 'shops'],
+      properties: {
+        sake: { $ref: '#/$defs/sake' },
+        summary: { type: 'string' },
+        reasoning: { type: 'string' },
+        tasting_highlights: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+        },
+        serving_suggestions: {
+          type: ['array', 'null'],
+          items: { type: 'string' },
+        },
+        shops: {
+          type: 'array',
+          minItems: 1,
+          items: { $ref: '#/$defs/shop' },
+        },
+      },
+    },
+  },
+};
+
+export type FinalPayloadJsonSchema = typeof finalPayloadJsonSchema;

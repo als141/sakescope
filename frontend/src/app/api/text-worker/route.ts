@@ -8,100 +8,17 @@ import {
   clearProgress,
   publishProgress,
 } from '@/server/textWorkerProgress';
+import {
+  finalPayloadInputSchema,
+  finalPayloadOutputSchema,
+} from '@/server/textWorkerSchemas';
 import type { TextWorkerProgressEvent } from '@/types/textWorker';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
-
-const shopSchema = z.object({
-  retailer: z.string(),
-  url: z.string().min(1, '商品リンクのURLを指定してください'),
-  price: z.number().nullable(),
-  price_text: z.string().nullable(),
-  currency: z.string().nullable(),
-  availability: z.string().nullable(),
-  delivery_estimate: z.string().nullable(),
-  source: z.string().nullable(),
-  notes: z.string().nullable(),
-});
-
-const flavorProfileSchema = z
-  .object({
-    sweetness: z.number().nullable(),
-    lightness: z.number().nullable(),
-    complexity: z.number().nullable(),
-    fruitiness: z.number().nullable(),
-  })
-  .nullable();
-
-const sakeSchemaInput = z.object({
-  id: z.string().nullable(),
-  name: z.string(),
-  brewery: z.string().nullable(),
-  region: z.string().nullable(),
-  type: z.string().nullable(),
-  alcohol: z.number().nullable(),
-  sake_value: z.number().nullable(),
-  acidity: z.number().nullable(),
-  description: z.string().nullable(),
-  tasting_notes: z.array(z.string()).nullable(),
-  food_pairing: z.array(z.string()).nullable(),
-  serving_temperature: z.array(z.string()).nullable(),
-  // NOTE: Agents/Structured-Outputs は JSON Schema の `format` 未対応。
-  // z.string().url() は `format: "uri"` を付けるため 400 になる。
-  // ここは string にして、実行時に ensurePayloadImages() で正規化する。
-  image_url: z.string().min(1).describe('Direct image URL (e.g., https://example.com/image.jpg) - must be an actual image file, not a product page'),
-  origin_sources: z.array(z.string()).nullable(),
-  price_range: z.string().nullable(),
-  flavor_profile: flavorProfileSchema,
-});
-
-const sakeSchemaOutput = z.object({
-  id: z.string().nullable(),
-  name: z.string(),
-  brewery: z.string().nullable(),
-  region: z.string().nullable(),
-  type: z.string().nullable(),
-  alcohol: z.number().nullable(),
-  sake_value: z.number().nullable(),
-  acidity: z.number().nullable(),
-  description: z.string().nullable(),
-  tasting_notes: z.array(z.string()).nullable(),
-  food_pairing: z.array(z.string()).nullable(),
-  serving_temperature: z.array(z.string()).nullable(),
-  image_url: z.string().url(),
-  origin_sources: z.array(z.string()).nullable(),
-  price_range: z.string().nullable(),
-  flavor_profile: flavorProfileSchema,
-});
-
-const recommendationSchemaInput = z.object({
-  sake: sakeSchemaInput,
-  summary: z.string(),
-  reasoning: z.string(),
-  tasting_highlights: z.array(z.string()).nullable(),
-  serving_suggestions: z.array(z.string()).nullable(),
-  shops: z.array(shopSchema).min(1),
-});
-
-const recommendationSchemaOutput = z.object({
-  sake: sakeSchemaOutput,
-  summary: z.string(),
-  reasoning: z.string(),
-  tasting_highlights: z.array(z.string()).nullable(),
-  serving_suggestions: z.array(z.string()).nullable(),
-  shops: z.array(shopSchema).min(1),
-});
-
-const finalPayloadInputSchema = recommendationSchemaInput.extend({
-  alternatives: z.array(recommendationSchemaInput).nullable(),
-  follow_up_prompt: z.string().nullable(),
-});
-
-const finalPayloadOutputSchema = recommendationSchemaOutput.extend({
-  alternatives: z.array(recommendationSchemaOutput).nullable(),
-  follow_up_prompt: z.string().nullable(),
-});
 
 type HandoffMetadata = {
   include_alternatives?: boolean | null;

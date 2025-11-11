@@ -83,9 +83,9 @@ Response:
 3. POST /api/gift/session/message
    ↓ 会話
 4. POST /api/gift/[id]/trigger-handoff
-   ↓ テキストワーカー起動
-5. テキストワーカーが完了
-   ↓ 通知
+   ↓ gift_jobs にバックグラウンドジョブを登録（Responses API background）
+5. `/api/cron/gift-jobs` が OpenAI Responses の完了を監視
+   ↓ 推薦JSONを gift_recommendations へ保存 & 通知
 6. 送り手が /gift/[id]/result で結果閲覧
 ```
 
@@ -128,6 +128,30 @@ Response:
 - gift_id: uuid (PK, FK)
 - recommendations: jsonb
 - model: text
+- created_at: timestamptz
+```
+
+### gift_jobs テーブル
+```sql
+- id: uuid (PK)
+- gift_id: uuid (FK)
+- response_id: text (OpenAI ResponsesのID)
+- status: text (QUEUED/RUNNING/COMPLETED/FAILED/CANCELLED)
+- metadata: jsonb (trace_group_idやギフト情報)
+- handoff_summary: text
+- last_error: text
+- started_at / completed_at / timeout_at: timestamptz
+- created_at, updated_at: timestamptz
+```
+
+### gift_job_events テーブル
+```sql
+- id: bigint (identity)
+- job_id: uuid (FK)
+- event_type: text (status, error, final など)
+- label: text
+- message: text
+- payload: jsonb
 - created_at: timestamptz
 ```
 
@@ -368,3 +392,15 @@ CREATE INDEX idx_gift_tokens_hash ON gift_tokens(token_hash);
 5. **法令遵守**: 年齢確認、適切な警告
 
 この設計により、送り手と受け手の両方に優れた体験を提供しながら、プライバシーとセキュリティを確保しています。
+### バックグラウンドジョブ監視（Responses API）
+
+- `/api/gift/[id]/trigger-handoff` で OpenAI Responses の `background` ジョブを起動し、`gift_jobs` にレスポンスIDを保存
+- Vercel Cron (`/api/cron/gift-jobs`) が 2 分ごとに `gift_jobs` をポーリングして OpenAI Responses の進捗を確認
+- 完了時は `gift_recommendations` へ upsert、`gifts.status` を `RECOMMEND_READY` に更新し、Supabase通知 + LINE push を送信
+- 失敗・タイムアウト時は `gift_jobs.status = FAILED`、`gifts.status = CLOSED` に更新し、`gift_job_events` に error イベントを記録
+
+### 進捗ストリーム
+
+- `/api/gift/jobs/[id]/events`（SSE）が `gift_job_events` をポーリングし、接続中のクライアントへ逐次配信
+- イベントは「ジョブ登録」「OpenAI で推論開始」「推薦完了」「失敗」「タイムアウト」など
+- 受け手・送り手のブラウザ状態に依存しないため、後から接続しても履歴を再生できる
