@@ -6,7 +6,7 @@
 4. **Research loop** – the server text worker (Agents SDK + `gpt-5-mini`) orchestrates a ReAct loop:
    - Hosted `web_search` gathers product facts, availability, and pricing from trusted retailers.  
    - Intermediate reasoning turns evaluate candidates and, if needed, repeat searches until a confident match is found.  
-   - `finalize_recommendation` consolidates the primary pick, alternative options, and retail offers into the JSON schema consumed by the UI.  
+   - `finalize_recommendation` consolidates the primary pick (full schema) and lightweight alternatives (name + 1行要約 + URL/価格メモ) into the JSON payload consumed by the UI.  
 5. **UI update** – the browser tool `submit_purchase_recommendation` parses the JSON payload, hydrates the domain models, and refreshes `SakeDisplay` with live offers.  
 6. **Voice follow-up** – the voice agent summarises results, cites sources, honours follow-up prompts, and re-invokes `recommend_sake` for refinements (e.g., different budget, other retailers).  
 

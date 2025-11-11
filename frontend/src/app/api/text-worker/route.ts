@@ -93,13 +93,25 @@ const recommendationSchemaOutput = z.object({
   shops: z.array(shopSchema).min(1),
 });
 
+const alternativeSuggestionSchema = z.object({
+  name: z.string(),
+  highlight: z.string().nullable(),
+  url: z
+    .string()
+    .min(1)
+    .describe('Product or reference URL that helps the user find this candidate')
+    .nullable(),
+  price_text: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
 const finalPayloadInputSchema = recommendationSchemaInput.extend({
-  alternatives: z.array(recommendationSchemaInput).nullable(),
+  alternatives: z.array(alternativeSuggestionSchema).max(2).nullable(),
   follow_up_prompt: z.string().nullable(),
 });
 
 const finalPayloadOutputSchema = recommendationSchemaOutput.extend({
-  alternatives: z.array(recommendationSchemaOutput).nullable(),
+  alternatives: z.array(alternativeSuggestionSchema).max(2).nullable(),
   follow_up_prompt: z.string().nullable(),
 });
 
@@ -267,20 +279,7 @@ const ensurePayloadImages = async (payload: unknown): Promise<void> => {
     return;
   }
   const rec = payload as Record<string, unknown>;
-  const tasks: Array<Promise<void>> = [ensureRecommendationImage(rec)];
-  
-  const alternatives = Array.isArray(rec.alternatives)
-    ? (rec.alternatives as unknown[])
-    : [];
-  for (const alternative of alternatives) {
-    if (alternative && typeof alternative === 'object') {
-      tasks.push(
-        ensureRecommendationImage(alternative as Record<string, unknown>),
-      );
-    }
-  }
-
-  await Promise.allSettled(tasks);
+  await ensureRecommendationImage(rec);
 };
 
 const MAX_PROGRESS_MESSAGE_LENGTH = 240;
@@ -593,7 +592,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 1. 必要に応じて \`web_search\` を呼び出し、候補となる日本酒・販売ページ・価格・在庫情報を取得する。${isGiftMode ? 'ギフト対応可能なショップを優先する。' : ''}
 2. 検索結果から条件に最も合う銘柄を評価し、香味・造り・ペアリング・提供温度・価格帯を整理する。可能なら味わいを 1〜5 のスコアで "flavor_profile" に入れる。
 3. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
-4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する。
+4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する（各項目は名前・1行コメント・URL・価格メモのみ。詳細なテイスティング情報やショップリストは不要）。
 
 ### 出力
 - 最終的な回答は必ず一度だけ 'finalize_recommendation' を呼び出し、JSONを返す
@@ -642,7 +641,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
   }
 
   const includeAltInstruction = includeAlternatives
-    ? '代替案: 主要な推薦に加え、条件に合致する有望な候補があれば最大2件まで紹介してください。'
+    ? '代替案: 主要な推薦に加え、最大2件まで名前＋ワンライナー＋URLで軽量に紹介してください。'
     : '代替案: 今回は主要な1本に集中し、代替候補は提示しないでください。';
 
   const guidanceSections = [includeAltInstruction, ...contextSections].filter(
