@@ -13,6 +13,35 @@ import type { TextWorkerProgressEvent } from '@/types/textWorker';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
 
+const REASONING_EFFORT_LEVELS = ['minimal', 'low', 'medium', 'high'] as const;
+type ReasoningEffortLevel = (typeof REASONING_EFFORT_LEVELS)[number];
+const VERBOSITY_LEVELS = ['low', 'medium', 'high'] as const;
+type VerbosityLevel = (typeof VERBOSITY_LEVELS)[number];
+
+const normalizeEnvEnum = <T extends readonly string[]>(
+  value: string | undefined,
+  allowed: T,
+  fallback: T[number],
+): T[number] => {
+  if (!value) {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  return allowed.find((item) => item === normalized) ?? fallback;
+};
+
+const TEXT_AGENT_REASONING_EFFORT: ReasoningEffortLevel = normalizeEnvEnum(
+  process.env.TEXT_AGENT_REASONING_EFFORT,
+  REASONING_EFFORT_LEVELS,
+  'low',
+);
+
+const TEXT_AGENT_VERBOSITY: VerbosityLevel = normalizeEnvEnum(
+  process.env.TEXT_AGENT_VERBOSITY,
+  VERBOSITY_LEVELS,
+  'low',
+);
+
 const shopSchema = z.object({
   retailer: z.string(),
   url: z.string().min(1, '商品リンクのURLを指定してください'),
@@ -549,6 +578,14 @@ export async function POST(req: NextRequest) {
   const agent = new Agent({
     name: 'Sake Purchase Research Worker',
     model,
+    modelSettings: {
+      reasoning: {
+        effort: TEXT_AGENT_REASONING_EFFORT,
+      },
+      text: {
+        verbosity: TEXT_AGENT_VERBOSITY,
+      },
+    },
     outputType: finalPayloadInputSchema,
     tools: [
       webSearchTool({

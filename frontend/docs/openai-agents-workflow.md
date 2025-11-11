@@ -20,6 +20,7 @@
   - Model: `gpt-5-mini` via `OpenAIResponsesModel`.  
   - Tools: hosted `web_search`, `finalize_recommendation`.  
   - Instructions stress multi-source verification, pricing transparency, and always finishing with a single `finalize_recommendation` call.  
+  - Latency levers: set `TEXT_AGENT_REASONING_EFFORT` (`minimal`/`low`/`medium`/`high`, default `low`) and `TEXT_AGENT_VERBOSITY` (`low`/`medium`/`high`, default `low`) to tune the Responses API `reasoning` + `text.verbosity` settings for GPT-5. Lower settings keep the model terse and reduce reasoning tokens.
 
 ### Domain callbacks
 
