@@ -188,7 +188,6 @@ export default function VoiceChat({
   const translateReasoningSummary = useCallback(async (summary: string) => {
     const trimmed = summary.trim();
     if (!trimmed) {
-      setReasoningSummaryEn('');
       setReasoningSummaryJa('');
       setIsTranslatingSummary(false);
       return;
@@ -623,8 +622,13 @@ export default function VoiceChat({
 
     bundle.session.on('error', (event: SessionEvents['error'][0]) => {
       const rawMsg = extractErrorMessage(event);
-      const isBenign =
-        rawMsg && /Unable to add filesystem/i.test(rawMsg);
+      const benignPatterns = [
+        /Unable to add filesystem/i,
+        /Tool call ID .* not found in conversation/i,
+      ];
+      const isBenign = Boolean(
+        rawMsg && benignPatterns.some((pattern) => pattern.test(rawMsg)),
+      );
       if (isBenign) {
         console.warn('[Realtime] Ignored benign error:', rawMsg);
         return;

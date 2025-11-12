@@ -20,6 +20,34 @@ type ReasoningSummaryLevel = (typeof REASONING_SUMMARY_LEVELS)[number];
 const VERBOSITY_LEVELS = ['low', 'medium', 'high'] as const;
 type VerbosityLevel = (typeof VERBOSITY_LEVELS)[number];
 
+const HTTP_URL_PATTERN = /^https?:\/\/\S+/i;
+
+class InvalidRecommendationPayloadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidRecommendationPayloadError';
+  }
+}
+
+const assertMeaningfulText = (value: unknown, label: string): string => {
+  if (typeof value !== 'string') {
+    throw new InvalidRecommendationPayloadError(`${label}の形式が不正です`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new InvalidRecommendationPayloadError(`${label}を空欄にしないでください`);
+  }
+  return trimmed;
+};
+
+const assertHttpUrl = (value: unknown, label: string): string => {
+  const text = assertMeaningfulText(value, label);
+  if (!HTTP_URL_PATTERN.test(text)) {
+    throw new InvalidRecommendationPayloadError(`${label}には http(s) の完全なURLを指定してください`);
+  }
+  return text;
+};
+
 const normalizeEnvEnum = <T extends readonly string[]>(
   value: string | undefined,
   allowed: T,
@@ -52,7 +80,7 @@ const TEXT_AGENT_VERBOSITY: VerbosityLevel = normalizeEnvEnum(
 
 const shopSchema = z.object({
   retailer: z.string(),
-  url: z.string().min(1, '商品リンクのURLを指定してください'),
+  url: z.string(),
   price: z.number().nullable(),
   price_text: z.string().nullable(),
   currency: z.string().nullable(),
@@ -152,6 +180,48 @@ const finalPayloadOutputSchema = recommendationSchemaOutput.extend({
   follow_up_prompt: z.string().nullable(),
 });
 
+type FinalRecommendationPayload = z.infer<typeof finalPayloadOutputSchema>;
+
+const validateRecommendationPayload = (
+  payload: FinalRecommendationPayload,
+): void => {
+  assertMeaningfulText(payload.summary, 'summary');
+  assertMeaningfulText(payload.reasoning, 'reasoning');
+  assertMeaningfulText(payload.sake.name, 'sake.name');
+  assertHttpUrl(payload.sake.image_url, 'sake.image_url');
+
+  payload.shops.forEach((shop, index) => {
+    assertMeaningfulText(shop.retailer, `shops[${index}].retailer`);
+    assertHttpUrl(shop.url, `shops[${index}].url`);
+    if (
+      shop.price == null &&
+      (!shop.price_text || typeof shop.price_text !== 'string' || !shop.price_text.trim())
+    ) {
+      throw new InvalidRecommendationPayloadError(
+        `shops[${index}].price か price_text のどちらかは必須です`,
+      );
+    }
+  });
+
+  if (payload.alternatives) {
+    payload.alternatives.forEach((alt, index) => {
+      assertMeaningfulText(alt.name, `alternatives[${index}].name`);
+      if (alt.url) {
+        assertHttpUrl(alt.url, `alternatives[${index}].url`);
+      }
+      if (
+        alt.price_text &&
+        typeof alt.price_text === 'string' &&
+        alt.price_text.trim().length === 0
+      ) {
+        throw new InvalidRecommendationPayloadError(
+          `alternatives[${index}].price_text を空文字にしないでください`,
+        );
+      }
+    });
+  }
+};
+
 type HandoffMetadata = {
   include_alternatives?: boolean | null;
   focus?: string | null;
@@ -197,7 +267,6 @@ const handoffRequestSchema = z.object({
   gift_id: z.string().optional(),
 });
 
-const HTTP_URL_PATTERN = /^https?:\/\//i;
 const DEFAULT_IMAGE_URL =
   'https://dummyimage.com/480x640/1f2937/ffffff&text=Sake';
 
@@ -640,10 +709,15 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 3. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
 4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する（各項目は名前・1行コメント・URL・価格メモのみ。詳細なテイスティング情報やショップリストは不要）。
 
+### 厳守事項
+- \`finalize_recommendation\` を呼び出す時点で必要な販売先・価格・在庫情報は揃っている前提です。追加のヒアリングや確認質問を挟まず確定してください。
+- \`follow_up_prompt\` は常に null。ユーザーへの追質問や再確認メッセージは書かないこと。
+- フィールドを空文字やダミーURLで埋めるのは禁止です。取得できない値は null を使い、その理由を summary / reasoning に明記してください。
+
 ### 出力
 - 最終的な回答は必ず一度だけ 'finalize_recommendation' を呼び出し、JSONを返す
 - 定量情報が取れない場合は null を指定し、根拠文に明記する
-- 追加で確認すべきことがあれば 'follow_up_prompt' に短く提案を書く
+- 'follow_up_prompt' は必ず null とし、追加の質問は絶対に含めない
     `.trim(),
   });
 
@@ -910,11 +984,37 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
   await ensurePayloadImages(finalOutput);
 
   const payload = finalPayloadOutputSchema.parse(finalOutput);
+  const normalizedPayload: FinalRecommendationPayload = {
+    ...payload,
+    follow_up_prompt: null,
+  };
+
+  try {
+    validateRecommendationPayload(normalizedPayload);
+  } catch (validationError) {
+    const message =
+      validationError instanceof Error
+        ? validationError.message
+        : 'Invalid recommendation payload';
+    publishProgress(runId, {
+      type: 'error',
+      label: 'バリデーション失敗',
+      message,
+    });
+    clearProgress(runId);
+    return NextResponse.json(
+      {
+        error: 'Invalid agent payload',
+        details: message,
+      },
+      { status: 400 },
+    );
+  }
   publishProgress(runId, {
     type: 'final',
     label: '完了',
     message: '推薦結果をUIに送信しました。',
   });
   clearProgress(runId);
-  return NextResponse.json(payload);
+  return NextResponse.json(normalizedPayload);
 }
