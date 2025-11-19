@@ -11,7 +11,7 @@ import SakeHistory from '@/components/SakeHistory';
 import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 
 export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
@@ -53,35 +53,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
-      {/* Animated Background */}
-      <div className="fixed inset-0 -z-10">
-        {/* Gradient Overlay */}
-        <motion.div
-          className="absolute inset-0 opacity-30"
-          animate={{
-            background: [
-              'radial-gradient(circle at 20% 80%, oklch(0.68 0.15 70) 0%, transparent 50%)',
-              'radial-gradient(circle at 80% 20%, oklch(0.78 0.12 60) 0%, transparent 50%)',
-              'radial-gradient(circle at 40% 40%, oklch(0.68 0.15 70) 0%, transparent 50%)',
-            ],
-          }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-        />
-
-        {/* Grid Pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `linear-gradient(to right, currentColor 1px, transparent 1px),
-                            linear-gradient(to bottom, currentColor 1px, transparent 1px)`,
-            backgroundSize: '4rem 4rem',
-          }}
-        />
-      </div>
+      {/* Subtle Background */}
+      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center h-screen px-6 sm:px-8 lg:px-12 overflow-hidden">
