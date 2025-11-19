@@ -1,16 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
 import type {
   ResponseCreateParamsNonStreaming,
   ResponseFormatTextJSONSchemaConfig,
 } from 'openai/resources/responses/responses';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Gift } from '@/types/gift';
-import {
-  finalPayloadJsonSchema,
-  finalPayloadOutputSchema,
-} from '@/server/textWorkerSchemas';
+import { finalPayloadOutputSchema } from '@/server/textWorkerSchemas';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
@@ -51,6 +49,11 @@ type JsonSchemaTextFormatParam = {
     format: ResponseFormatTextJSONSchemaConfig;
   };
 };
+
+const sakeGiftRecommendationTextFormat = zodTextFormat(
+  finalPayloadOutputSchema,
+  'SakeGiftRecommendation',
+);
 
 const openaiClient = OPENAI_API_KEY
   ? new OpenAI({ apiKey: OPENAI_API_KEY })
@@ -233,12 +236,7 @@ export async function enqueueGiftRecommendationJob(
     max_output_tokens: 1600,
     background: true,
     text: {
-      format: {
-        type: 'json_schema',
-        name: 'SakeGiftRecommendation',
-        schema: finalPayloadJsonSchema,
-        strict: true,
-      },
+      format: sakeGiftRecommendationTextFormat,
     },
   };
 
