@@ -25,7 +25,7 @@
 - PR には変更概要、関連 Issue、追加コマンド、必要ならスクリーンショットまたは音声キャプチャを添付し、環境変数の変更がある場合は `docs/` に追記したリンクを示します。
 
 ## セキュリティと設定
-- `frontend/.env.local` に `OPENAI_API_KEY`, `OPENAI_TEXT_MODEL`, `OPENAI_REALTIME_MODEL`, `NEXT_PUBLIC_OPENAI_REALTIME_MODEL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` を定義し、Git には絶対に含めないでください。
+- `frontend/.env.local` に `OPENAI_API_KEY`, `OPENAI_TEXT_MODEL`, `OPENAI_REALTIME_MODEL`, `NEXT_PUBLIC_OPENAI_REALTIME_MODEL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` を定義し、Git には絶対に含めないでください
 
 ## 出荷前チェック
 - すべての変更についてローカルで `bun run lint` を通過させ、最終確認として `bun run build` で本番同等テストを必ず実行してください。
