@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/lib/supabase';
+import { getBrowserSupabaseClient } from '@/lib/supabase';
 import type { Gift as GiftType } from '@/types/gift';
 import SakeDisplay from '@/components/SakeDisplay';
 import type { PurchaseOffer } from '@/domain/sake/types';
@@ -18,6 +18,8 @@ export default function GiftResultPage() {
   const params = useParams();
   const router = useRouter();
   const giftId = params.id as string;
+
+  const supabase = getBrowserSupabaseClient();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export default function GiftResultPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [giftId]);
+  }, [giftId, supabase]);
 
   if (isLoading) {
     return (

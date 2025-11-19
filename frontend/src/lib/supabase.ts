@@ -1,24 +1,30 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let cachedBrowserClient: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+export function getBrowserSupabaseClient(): SupabaseClient {
+  if (cachedBrowserClient) {
+    return cachedBrowserClient;
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables');
+  }
+
+  cachedBrowserClient = createClient(supabaseUrl, supabaseAnonKey);
+  return cachedBrowserClient;
 }
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Server-side client with service role key for bypassing RLS
 export function createServerSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!serviceRoleKey) {
-    throw new Error('Missing Supabase service role key');
-  }
-
-  if (!supabaseUrl) {
-    throw new Error('Missing Supabase URL');
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing Supabase service configuration');
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
