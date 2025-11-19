@@ -21,7 +21,7 @@ export function createRealtimeVoiceBundle(
   const realtimeModel =
     process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
 
-  const runtimeContext: AgentRuntimeContext = {
+const runtimeContext: AgentRuntimeContext = {
     callbacks,
     session: {
       currentSake: undefined,

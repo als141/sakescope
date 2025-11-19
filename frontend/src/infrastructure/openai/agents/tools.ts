@@ -105,8 +105,16 @@ const recommendationPayloadSchema = z.object({
   shops: z.array(shopListingSchema).min(1),
 });
 
+const alternativeSuggestionSchema = z.object({
+  name: z.string(),
+  highlight: z.string().nullable(),
+  url: z.string().min(1).nullable(),
+  price_text: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
 const agentResponseSchema = recommendationPayloadSchema.extend({
-  alternatives: z.array(recommendationPayloadSchema).nullable(),
+  alternatives: z.array(alternativeSuggestionSchema).max(2).nullable(),
   follow_up_prompt: z.string().nullable(),
 });
 
@@ -231,22 +239,11 @@ async function handleRecommendationSubmission(
     followUpPrompt: parsed.follow_up_prompt ?? undefined,
     alternatives: parsed.alternatives
       ? parsed.alternatives.map((alt) => ({
-          sake: mapSakePayload(alt.sake),
-          summary: alt.summary,
-          reasoning: alt.reasoning,
-          shops: alt.shops.map((shop) => ({
-            retailer: shop.retailer,
-            url: shop.url,
-            price: shop.price ?? undefined,
-            priceText: shop.price_text ?? undefined,
-            currency: shop.currency ?? undefined,
-            availability: shop.availability ?? undefined,
-            deliveryEstimate: shop.delivery_estimate ?? undefined,
-            source: shop.source ?? undefined,
-            notes: shop.notes ?? undefined,
-          })),
-          tastingHighlights: alt.tasting_highlights ?? undefined,
-          servingSuggestions: alt.serving_suggestions ?? undefined,
+          name: alt.name,
+          highlight: alt.highlight ?? undefined,
+          url: alt.url ?? undefined,
+          priceText: alt.price_text ?? undefined,
+          notes: alt.notes ?? undefined,
         }))
       : undefined,
   };

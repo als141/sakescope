@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,6 +10,8 @@ import {
   Loader2,
   PhoneOff,
   Activity,
+  Send,
+  X,
 } from 'lucide-react';
 import type {
   RealtimeSession,
@@ -25,6 +27,7 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from '@/infrastructure/openai/agents/context';
+import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +51,14 @@ interface VoiceChatProps {
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
 }
+
+type InteractionMode = 'voice' | 'chat';
+
+type ChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+};
 
 const preferenceValueLabels: Record<string, string> = {
   dry: '辛口',
@@ -128,6 +139,13 @@ export default function VoiceChat({
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [isMouthOpenFrame, setIsMouthOpenFrame] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode | null>(null);
+  const [chatDockOpen, setChatDockOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const [reasoningSummaryJa, setReasoningSummaryJa] = useState('');
+  const [isTranslatingSummary, setIsTranslatingSummary] = useState(false);
 
   const bundleRef = useRef<VoiceAgentBundle | null>(null);
   const onSakeRecommendedRef = useRef(onSakeRecommended);
@@ -142,6 +160,10 @@ export default function VoiceChat({
   const avatarSpeechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mouthAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const setIsRecordingStateRef = useRef(setIsRecording);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const translateAbortControllerRef = useRef<AbortController | null>(null);
+  const isChatMode = interactionMode === 'chat';
 
   const openAvatarMouth = useCallback(() => {
     if (avatarSpeechTimeoutRef.current) {
@@ -163,18 +185,116 @@ export default function VoiceChat({
     }, delay);
   }, []);
 
+  const translateReasoningSummary = useCallback(async (summary: string) => {
+    const trimmed = summary.trim();
+    if (!trimmed) {
+      setReasoningSummaryJa('');
+      setIsTranslatingSummary(false);
+      return;
+    }
+    setIsTranslatingSummary(true);
+    setReasoningSummaryJa('');
+    if (translateAbortControllerRef.current) {
+      translateAbortControllerRef.current.abort();
+      translateAbortControllerRef.current = null;
+    }
+    const controller = new AbortController();
+    translateAbortControllerRef.current = controller;
+    try {
+      const response = await fetch('/api/reasoning-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ summary: trimmed }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const details = await response.text().catch(() => 'Translation failed');
+        throw new Error(details || 'Translation failed');
+      }
+      const data = (await response.json().catch(() => null)) as
+        | { translation?: string }
+        | null;
+      if (controller.signal.aborted) {
+        return;
+      }
+      const translated =
+        typeof data?.translation === 'string' && data.translation.trim().length > 0
+          ? data.translation.trim()
+          : trimmed;
+      setReasoningSummaryJa(translated);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      console.error('Failed to translate reasoning summary:', err);
+      setReasoningSummaryJa(trimmed);
+      setError((prev) => prev ?? '推論サマリの翻訳に失敗しました');
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsTranslatingSummary(false);
+        translateAbortControllerRef.current = null;
+      }
+    }
+  }, []);
+
+  const handleTextWorkerProgress = useCallback(
+    (event: TextWorkerProgressEvent) => {
+      if (event.type === 'reasoning' && typeof event.message === 'string') {
+        const text = event.message.trim();
+        if (text.length > 0) {
+          void translateReasoningSummary(text);
+        }
+      }
+      if (event.type === 'final' || event.type === 'error') {
+        if (translateAbortControllerRef.current) {
+          translateAbortControllerRef.current.abort();
+          translateAbortControllerRef.current = null;
+        }
+        setIsTranslatingSummary(false);
+      }
+    },
+    [translateReasoningSummary],
+  );
+
+  const upsertAssistantChatMessage = useCallback((id: string, text: string) => {
+    if (!id) {
+      return;
+    }
+    setChatMessages((prev) => {
+      const index = prev.findIndex(
+        (message) => message.id === id && message.role === 'assistant',
+      );
+      if (index === -1) {
+        return [...prev, { id, role: 'assistant', text }];
+      }
+      const existing = prev[index];
+      if (existing.text === text) {
+        return prev;
+      }
+      const next = [...prev];
+      next[index] = { ...existing, text };
+      return next;
+    });
+  }, []);
+
   const upsertAiMessage = useCallback(
     (id: string, text: string, options: { append?: boolean } = {}) => {
       if (!id || typeof text !== 'string') {
         return;
       }
       const { append = false } = options;
+      let computedText = text;
+      let didUpdate = false;
       setAiMessages((prev) => {
         const order = assistantMessageOrderRef.current;
         const index = order.indexOf(id);
         if (index === -1) {
           order.push(id);
           assistantMessageIdsRef.current.add(id);
+          computedText = text;
+          didUpdate = true;
           return [...prev, text];
         }
         const existing = prev[index] ?? '';
@@ -184,10 +304,15 @@ export default function VoiceChat({
         }
         const next = [...prev];
         next[index] = nextText;
+        computedText = nextText;
+        didUpdate = true;
         return next;
       });
+      if (didUpdate) {
+        upsertAssistantChatMessage(id, computedText);
+      }
     },
-    [],
+    [upsertAssistantChatMessage],
   );
 
   useEffect(() => {
@@ -217,6 +342,22 @@ export default function VoiceChat({
   useEffect(() => {
     setIsRecordingStateRef.current = setIsRecording;
   }, [setIsRecording]);
+
+  useEffect(() => {
+    if (chatDockOpen && chatInputRef.current) {
+      chatInputRef.current.focus();
+    }
+  }, [chatDockOpen]);
+
+  useEffect(() => {
+    if (!chatDockOpen) {
+      return;
+    }
+    const container = chatScrollRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [chatDockOpen, chatMessages]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -254,6 +395,10 @@ export default function VoiceChat({
       }
       if (mouthAnimationIntervalRef.current) {
         clearInterval(mouthAnimationIntervalRef.current);
+      }
+      if (translateAbortControllerRef.current) {
+        translateAbortControllerRef.current.abort();
+        translateAbortControllerRef.current = null;
       }
     },
     [],
@@ -306,6 +451,7 @@ export default function VoiceChat({
         setError(message);
         setIsDelegating(false);
       },
+      onProgressEvent: handleTextWorkerProgress,
     });
 
     bundleRef.current = bundle;
@@ -476,8 +622,13 @@ export default function VoiceChat({
 
     bundle.session.on('error', (event: SessionEvents['error'][0]) => {
       const rawMsg = extractErrorMessage(event);
-      const isBenign =
-        rawMsg && /Unable to add filesystem/i.test(rawMsg);
+      const benignPatterns = [
+        /Unable to add filesystem/i,
+        /Tool call ID .* not found in conversation/i,
+      ];
+      const isBenign = Boolean(
+        rawMsg && benignPatterns.some((pattern) => pattern.test(rawMsg)),
+      );
       if (isBenign) {
         console.warn('[Realtime] Ignored benign error:', rawMsg);
         return;
@@ -497,79 +648,96 @@ export default function VoiceChat({
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, [preferences, upsertAiMessage]);
+  }, [
+    preferences,
+    upsertAiMessage,
+    openAvatarMouth,
+    scheduleAvatarMouthClose,
+    handleTextWorkerProgress,
+  ]);
 
-  const connectToSession = async () => {
-    const currentSession = sessionRef.current;
-    if (!currentSession) return;
+  const connectToSession = useCallback(
+    async (mode: InteractionMode) => {
+      const currentSession = sessionRef.current;
+      if (!currentSession) return;
 
-    setIsLoading(true);
-    setError(null);
-    setIsDelegating(false);
+      setIsLoading(true);
+      setError(null);
+      setIsDelegating(false);
 
-    try {
-      const response = await fetch('/api/client-secret', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = (await response.json().catch(() => null)) as
-        | { value?: string; error?: unknown; details?: unknown }
-        | null;
-      if (!response.ok || !data?.value) {
-        const details =
-          (data && (data.error || data.details)) || 'Failed to get client secret';
-        throw new Error(
-          typeof details === 'string' ? details : JSON.stringify(details)
-        );
-      }
-
-      await currentSession.connect({
-        apiKey: data.value,
-        model: realtimeModel,
-      });
-      currentSession.mute(false);
-
-      const prefs = preferencesRef.current;
-      if (prefs) {
-        const flavorText = describePreferenceValue(prefs.flavor_preference);
-        const bodyText = describePreferenceValue(prefs.body_preference);
-        const priceText = describePreferenceValue(prefs.price_range);
-        const prefParts = [
-          flavorText ? `味わい=${flavorText}` : null,
-          bodyText ? `ボディ=${bodyText}` : null,
-          priceText ? `価格帯=${priceText}` : null,
-          prefs.food_pairing?.length ? `料理=${prefs.food_pairing.join(' / ')}` : null,
-          prefs.notes ? `メモ=${prefs.notes}` : null,
-        ].filter(Boolean);
-        const prefText =
-          prefParts.length > 0
-            ? `ユーザー設定: ${prefParts.join('、 ')}`
-            : 'ユーザー設定: 特になし';
-        currentSession.sendMessage({
-          type: 'message',
-          role: 'user',
-          content: [{ type: 'input_text', text: prefText }],
+      try {
+        const response = await fetch('/api/client-secret', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
-      }
 
-      setIsConnected(true);
-      setIsLoading(false);
-      setIsRecording(true);
-      assistantMessageIdsRef.current.clear();
-      assistantMessageOrderRef.current = [];
-      setAiMessages([]);
-      onConnectionChange?.(true);
-    } catch (err) {
-      console.error('Failed to connect:', err);
-      const message =
-        err instanceof Error ? err.message : 'Failed to connect to AI assistant';
-      setError(message || 'Failed to connect to AI assistant');
-      setIsLoading(false);
-    }
-  };
+        const data = (await response.json().catch(() => null)) as
+          | { value?: string; error?: unknown; details?: unknown }
+          | null;
+        if (!response.ok || !data?.value) {
+          const details =
+            (data && (data.error || data.details)) || 'Failed to get client secret';
+          throw new Error(
+            typeof details === 'string' ? details : JSON.stringify(details)
+          );
+        }
+
+        await currentSession.connect({
+          apiKey: data.value,
+          model: realtimeModel,
+        });
+        if (mode === 'voice') {
+          currentSession.mute(false);
+          setIsRecording(true);
+        } else {
+          currentSession.mute(true);
+          setIsRecording(false);
+        }
+
+        const prefs = preferencesRef.current;
+        if (prefs) {
+          const flavorText = describePreferenceValue(prefs.flavor_preference);
+          const bodyText = describePreferenceValue(prefs.body_preference);
+          const priceText = describePreferenceValue(prefs.price_range);
+          const prefParts = [
+            flavorText ? `味わい=${flavorText}` : null,
+            bodyText ? `ボディ=${bodyText}` : null,
+            priceText ? `価格帯=${priceText}` : null,
+            prefs.food_pairing?.length ? `料理=${prefs.food_pairing.join(' / ')}` : null,
+            prefs.notes ? `メモ=${prefs.notes}` : null,
+          ].filter(Boolean);
+          const prefText =
+            prefParts.length > 0
+              ? `ユーザー設定: ${prefParts.join('、 ')}`
+              : 'ユーザー設定: 特になし';
+          currentSession.sendMessage({
+            type: 'message',
+            role: 'user',
+            content: [{ type: 'input_text', text: prefText }],
+          });
+        }
+
+        setInteractionMode(mode);
+        setIsConnected(true);
+        setIsLoading(false);
+        assistantMessageIdsRef.current.clear();
+        assistantMessageOrderRef.current = [];
+        setAiMessages([]);
+        setChatMessages([]);
+        onConnectionChange?.(true);
+      } catch (err) {
+        console.error('Failed to connect:', err);
+        const message =
+          err instanceof Error ? err.message : 'Failed to connect to AI assistant';
+        setError(message || 'Failed to connect to AI assistant');
+        setIsLoading(false);
+        setInteractionMode(null);
+      }
+    },
+    [onConnectionChange, realtimeModel, setIsRecording],
+  );
 
   const disconnectFromSession = () => {
     if (sessionRef.current) {
@@ -580,9 +748,19 @@ export default function VoiceChat({
     setIsLoading(false);
     setError(null);
     setIsDelegating(false);
+    setInteractionMode(null);
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
     assistantMessageOrderRef.current = [];
+    setChatMessages([]);
+    setChatDockOpen(false);
+    setChatInput('');
+    setReasoningSummaryJa('');
+    setIsTranslatingSummary(false);
+    if (translateAbortControllerRef.current) {
+      translateAbortControllerRef.current.abort();
+      translateAbortControllerRef.current = null;
+    }
     if (avatarSpeechTimeoutRef.current) {
       clearTimeout(avatarSpeechTimeoutRef.current);
       avatarSpeechTimeoutRef.current = null;
@@ -595,7 +773,83 @@ export default function VoiceChat({
 
   const handleStartConversation = () => {
     if (isLoading || isConnected) return;
-    void connectToSession();
+    setInteractionMode('voice');
+    void connectToSession('voice');
+  };
+
+  const ensureChatSession = useCallback(async () => {
+    if (!sessionRef.current || !isConnected) {
+      await connectToSession('chat');
+      return sessionRef.current;
+    }
+    if (interactionMode !== 'chat') {
+      try {
+        sessionRef.current.mute(true);
+      } catch (err) {
+        console.error('Failed to mute for chat mode:', err);
+      }
+      autoMutedRef.current = false;
+      setIsRecording(false);
+      setInteractionMode('chat');
+    }
+    return sessionRef.current;
+  }, [connectToSession, interactionMode, isConnected, setIsRecording]);
+
+  const handleOpenChatDock = () => {
+    if (!chatDockOpen) {
+      setChatDockOpen(true);
+    }
+    setInteractionMode('chat');
+    autoMutedRef.current = false;
+    setIsRecording(false);
+    if (sessionRef.current && isConnected) {
+      try {
+        sessionRef.current.mute(true);
+      } catch (err) {
+        console.error('Failed to mute for chat mode:', err);
+      }
+    } else if (!isLoading) {
+      void connectToSession('chat');
+    }
+  };
+
+  const handleCloseChatDock = () => {
+    setChatDockOpen(false);
+  };
+
+  const handleSendChatMessage = async () => {
+    const trimmed = chatInput.trim();
+    if (!trimmed || isSendingChat) {
+      return;
+    }
+    setIsSendingChat(true);
+    try {
+      const session = await ensureChatSession();
+      if (!session) {
+        throw new Error('セッションに接続できませんでした');
+      }
+      const userMessageId = `user-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      setChatMessages((prev) => [...prev, { id: userMessageId, role: 'user', text: trimmed }]);
+      setChatInput('');
+      session.sendMessage({
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: trimmed }],
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'テキスト送信に失敗しました';
+      setError(message);
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
+  const handleChatKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void handleSendChatMessage();
+    }
   };
 
   const handleStopConversation = () => {
@@ -619,6 +873,9 @@ export default function VoiceChat({
       setError(null);
     }
     setIsRecording(nextRecordingState);
+    if (nextRecordingState) {
+      setInteractionMode('voice');
+    }
   };
 
   const isMuted = isConnected && !isRecording;
@@ -628,10 +885,15 @@ export default function VoiceChat({
       return 'AIソムリエに接続中...';
     }
     if (!isConnected) {
-      return 'マイクボタンを押して会話を始めてください';
+      return isChatMode
+        ? 'チャットボタンからメッセージを送ると接続します'
+        : 'マイクボタンを押して会話を始めてください';
     }
     if (isDelegating) {
       return '購入情報を調査中です…';
+    }
+    if (isChatMode) {
+      return 'テキストチャット受付中 ✏️';
     }
     if (isMuted) {
       return 'ミュート中（AIには聞こえていません）';
@@ -640,10 +902,16 @@ export default function VoiceChat({
   })();
 
   const subtitleFallback = isConnected
-    ? 'AIソムリエが話すとここに字幕がリアルタイム表示されます'
+    ? isChatMode
+      ? 'テキストでAIソムリエが回答します'
+      : 'AIソムリエが話すとここに字幕がリアルタイム表示されます'
     : 'まずはマイクボタンで会話を始めましょう';
 
-  const subtitleDisplay = (currentSubtitle?.trim() || subtitleFallback).trim();
+  const baseSubtitle = (currentSubtitle?.trim() || subtitleFallback).trim();
+  const reasoningSummaryDisplay =
+    reasoningSummaryJa && reasoningSummaryJa.trim().length > 0
+      ? reasoningSummaryJa.trim()
+      : '';
   const avatarImageSrc =
     isAvatarSpeaking && isMouthOpenFrame ? '/ai-avatar/open.png' : '/ai-avatar/close.png';
 
@@ -659,13 +927,13 @@ export default function VoiceChat({
       {!isConnected ? (
         <>
           <motion.div
-            className="flex flex-col items-center gap-5 sm:gap-6"
+            className="flex flex-col items-center gap-4 sm:gap-5"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
           >
-            <motion.div className="relative">
+            <motion.div className="relative flex items-center gap-4">
               <Button
                 onClick={handleStartConversation}
                 disabled={isLoading}
@@ -691,7 +959,24 @@ export default function VoiceChat({
                   )}
                 </motion.div>
               </Button>
+              <Button
+                onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
+                variant={chatDockOpen ? 'default' : 'secondary'}
+                size="lg"
+                className={cn(
+                  'h-16 w-16 rounded-full p-0 shadow-xl transition-all duration-300 border border-primary/30',
+                  chatDockOpen
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-background text-primary hover:bg-primary/10',
+                )}
+                disabled={isLoading}
+              >
+                <MessageSquare className="h-7 w-7" />
+              </Button>
             </motion.div>
+            <p className="text-xs text-muted-foreground">
+              テキストで相談したい場合はチャットボタンを押してください
+            </p>
           </motion.div>
 
           <motion.div
@@ -739,9 +1024,24 @@ export default function VoiceChat({
                   />
                   {isConnected ? 'LIVE' : 'STANDBY'}
                 </div>
-                <span className="tracking-[0.3em]">
-                  {isMuted ? 'MUTED' : 'LISTENING'}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="tracking-[0.3em]">
+                    {isMuted ? 'MUTED' : 'LISTENING'}
+                  </span>
+                  <Button
+                    variant={chatDockOpen ? 'default' : 'outline'}
+                    size="icon"
+                    onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
+                    className={cn(
+                      'h-9 w-9 rounded-full transition-colors',
+                      chatDockOpen
+                        ? 'bg-primary text-primary-foreground'
+                        : 'border-border/60 text-muted-foreground hover:text-primary',
+                    )}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="relative w-full flex flex-col items-center">
@@ -786,9 +1086,28 @@ export default function VoiceChat({
                 animate={{ opacity: 1, y: 0 }}
               >
                 <div className="rounded-2xl border border-border/60 bg-background/80 px-6 py-4 shadow-inner">
-                  <p className="text-lg sm:text-2xl font-semibold leading-relaxed">
-                    {subtitleDisplay}
-                  </p>
+                  {reasoningSummaryDisplay ? (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.3em] text-primary flex items-center justify-center gap-2">
+                        推論サマリ
+                        {isTranslatingSummary && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        )}
+                      </div>
+                      <p className="text-lg sm:text-2xl font-semibold leading-relaxed whitespace-pre-wrap">
+                        {reasoningSummaryDisplay}
+                      </p>
+                      {baseSubtitle && baseSubtitle !== reasoningSummaryDisplay && (
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                          {baseSubtitle}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-lg sm:text-2xl font-semibold leading-relaxed">
+                      {baseSubtitle}
+                    </p>
+                  )}
                 </div>
               </motion.div>
 
@@ -890,6 +1209,19 @@ export default function VoiceChat({
             <span className="text-base font-semibold">音声アシスト</span>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={chatDockOpen ? 'default' : 'ghost'}
+              size="icon"
+              onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
+              className={cn(
+                'h-8 w-8 rounded-full',
+                chatDockOpen
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-primary/10 text-muted-foreground',
+              )}
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
             {onToggleMinimize && (
               <Button
                 variant="ghost"
@@ -951,19 +1283,29 @@ export default function VoiceChat({
 
         <div className="flex items-center gap-3">
           {!isConnected ? (
-            <Button
-              onClick={handleStartConversation}
-              disabled={isLoading}
-              className="flex-1 h-11"
-              size="default"
-            >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Mic className="h-5 w-5" />
-              )}
-              開始
-            </Button>
+            <>
+              <Button
+                onClick={handleStartConversation}
+                disabled={isLoading}
+                className="flex-1 h-11"
+                size="default"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+                開始
+              </Button>
+              <Button
+                onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
+                variant={chatDockOpen ? 'default' : 'outline'}
+                className="h-11 px-4"
+              >
+                <MessageSquare className="h-5 w-5" />
+                <span className="ml-1">チャット</span>
+              </Button>
+            </>
           ) : (
             <>
               <Button
@@ -1002,5 +1344,124 @@ export default function VoiceChat({
     </Card>
   );
 
-  return isCompact ? compactContent : fullContent;
+  const chatDock = (
+    <AnimatePresence>
+      {chatDockOpen && (
+        <motion.div
+          key="chat-dock"
+          initial={{ opacity: 0, y: 40, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 40, scale: 0.95 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 w-[min(420px,calc(100vw-2.5rem))]"
+        >
+          <Card className="border-border/60 shadow-2xl bg-background/95 backdrop-blur">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">テキストチャット</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        'h-2 w-2 rounded-full',
+                        isDelegating
+                          ? 'bg-amber-400 animate-pulse'
+                          : isConnected
+                            ? 'bg-emerald-400 animate-pulse'
+                            : isLoading
+                              ? 'bg-primary/60 animate-pulse'
+                              : 'bg-muted-foreground/50',
+                      )}
+                    />
+                    <span>
+                      {isDelegating
+                        ? '購入候補を調査中'
+                        : isConnected
+                          ? '接続中'
+                          : isLoading
+                            ? '接続準備中'
+                            : '未接続'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCloseChatDock}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="px-4 pt-4">
+                <div
+                  ref={chatScrollRef}
+                  className="h-64 overflow-y-auto space-y-3 pr-1"
+                >
+                  {chatMessages.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-10">
+                      メッセージを入力すると、ここに会話が表示されます。
+                    </div>
+                  ) : (
+                    chatMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          'flex',
+                          message.role === 'user' ? 'justify-end' : 'justify-start',
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'rounded-2xl px-4 py-2 text-sm shadow-sm max-w-[85%] whitespace-pre-line break-words',
+                            message.role === 'user'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-foreground',
+                          )}
+                        >
+                          {message.text}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div className="px-4 pb-4 pt-3 border-t border-border/60 flex items-end gap-2">
+                <textarea
+                  ref={chatInputRef}
+                  value={chatInput}
+                  onChange={(event) => setChatInput(event.target.value)}
+                  onKeyDown={handleChatKeyDown}
+                  placeholder="甘口で飲みやすい一本を探しています..."
+                  className="flex-1 min-h-[48px] max-h-32 resize-none rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  disabled={isSendingChat}
+                />
+                <Button
+                  onClick={() => void handleSendChatMessage()}
+                  disabled={isSendingChat || !chatInput.trim()}
+                  size="icon"
+                  className="h-11 w-11 rounded-full"
+                >
+                  {isSendingChat ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  return (
+    <>
+      {isCompact ? compactContent : fullContent}
+      {chatDock}
+    </>
+  );
 }
