@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Mic,
   MicOff,
@@ -11,7 +11,6 @@ import {
   PhoneOff,
   Activity,
   Send,
-  X,
 } from 'lucide-react';
 import type {
   RealtimeSession,
@@ -32,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface VoiceChatProps {
@@ -53,12 +53,6 @@ interface VoiceChatProps {
 }
 
 type InteractionMode = 'voice' | 'chat';
-
-type ChatMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-};
 
 const preferenceValueLabels: Record<string, string> = {
   dry: '辛口',
@@ -139,10 +133,7 @@ export default function VoiceChat({
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [isMouthOpenFrame, setIsMouthOpenFrame] = useState(false);
-  const [interactionMode, setInteractionMode] = useState<InteractionMode | null>(null);
-  const [chatDockOpen, setChatDockOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [reasoningSummaryJa, setReasoningSummaryJa] = useState('');
   const [isTranslatingSummary, setIsTranslatingSummary] = useState(false);
@@ -160,10 +151,9 @@ export default function VoiceChat({
   const avatarSpeechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mouthAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const setIsRecordingStateRef = useRef(setIsRecording);
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const translateAbortControllerRef = useRef<AbortController | null>(null);
-  const isChatMode = interactionMode === 'chat';
+  const isChatMode = isConnected && !isRecording;
 
   const openAvatarMouth = useCallback(() => {
     if (avatarSpeechTimeoutRef.current) {
@@ -258,62 +248,29 @@ export default function VoiceChat({
     [translateReasoningSummary],
   );
 
-  const upsertAssistantChatMessage = useCallback((id: string, text: string) => {
-    if (!id) {
+  const upsertAiMessage = useCallback((id: string, text: string, options: { append?: boolean } = {}) => {
+    if (!id || typeof text !== 'string') {
       return;
     }
-    setChatMessages((prev) => {
-      const index = prev.findIndex(
-        (message) => message.id === id && message.role === 'assistant',
-      );
+    const { append = false } = options;
+    setAiMessages((prev) => {
+      const order = assistantMessageOrderRef.current;
+      const index = order.indexOf(id);
       if (index === -1) {
-        return [...prev, { id, role: 'assistant', text }];
+        order.push(id);
+        assistantMessageIdsRef.current.add(id);
+        return [...prev, text];
       }
-      const existing = prev[index];
-      if (existing.text === text) {
+      const existing = prev[index] ?? '';
+      const nextText = append ? `${existing}${text}` : text;
+      if (nextText === existing) {
         return prev;
       }
       const next = [...prev];
-      next[index] = { ...existing, text };
+      next[index] = nextText;
       return next;
     });
   }, []);
-
-  const upsertAiMessage = useCallback(
-    (id: string, text: string, options: { append?: boolean } = {}) => {
-      if (!id || typeof text !== 'string') {
-        return;
-      }
-      const { append = false } = options;
-      let computedText = text;
-      let didUpdate = false;
-      setAiMessages((prev) => {
-        const order = assistantMessageOrderRef.current;
-        const index = order.indexOf(id);
-        if (index === -1) {
-          order.push(id);
-          assistantMessageIdsRef.current.add(id);
-          computedText = text;
-          didUpdate = true;
-          return [...prev, text];
-        }
-        const existing = prev[index] ?? '';
-        const nextText = append ? `${existing}${text}` : text;
-        if (nextText === existing) {
-          return prev;
-        }
-        const next = [...prev];
-        next[index] = nextText;
-        computedText = nextText;
-        didUpdate = true;
-        return next;
-      });
-      if (didUpdate) {
-        upsertAssistantChatMessage(id, computedText);
-      }
-    },
-    [upsertAssistantChatMessage],
-  );
 
   useEffect(() => {
     onSakeRecommendedRef.current = onSakeRecommended;
@@ -344,20 +301,10 @@ export default function VoiceChat({
   }, [setIsRecording]);
 
   useEffect(() => {
-    if (chatDockOpen && chatInputRef.current) {
+    if (isConnected && chatInputRef.current) {
       chatInputRef.current.focus();
     }
-  }, [chatDockOpen]);
-
-  useEffect(() => {
-    if (!chatDockOpen) {
-      return;
-    }
-    const container = chatScrollRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, [chatDockOpen, chatMessages]);
+  }, [isConnected]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -719,13 +666,11 @@ export default function VoiceChat({
           });
         }
 
-        setInteractionMode(mode);
         setIsConnected(true);
         setIsLoading(false);
         assistantMessageIdsRef.current.clear();
         assistantMessageOrderRef.current = [];
         setAiMessages([]);
-        setChatMessages([]);
         onConnectionChange?.(true);
       } catch (err) {
         console.error('Failed to connect:', err);
@@ -733,7 +678,6 @@ export default function VoiceChat({
           err instanceof Error ? err.message : 'Failed to connect to AI assistant';
         setError(message || 'Failed to connect to AI assistant');
         setIsLoading(false);
-        setInteractionMode(null);
       }
     },
     [onConnectionChange, realtimeModel, setIsRecording],
@@ -748,12 +692,9 @@ export default function VoiceChat({
     setIsLoading(false);
     setError(null);
     setIsDelegating(false);
-    setInteractionMode(null);
     latestSakeRef.current = null;
     assistantMessageIdsRef.current.clear();
     assistantMessageOrderRef.current = [];
-    setChatMessages([]);
-    setChatDockOpen(false);
     setChatInput('');
     setReasoningSummaryJa('');
     setIsTranslatingSummary(false);
@@ -773,48 +714,7 @@ export default function VoiceChat({
 
   const handleStartConversation = () => {
     if (isLoading || isConnected) return;
-    setInteractionMode('voice');
     void connectToSession('voice');
-  };
-
-  const ensureChatSession = useCallback(async () => {
-    if (!sessionRef.current || !isConnected) {
-      await connectToSession('chat');
-      return sessionRef.current;
-    }
-    if (interactionMode !== 'chat') {
-      try {
-        sessionRef.current.mute(true);
-      } catch (err) {
-        console.error('Failed to mute for chat mode:', err);
-      }
-      autoMutedRef.current = false;
-      setIsRecording(false);
-      setInteractionMode('chat');
-    }
-    return sessionRef.current;
-  }, [connectToSession, interactionMode, isConnected, setIsRecording]);
-
-  const handleOpenChatDock = () => {
-    if (!chatDockOpen) {
-      setChatDockOpen(true);
-    }
-    setInteractionMode('chat');
-    autoMutedRef.current = false;
-    setIsRecording(false);
-    if (sessionRef.current && isConnected) {
-      try {
-        sessionRef.current.mute(true);
-      } catch (err) {
-        console.error('Failed to mute for chat mode:', err);
-      }
-    } else if (!isLoading) {
-      void connectToSession('chat');
-    }
-  };
-
-  const handleCloseChatDock = () => {
-    setChatDockOpen(false);
   };
 
   const handleSendChatMessage = async () => {
@@ -822,14 +722,16 @@ export default function VoiceChat({
     if (!trimmed || isSendingChat) {
       return;
     }
+    if (!isConnected || !sessionRef.current) {
+      setError((prev) => prev ?? 'まず会話を開始してください');
+      return;
+    }
     setIsSendingChat(true);
     try {
-      const session = await ensureChatSession();
+      const session = sessionRef.current;
       if (!session) {
         throw new Error('セッションに接続できませんでした');
       }
-      const userMessageId = `user-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-      setChatMessages((prev) => [...prev, { id: userMessageId, role: 'user', text: trimmed }]);
       setChatInput('');
       session.sendMessage({
         type: 'message',
@@ -873,9 +775,6 @@ export default function VoiceChat({
       setError(null);
     }
     setIsRecording(nextRecordingState);
-    if (nextRecordingState) {
-      setInteractionMode('voice');
-    }
   };
 
   const isMuted = isConnected && !isRecording;
@@ -891,9 +790,6 @@ export default function VoiceChat({
     }
     if (isDelegating) {
       return '購入情報を調査中です…';
-    }
-    if (isChatMode) {
-      return 'テキストチャット受付中 ✏️';
     }
     if (isMuted) {
       return 'ミュート中（AIには聞こえていません）';
@@ -914,6 +810,42 @@ export default function VoiceChat({
       : '';
   const avatarImageSrc =
     isAvatarSpeaking && isMouthOpenFrame ? '/ai-avatar/open.png' : '/ai-avatar/close.png';
+  const renderChatComposer = (mode: 'full' | 'compact') => {
+    if (!isConnected) {
+      return null;
+    }
+    const layoutClass = 'flex flex-row items-stretch gap-3';
+    const buttonClass = mode === 'compact' ? 'h-11 px-4' : 'h-12 px-6';
+    const inputClass = cn(
+      'flex-1 rounded-2xl border border-border/60 bg-background/80 px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30',
+      'h-12',
+    );
+
+    return (
+      <div className={cn('w-full', mode === 'full' && 'max-w-2xl')}>
+        <div className={layoutClass}>
+          <Input
+            ref={chatInputRef}
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            onKeyDown={handleChatKeyDown}
+            placeholder="テキストで補足したい内容を入力してください"
+            className={inputClass}
+            disabled={isSendingChat}
+          />
+          <Button
+            type="button"
+            onClick={() => void handleSendChatMessage()}
+            disabled={isSendingChat || !chatInput.trim()}
+            className={cn('flex items-center justify-center gap-2 rounded-2xl', buttonClass)}
+          >
+            {isSendingChat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            送信
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => () => {
     try {
@@ -933,49 +865,33 @@ export default function VoiceChat({
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
           >
-            <motion.div className="relative flex items-center gap-4">
-              <Button
-                onClick={handleStartConversation}
-                disabled={isLoading}
-                size="xl"
-                className={cn(
-                  'relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0',
-                  'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
-                  'shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]',
-                  'hover:scale-105 active:scale-100',
-                  'transition-all duration-300',
-                  'border-4 border-primary-200/20',
-                  'disabled:opacity-70',
-                )}
+            <Button
+              onClick={handleStartConversation}
+              disabled={isLoading}
+              size="xl"
+              className={cn(
+                'relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0',
+                'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
+                'shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]',
+                'hover:scale-105 active:scale-100',
+                'transition-all duration-300',
+                'border-4 border-primary-200/20',
+                'disabled:opacity-70',
+              )}
+            >
+              <motion.div
+                animate={isLoading ? { rotate: 360 } : {}}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
               >
-                <motion.div
-                  animate={isLoading ? { rotate: 360 } : {}}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
-                  ) : (
-                    <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
-                  )}
-                </motion.div>
-              </Button>
-              <Button
-                onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
-                variant={chatDockOpen ? 'default' : 'secondary'}
-                size="lg"
-                className={cn(
-                  'h-16 w-16 rounded-full p-0 shadow-xl transition-all duration-300 border border-primary/30',
-                  chatDockOpen
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-primary hover:bg-primary/10',
+                {isLoading ? (
+                  <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+                ) : (
+                  <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
                 )}
-                disabled={isLoading}
-              >
-                <MessageSquare className="h-7 w-7" />
-              </Button>
-            </motion.div>
-            <p className="text-xs text-muted-foreground">
-              テキストで相談したい場合はチャットボタンを押してください
+              </motion.div>
+            </Button>
+            <p className="text-xs text-muted-foreground text-center max-w-sm">
+              会話を開始すると字幕の下にテキスト入力欄が表示され、補足を送信できます。
             </p>
           </motion.div>
 
@@ -1009,40 +925,6 @@ export default function VoiceChat({
         >
           <Card className="shadow-2xl border-border/30 bg-card/90 backdrop-blur">
             <CardContent className="p-6 sm:p-10 flex flex-col items-center gap-6 sm:gap-8">
-              <div className="w-full flex items-center justify-between text-[0.65rem] tracking-[0.4em] uppercase text-muted-foreground">
-                <div
-                  className={cn(
-                    'flex items-center gap-2 rounded-full border px-4 py-1 transition-colors',
-                    isConnected ? 'border-emerald-400/70 text-emerald-400' : 'border-border/70',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'h-2 w-2 rounded-full',
-                      isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-muted-foreground/40',
-                    )}
-                  />
-                  {isConnected ? 'LIVE' : 'STANDBY'}
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="tracking-[0.3em]">
-                    {isMuted ? 'MUTED' : 'LISTENING'}
-                  </span>
-                  <Button
-                    variant={chatDockOpen ? 'default' : 'outline'}
-                    size="icon"
-                    onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
-                    className={cn(
-                      'h-9 w-9 rounded-full transition-colors',
-                      chatDockOpen
-                        ? 'bg-primary text-primary-foreground'
-                        : 'border-border/60 text-muted-foreground hover:text-primary',
-                    )}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
 
               <div className="relative w-full flex flex-col items-center">
                 <motion.div
@@ -1110,6 +992,8 @@ export default function VoiceChat({
                   )}
                 </div>
               </motion.div>
+
+              {renderChatComposer('full')}
 
               <div className="w-full flex flex-col items-center gap-3 sm:gap-4">
                 <div className="w-full flex flex-col sm:flex-row gap-3">
@@ -1209,19 +1093,6 @@ export default function VoiceChat({
             <span className="text-base font-semibold">音声アシスト</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant={chatDockOpen ? 'default' : 'ghost'}
-              size="icon"
-              onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
-              className={cn(
-                'h-8 w-8 rounded-full',
-                chatDockOpen
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-primary/10 text-muted-foreground',
-              )}
-            >
-              <MessageSquare className="h-4 w-4" />
-            </Button>
             {onToggleMinimize && (
               <Button
                 variant="ghost"
@@ -1260,52 +1131,32 @@ export default function VoiceChat({
           </div>
         </div>
 
-        <p className={cn(
-          "text-sm mb-4 leading-relaxed",
-          error ? "text-destructive font-medium" : "text-muted-foreground"
-        )}>
-          {error ?? (isLoading
-            ? 'AIソムリエに接続中...'
-            : !isConnected
-              ? '準備完了です。スタートで会話を始めましょう。'
-              : isDelegating
-                ? 'テキストエージェントが購入候補を更新しています'
-                : isMuted
-                  ? 'ミュート中（AIには聞こえていません）'
-                  : '会話中です。ご希望を追加してください。')}
+        <p
+          className={cn(
+            'text-sm mb-4 leading-relaxed',
+            error ? 'text-destructive font-medium' : 'text-muted-foreground',
+          )}
+        >
+          {error ?? statusText}
         </p>
 
-        {aiMessages.length > 0 && !error && (
-          <div className="mb-4 rounded-xl border border-border/50 bg-gradient-to-br from-muted/50 to-muted/30 p-4 text-sm text-foreground line-clamp-2 leading-relaxed shadow-sm">
-            {aiMessages[aiMessages.length - 1]}
-          </div>
-        )}
+        {renderChatComposer('compact')}
 
         <div className="flex items-center gap-3">
           {!isConnected ? (
-            <>
-              <Button
-                onClick={handleStartConversation}
-                disabled={isLoading}
-                className="flex-1 h-11"
-                size="default"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-                開始
-              </Button>
-              <Button
-                onClick={() => (chatDockOpen ? handleCloseChatDock() : handleOpenChatDock())}
-                variant={chatDockOpen ? 'default' : 'outline'}
-                className="h-11 px-4"
-              >
-                <MessageSquare className="h-5 w-5" />
-                <span className="ml-1">チャット</span>
-              </Button>
-            </>
+            <Button
+              onClick={handleStartConversation}
+              disabled={isLoading}
+              className="flex-1 h-11"
+              size="default"
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Mic className="h-5 w-5" />
+              )}
+              開始
+            </Button>
           ) : (
             <>
               <Button
@@ -1344,124 +1195,9 @@ export default function VoiceChat({
     </Card>
   );
 
-  const chatDock = (
-    <AnimatePresence>
-      {chatDockOpen && (
-        <motion.div
-          key="chat-dock"
-          initial={{ opacity: 0, y: 40, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 40, scale: 0.95 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-50 w-[min(420px,calc(100vw-2.5rem))]"
-        >
-          <Card className="border-border/60 shadow-2xl bg-background/95 backdrop-blur">
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">テキストチャット</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span
-                      className={cn(
-                        'h-2 w-2 rounded-full',
-                        isDelegating
-                          ? 'bg-amber-400 animate-pulse'
-                          : isConnected
-                            ? 'bg-emerald-400 animate-pulse'
-                            : isLoading
-                              ? 'bg-primary/60 animate-pulse'
-                              : 'bg-muted-foreground/50',
-                      )}
-                    />
-                    <span>
-                      {isDelegating
-                        ? '購入候補を調査中'
-                        : isConnected
-                          ? '接続中'
-                          : isLoading
-                            ? '接続準備中'
-                            : '未接続'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleCloseChatDock}
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="px-4 pt-4">
-                <div
-                  ref={chatScrollRef}
-                  className="h-64 overflow-y-auto space-y-3 pr-1"
-                >
-                  {chatMessages.length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center py-10">
-                      メッセージを入力すると、ここに会話が表示されます。
-                    </div>
-                  ) : (
-                    chatMessages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          'flex',
-                          message.role === 'user' ? 'justify-end' : 'justify-start',
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'rounded-2xl px-4 py-2 text-sm shadow-sm max-w-[85%] whitespace-pre-line break-words',
-                            message.role === 'user'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted text-foreground',
-                          )}
-                        >
-                          {message.text}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-              <div className="px-4 pb-4 pt-3 border-t border-border/60 flex items-end gap-2">
-                <textarea
-                  ref={chatInputRef}
-                  value={chatInput}
-                  onChange={(event) => setChatInput(event.target.value)}
-                  onKeyDown={handleChatKeyDown}
-                  placeholder="甘口で飲みやすい一本を探しています..."
-                  className="flex-1 min-h-[48px] max-h-32 resize-none rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  disabled={isSendingChat}
-                />
-                <Button
-                  onClick={() => void handleSendChatMessage()}
-                  disabled={isSendingChat || !chatInput.trim()}
-                  size="icon"
-                  className="h-11 w-11 rounded-full"
-                >
-                  {isSendingChat ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
   return (
     <>
       {isCompact ? compactContent : fullContent}
-      {chatDock}
     </>
   );
 }

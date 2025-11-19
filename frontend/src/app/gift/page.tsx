@@ -2,8 +2,9 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { mapGiftRecommendationPayload } from '@/lib/giftRecommendation';
+import { normalizeIntakeSummary } from '@/lib/giftIntake';
 import GiftManager from '@/components/GiftManager';
-import type { GiftStatus, IntakeSummary, GiftDashboardItem } from '@/types/gift';
+import type { GiftStatus, GiftDashboardItem } from '@/types/gift';
 
 type SupabaseGiftRecord = {
   id: string;
@@ -35,61 +36,6 @@ type SupabaseGiftRecord = {
     age_confirmed: boolean;
   }> | null;
 };
-
-function normalizeIntakeSummary(data: unknown): IntakeSummary | null {
-  if (!data || typeof data !== 'object') {
-    return null;
-  }
-  const record = data as Record<string, unknown>;
-  const summary: IntakeSummary = {};
-
-  if (Array.isArray(record.aroma)) {
-    const aroma = record.aroma.filter((item): item is string => typeof item === 'string');
-    if (aroma.length > 0) summary.aroma = aroma;
-  }
-
-  if (Array.isArray(record.taste_profile)) {
-    const taste = record.taste_profile.filter(
-      (item): item is string => typeof item === 'string',
-    );
-    if (taste.length > 0) summary.taste_profile = taste;
-  }
-
-  if (typeof record.sweetness_dryness === 'string') {
-    summary.sweetness_dryness = record.sweetness_dryness;
-  }
-
-  if (Array.isArray(record.temperature_preference)) {
-    const temps = record.temperature_preference.filter(
-      (item): item is string => typeof item === 'string',
-    );
-    if (temps.length > 0) summary.temperature_preference = temps;
-  }
-
-  if (Array.isArray(record.food_pairing)) {
-    const foods = record.food_pairing.filter(
-      (item): item is string => typeof item === 'string',
-    );
-    if (foods.length > 0) summary.food_pairing = foods;
-  }
-
-  if (typeof record.drinking_frequency === 'string') {
-    summary.drinking_frequency = record.drinking_frequency;
-  }
-
-  if (Array.isArray(record.region_preference)) {
-    const regions = record.region_preference.filter(
-      (item): item is string => typeof item === 'string',
-    );
-    if (regions.length > 0) summary.region_preference = regions;
-  }
-
-  if (typeof record.notes === 'string') {
-    summary.notes = record.notes;
-  }
-
-  return Object.keys(summary).length > 0 ? summary : null;
-}
 
 export default async function GiftDashboardPage() {
   const { userId } = await auth();

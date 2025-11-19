@@ -6,20 +6,10 @@ import type {
   RealtimeSession,
   RealtimeSessionEventTypes,
 } from '@openai/agents-realtime';
-import {
-  Mic,
-  MicOff,
-  Send,
-  Loader2,
-  Sparkles,
-  Radio,
-  Clock,
-  Headphones,
-} from 'lucide-react';
+import { Mic, MicOff, Send, Loader2, Sparkles, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -95,6 +85,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
   const userMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingEchoRef = useRef<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -104,7 +95,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
   const [isCompleting, setIsCompleting] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
-const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
+  const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
 
   const isInputDisabled = !isConnected || isMuted || isCompleting || isFinished;
 
@@ -186,6 +177,12 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
       });
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (isConnected && !isMuted && composerRef.current) {
+      composerRef.current.focus();
+    }
+  }, [isConnected, isMuted]);
 
   useEffect(() => {
     const bundle = createGiftRealtimeBundle(giftId, sessionId, {
@@ -479,7 +476,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     }
   };
 
-  const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
+  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void handleSendMessage();
@@ -490,17 +487,15 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
         <Card className="w-full max-w-2xl glass shadow-2xl border-border/40">
-          <CardHeader className="space-y-3 text-center">
+          <CardHeader className="space-y-4 text-center">
             <div className="flex justify-center">
               <div className="rounded-full bg-primary/10 p-3 border border-primary/30">
                 <Sparkles className="h-6 w-6 text-primary" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold">
-              会話は終了しました！
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold">会話は終了しました！</CardTitle>
             <p className="text-sm text-muted-foreground">
-              後ほど送り主からのご連絡をお待ちください。
+              ありがとうございました。まもなく送り主へ推薦結果が共有されます。
             </p>
           </CardHeader>
         </Card>
@@ -518,42 +513,22 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
                 <Sparkles className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-xl font-semibold">
-                  日本酒ギフトアシスタント
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  どんな方に贈るのか教えてください。価格の話題は大丈夫です。
-                </p>
+                <CardTitle className="text-xl font-semibold">日本酒ギフトアシスタント</CardTitle>
+                <p className="text-sm text-muted-foreground">どんな相手に贈るのか、落ち着いて教えてください。</p>
               </div>
             </div>
-            <Badge
-              variant={isConnected ? 'default' : 'outline'}
-              className={cn(
-                'gap-1',
-                isConnected ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'text-muted-foreground',
-              )}
-            >
-              {isConnected ? (
-                <>
-                  <Radio className="h-3.5 w-3.5 animate-pulse" />
-                  接続中
-                </>
-              ) : (
-                <>
-                  <Clock className="h-3.5 w-3.5" />
-                  接続準備中
-                </>
-              )}
+            <Badge variant="secondary" className="px-3 py-1 text-[10px] tracking-[0.3em] uppercase">
+              {isConnected ? (isMuted ? 'TEXT' : 'VOICE') : isConnecting ? 'CONNECTING' : 'STANDBY'}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="rounded-xl border border-border/40 bg-background/70 shadow-inner">
-            <ScrollArea ref={scrollAreaRef} className="h-[420px] p-5">
+        <CardContent className="space-y-6">
+          <div className="rounded-3xl border border-border/40 bg-muted/30">
+            <ScrollArea ref={scrollAreaRef} className="h-[420px] px-5 py-6">
               <div className="space-y-4">
                 {messages.length === 0 && (
                   <div className="text-sm text-muted-foreground text-center py-10">
-                    こんにちは！接続が完了すると、ここに会話が表示されます。
+                    AIとの会話内容がここに表示されます。
                   </div>
                 )}
                 {messages.map((message) => (
@@ -569,7 +544,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
                   >
                     <Avatar
                       className={cn(
-                        'h-9 w-9 border',
+                        'h-9 w-9 border shadow-sm',
                         message.role === 'assistant'
                           ? 'border-primary/30 bg-primary/10'
                           : 'border-border bg-background',
@@ -584,7 +559,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
                         'rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm max-w-[75%] whitespace-pre-wrap',
                         message.role === 'assistant'
                           ? 'bg-primary/10 border border-primary/20 text-foreground'
-                          : 'bg-muted border border-border/60 text-foreground',
+                          : 'bg-background border border-border/60 text-foreground',
                       )}
                     >
                       {message.mode === 'voice' && (
@@ -605,10 +580,10 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3"
+              className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3"
             >
               <span className="flex-1">{error}</span>
-              {!isConnected && !isConnecting && !isFinished && (
+              {!isConnected && !isConnecting && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -621,28 +596,36 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
             </motion.div>
           )}
 
-          <div className="flex items-center gap-3">
-            <Input
+          <div className="rounded-3xl border border-border/50 bg-background/80 p-4 space-y-3">
+            <label className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              テキストで補足
+            </label>
+            <textarea
+              ref={composerRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={
-                isMuted
-                  ? 'マイクをオンにすると会話できます'
-                  : 'テキストで伝えたい場合はこちらに入力'
-              }
+              placeholder={isMuted ? 'マイクをオンにすると声で回答できます' : 'テキストで伝えたい内容を入力してください'}
+              className="w-full min-h-[80px] resize-none rounded-2xl border border-border/60 bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
               disabled={isInputDisabled}
             />
-            <Button
-              onClick={handleSendMessage}
-              disabled={isInputDisabled || input.trim().length === 0}
-            >
-              {isCompleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                onClick={handleSendMessage}
+                disabled={isInputDisabled || input.trim().length === 0}
+                className="h-11 px-6 rounded-2xl"
+              >
+                {isCompleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    送信
+                  </>
+                )}
+              </Button>
+              <p className="text-[11px] text-muted-foreground">Enterで送信 / Shift+Enterで改行</p>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -650,7 +633,7 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
               onClick={handleToggleMute}
               variant={isMuted ? 'secondary' : 'default'}
               className={cn(
-                'flex items-center gap-2 px-4',
+                'flex items-center gap-2 px-4 rounded-2xl',
                 !isMuted && 'bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600',
               )}
               disabled={!isConnected || isCompleting}
@@ -677,8 +660,8 @@ const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
               {isCompleting
                 ? '聞き取った内容を整理しています…'
                 : isMuted
-                  ? 'マイクをオンにすると声で会話できます'
-                  : '会話中です'}
+                  ? 'テキストで追加できます'
+                  : 'AIはあなたの声を聞いています'}
             </div>
           </div>
         </CardContent>
