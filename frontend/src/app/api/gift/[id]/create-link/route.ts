@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { auth } from '@clerk/nextjs/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { generateToken, hashToken } from '@/lib/tokenUtils';
+import { buildGiftShareUrls } from '@/lib/giftShareUrls';
 
 const requestSchema = z
   .object({
@@ -74,10 +75,11 @@ export async function POST(
       );
     }
 
-    const shareUrl = buildGiftShareUrl(token, req.nextUrl.origin);
+    const { webUrl, lineMiniAppUrl } = buildGiftShareUrls(token, req.nextUrl.origin);
 
     return NextResponse.json({
-      shareUrl,
+      shareUrl: webUrl,
+      lineShareUrl: lineMiniAppUrl ?? undefined,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
@@ -87,13 +89,4 @@ export async function POST(
       { status: 500 },
     );
   }
-}
-
-function buildGiftShareUrl(token: string, origin: string) {
-  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-  const params = new URLSearchParams({ t: token }).toString();
-  if (liffId) {
-    return `https://miniapp.line.me/${liffId}/liff/gift?${params}`;
-  }
-  return `${origin}/gift/${token}`;
 }

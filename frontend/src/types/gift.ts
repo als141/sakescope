@@ -78,6 +78,7 @@ export interface CreateGiftRequest {
 export interface CreateGiftResponse {
   giftId: string;
   shareUrl: string;
+  lineShareUrl?: string;
 }
 
 export interface ValidateTokenResponse {

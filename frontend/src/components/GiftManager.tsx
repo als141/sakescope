@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import CreateGiftModal from '@/components/CreateGiftModal';
+import { Input } from '@/components/ui/input';
 import type { GiftStatus, IntakeSummary, GiftDashboardItem } from '@/types/gift';
 
 const currencyFormatter = new Intl.NumberFormat('ja-JP');
@@ -30,9 +31,11 @@ const dateTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
 
 type LinkStatus = {
   loading: boolean;
-  copied: boolean;
+  copiedTarget: 'web' | 'line' | null;
   error: string | null;
   expiresAt?: string | null;
+  webShareUrl?: string;
+  lineShareUrl?: string | null;
 };
 
 const statusLabels: Record<GiftStatus, string> = {
@@ -123,14 +126,72 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
     [gifts],
   );
 
+  const scheduleCopyReset = (giftId: string, target: 'web' | 'line') => {
+    setTimeout(() => {
+      setLinkStatus((prev) => {
+        const current = prev[giftId];
+        if (!current || current.copiedTarget !== target) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [giftId]: { ...current, copiedTarget: null },
+        };
+      });
+    }, 2000);
+  };
+
+  const copyGeneratedLink = async (
+    giftId: string,
+    url: string,
+    target: 'web' | 'line',
+  ) => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkStatus((prev) => {
+        const current = prev[giftId];
+        if (!current) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [giftId]: {
+            ...current,
+            copiedTarget: target,
+            error: null,
+          },
+        };
+      });
+      scheduleCopyReset(giftId, target);
+    } catch (err) {
+      console.error('Failed to copy gift link', err);
+      setLinkStatus((prev) => {
+        const current = prev[giftId];
+        if (!current) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [giftId]: {
+            ...current,
+            error: 'リンクのコピーに失敗しました。',
+          },
+        };
+      });
+    }
+  };
+
   const handleGenerateLink = async (giftId: string) => {
     setLinkStatus((prev) => ({
       ...prev,
       [giftId]: {
         loading: true,
-        copied: false,
+        copiedTarget: null,
         error: null,
         expiresAt: prev[giftId]?.expiresAt,
+        webShareUrl: prev[giftId]?.webShareUrl,
+        lineShareUrl: prev[giftId]?.lineShareUrl,
       },
     }));
     try {
@@ -145,26 +206,20 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
             : 'リンクの生成に失敗しました。';
         throw new Error(errorText);
       }
-      await navigator.clipboard.writeText(data.shareUrl);
+      const lineShareUrl =
+        typeof data.lineShareUrl === 'string' ? data.lineShareUrl : null;
       setLinkStatus((prev) => ({
         ...prev,
         [giftId]: {
           loading: false,
-          copied: true,
+          copiedTarget: null,
           error: null,
           expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : null,
+          webShareUrl: data.shareUrl,
+          lineShareUrl,
         },
       }));
-      setTimeout(() => {
-        setLinkStatus((prev) => {
-          const current = prev[giftId];
-          if (!current) return prev;
-          return {
-            ...prev,
-            [giftId]: { ...current, copied: false },
-          };
-        });
-      }, 2000);
+      await copyGeneratedLink(giftId, data.shareUrl, 'web');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'リンクの生成に失敗しました。';
@@ -172,9 +227,11 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
         ...prev,
         [giftId]: {
           loading: false,
-          copied: false,
+          copiedTarget: null,
           error: message,
           expiresAt: prev[giftId]?.expiresAt,
+          webShareUrl: prev[giftId]?.webShareUrl,
+          lineShareUrl: prev[giftId]?.lineShareUrl,
         },
       }));
     }
@@ -557,7 +614,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                   リンクを生成中...
                                 </>
-                              ) : linkInfo?.copied ? (
+                              ) : linkInfo?.copiedTarget ? (
                                 <>
                                   <Check className="mr-2 h-4 w-4" />
                                   リンクをコピーしました
@@ -578,6 +635,71 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                               <p className="text-xs text-destructive">{linkInfo.error}</p>
                             )}
                           </div>
+
+                          {(linkInfo?.webShareUrl || linkInfo?.lineShareUrl) && (
+                            <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-4">
+                              {linkInfo?.webShareUrl ? (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-semibold text-muted-foreground">
+                                    ブラウザ用リンク
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      value={linkInfo.webShareUrl}
+                                      readOnly
+                                      className="font-mono text-xs"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() =>
+                                        copyGeneratedLink(gift.id, linkInfo.webShareUrl!, 'web')
+                                      }
+                                    >
+                                      {linkInfo.copiedTarget === 'web' ? (
+                                        <Check className="h-4 w-4 text-green-600" />
+                                      ) : (
+                                        <ClipboardCopy className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : null}
+                              {linkInfo?.lineShareUrl ? (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-semibold text-muted-foreground">
+                                    LINEミニアプリ用リンク
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <Input
+                                      value={linkInfo.lineShareUrl}
+                                      readOnly
+                                      className="font-mono text-xs"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() =>
+                                        copyGeneratedLink(
+                                          gift.id,
+                                          linkInfo.lineShareUrl!,
+                                          'line',
+                                        )
+                                      }
+                                    >
+                                      {linkInfo.copiedTarget === 'line' ? (
+                                        <Check className="h-4 w-4 text-green-600" />
+                                      ) : (
+                                        <ClipboardCopy className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     );

@@ -19,7 +19,9 @@ import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 const isCreateGiftResponse = (payload: unknown): payload is CreateGiftResponse => {
   if (!payload || typeof payload !== 'object') return false;
   const record = payload as Record<string, unknown>;
-  return typeof record.giftId === 'string' && typeof record.shareUrl === 'string';
+  const hasLineShareUrl =
+    record.lineShareUrl == null || typeof record.lineShareUrl === 'string';
+  return typeof record.giftId === 'string' && typeof record.shareUrl === 'string' && hasLineShareUrl;
 };
 
 interface CreateGiftModalProps {
@@ -33,7 +35,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string>('');
-  const [copied, setCopied] = useState(false);
+  const [lineShareUrl, setLineShareUrl] = useState<string | null>(null);
+  const [copiedTarget, setCopiedTarget] = useState<'web' | 'line' | null>(null);
   const [formData, setFormData] = useState<CreateGiftRequest>({
     occasion: '',
     recipientFirstName: '',
@@ -77,6 +80,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
       }
 
       setShareUrl(data.shareUrl);
+      setLineShareUrl(data.lineShareUrl ?? null);
+      setCopiedTarget(null);
       setStep('success');
       onCreated?.(data);
     } catch (err) {
@@ -87,11 +92,13 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (target: 'web' | 'line') => {
+    const value = target === 'web' ? shareUrl : lineShareUrl;
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopiedTarget(target);
+      setTimeout(() => setCopiedTarget(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -108,7 +115,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     });
     setError(null);
     setShareUrl('');
-    setCopied(false);
+    setLineShareUrl(null);
+    setCopiedTarget(null);
     setIsLoading(false);
     onClose();
   };
@@ -282,16 +290,16 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
               </Alert>
 
               <div className="space-y-2">
-                <Label>共有用URL</Label>
+                <Label>ブラウザ用URL</Label>
                 <div className="flex gap-2">
                   <Input value={shareUrl} readOnly className="font-mono text-sm" />
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
-                    onClick={handleCopy}
+                    onClick={() => handleCopy('web')}
                   >
-                    {copied ? (
+                    {copiedTarget === 'web' ? (
                       <Check className="h-4 w-4 text-green-600" />
                     ) : (
                       <Copy className="h-4 w-4" />
@@ -302,6 +310,27 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                   このリンクは72時間有効で、一度のみ使用できます
                 </p>
               </div>
+
+              {lineShareUrl ? (
+                <div className="space-y-2">
+                  <Label>LINEミニアプリ用URL（スマホで開く場合）</Label>
+                  <div className="flex gap-2">
+                    <Input value={lineShareUrl} readOnly className="font-mono text-sm" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleCopy('line')}
+                    >
+                      {copiedTarget === 'line' ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-semibold text-sm">使い方</h4>

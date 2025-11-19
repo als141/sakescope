@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { z } from 'zod';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { generateToken, hashToken } from '@/lib/tokenUtils';
+import { buildGiftShareUrls } from '@/lib/giftShareUrls';
 import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 
 const createGiftSchema = z.object({
@@ -84,11 +85,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const shareUrl = buildGiftShareUrl(token, req.nextUrl.origin);
+    const { webUrl, lineMiniAppUrl } = buildGiftShareUrls(token, req.nextUrl.origin);
 
     const response: CreateGiftResponse = {
       giftId: gift.id,
-      shareUrl,
+      shareUrl: webUrl,
+      lineShareUrl: lineMiniAppUrl ?? undefined,
     };
 
     return NextResponse.json(response, { status: 201 });
@@ -107,14 +109,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function buildGiftShareUrl(token: string, origin: string) {
-  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-  const params = new URLSearchParams({ t: token }).toString();
-  if (liffId) {
-    // LIFF permanent link: append the relative path (/liff/gift) to ensure correct route
-    return `https://miniapp.line.me/${liffId}/liff/gift?${params}`;
-  }
-  return `${origin}/gift/${token}`;
 }
