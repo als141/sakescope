@@ -43,12 +43,16 @@ type GiftJobPayload = {
   traceGroupId?: string | null;
 };
 
-type JsonSchemaResponseFormatParam = {
-  response_format: {
-    type: 'json_schema';
-    name: string;
-    strict?: boolean;
-    schema: typeof finalPayloadJsonSchema;
+type JsonSchemaTextFormatParam = {
+  text: {
+    format: {
+      type: 'json_schema';
+      json_schema: {
+        name: string;
+        strict?: boolean;
+        schema: typeof finalPayloadJsonSchema;
+      };
+    };
   };
 };
 
@@ -207,7 +211,7 @@ export async function enqueueGiftRecommendationJob(
   }
   const { systemPrompt, userPrompt } = buildGuidance(payload);
 
-  const responseParams: ResponseCreateParamsNonStreaming & JsonSchemaResponseFormatParam = {
+  const responseParams: ResponseCreateParamsNonStreaming & JsonSchemaTextFormatParam = {
     model: TEXT_MODEL,
     reasoning: { effort: 'medium' },
     input: [
@@ -231,11 +235,15 @@ export async function enqueueGiftRecommendationJob(
     temperature: 0.2,
     max_output_tokens: 1600,
     background: true,
-    response_format: {
-      type: 'json_schema',
-      name: 'SakeGiftRecommendation',
-      strict: true,
-      schema: finalPayloadJsonSchema,
+    text: {
+      format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'SakeGiftRecommendation',
+          strict: true,
+          schema: finalPayloadJsonSchema,
+        },
+      },
     },
   };
 
