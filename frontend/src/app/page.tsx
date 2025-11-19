@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Settings, Volume2, Sparkles, ArrowLeft, Gift } from 'lucide-react';
+import { Settings, ArrowLeft, Gift } from 'lucide-react';
 import Link from 'next/link';
 import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
@@ -40,30 +40,10 @@ export default function Home() {
           notes: typeof p.notes === 'string' ? p.notes : undefined,
         });
       }
-    } catch {}
+    } catch { }
   }, []);
 
-  // Deterministic RNG to avoid hydration mismatches
-  function mulberry32(a: number) {
-    return function () {
-      let t = (a += 0x6d2b79f5);
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
 
-  const seeded = mulberry32(20250907);
-  const orbs = Array.from({ length: 5 }).map(() => {
-    const width = seeded() * 200 + 50;
-    const height = seeded() * 200 + 50;
-    const left = `${(seeded() * 100).toFixed(6)}%`;
-    const top = `${(seeded() * 100).toFixed(6)}%`;
-    const duration = seeded() * 10 + 10;
-    const deltaX = seeded() * 400 - 200;
-    const deltaY = seeded() * 400 - 200;
-    return { width, height, left, top, duration, deltaX, deltaY };
-  });
 
   const isCompactMode = Boolean(recommendedSake);
   const voiceChatVariant = isCompactMode ? 'compact' : 'full';
@@ -91,33 +71,9 @@ export default function Home() {
             ease: 'linear',
           }}
         />
-        
-        {/* Floating Orbs */}
-        {orbs.map((o, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-gradient-to-br from-primary/20 to-primary/10 blur-3xl"
-            style={{
-              width: o.width,
-              height: o.height,
-              left: o.left,
-              top: o.top,
-            }}
-            animate={{
-              x: [0, o.deltaX],
-              y: [0, o.deltaY],
-              scale: [1, 1.2, 1],
-            }}
-            transition={{
-              duration: o.duration,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
-        ))}
 
         {/* Grid Pattern */}
-        <div 
+        <div
           className="absolute inset-0 opacity-[0.02]"
           style={{
             backgroundImage: `linear-gradient(to right, currentColor 1px, transparent 1px),
@@ -165,31 +121,28 @@ export default function Home() {
                 whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
-                <div className="rounded-2xl bg-primary/10 p-2.5 sm:p-3 backdrop-blur-sm border border-primary/20 shadow-sm">
-                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text tracking-tight">
                   Sakescope
                 </h1>
               </motion.div>
             )}
-            
+
             {/* 右側ナビゲーション */}
             <div className="flex items-center gap-3 sm:gap-4">
               <SignedOut>
                 <>
                   <SignInButton mode="modal">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="default"
-                      className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       <span className="hidden sm:inline">ギフトを贈る</span>
                     </Button>
                   </SignInButton>
                   <SignUpButton mode="modal">
-                    <Button className="h-10 sm:h-11 px-4 sm:px-6 shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300">
+                    <Button className="h-10 sm:h-11 px-4 sm:px-6 shadow-none bg-foreground text-background hover:bg-foreground/90 transition-all duration-300 rounded-full">
                       無料登録
                     </Button>
                   </SignUpButton>
@@ -199,9 +152,9 @@ export default function Home() {
                 <>
                   <Button
                     asChild
-                    variant="outline"
+                    variant="ghost"
                     size="default"
-                    className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Link href="/gift">
                       <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -210,9 +163,9 @@ export default function Home() {
                   </Button>
                   <Link href="/settings">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="icon-lg"
-                      className="backdrop-blur-sm bg-background/50 border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 shadow-sm"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
                     >
                       <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -253,65 +206,18 @@ export default function Home() {
                     exit={{ opacity: 0, y: -30, scale: 0.95 }}
                     transition={{ duration: 0.5, ease: "easeInOut" }}
                   >
-                {/* バッジ */}
-                <motion.div
-                  className="inline-flex"
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <Badge 
-                    variant="default" 
-                    size="lg"
-                    className="px-6 py-2.5 text-sm font-medium shadow-md"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    AI搭載の日本酒ソムリエ
-                  </Badge>
-                </motion.div>
 
-                {/* メインヘッドライン */}
-                <div className="space-y-4 sm:space-y-6">
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
-                    <span className="gradient-text block mb-2">最高の一杯を</span>
-                    <span className="gradient-text block">一緒に見つけましょう</span>
-                  </h2>
+                    {/* メインヘッドライン */}
+                    <div className="space-y-4 sm:space-y-6">
+                      <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tighter">
+                        <span className="gradient-text block mb-2">最高の一杯を</span>
+                        <span className="gradient-text block">一緒に見つけましょう</span>
+                      </h2>
 
-                  <p className="text-sm sm:text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-light px-4">
-                    AIソムリエとの音声対話を通じて、
-                    <br className="hidden sm:inline" />
-                    あなたの好みにぴったりの日本酒をお探しします
-                  </p>
-                </div>
-
-                {/* Features */}
-                <motion.div
-                  className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 sm:pt-6"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4, duration: 0.6 }}
-                >
-                  {[
-                    { icon: Mic, label: "音声で対話" },
-                    { icon: Volume2, label: "AIが応答" },
-                    { icon: Sparkles, label: "最適な日本酒を提案" },
-                  ].map((feature, index) => (
-                    <React.Fragment key={feature.label}>
-                      <Badge 
-                        variant="outline" 
-                        size="default"
-                        className="px-3 sm:px-4 py-2 gap-2 shadow-sm backdrop-blur-md bg-card/50 hover:bg-card/80 transition-all duration-300"
-                      >
-                        <feature.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                        <span className="text-xs font-medium text-foreground">
-                          {feature.label}
-                        </span>
-                      </Badge>
-                      {index < 2 && (
-                        <div className="hidden sm:block h-1.5 w-1.5 rounded-full bg-primary/30" />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </motion.div>
+                      <p className="text-base sm:text-lg md:text-xl text-muted-foreground/80 max-w-2xl mx-auto leading-relaxed font-light px-4">
+                        あなたの好みにぴったりの日本酒をお探しします
+                      </p>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
