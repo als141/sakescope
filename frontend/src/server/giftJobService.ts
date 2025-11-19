@@ -42,6 +42,15 @@ type GiftJobPayload = {
   traceGroupId?: string | null;
 };
 
+type JsonSchemaResponseFormatParam = {
+  response_format: {
+    type: 'json_schema';
+    name: string;
+    strict?: boolean;
+    schema: typeof finalPayloadJsonSchema;
+  };
+};
+
 const openaiClient = OPENAI_API_KEY
   ? new OpenAI({ apiKey: OPENAI_API_KEY })
   : null;
@@ -197,7 +206,7 @@ export async function enqueueGiftRecommendationJob(
   }
   const { systemPrompt, userPrompt } = buildGuidance(payload);
 
-  const response = await openaiClient.responses.create({
+  const responseParams: OpenAI.ResponseCreateParamsNonStreaming & JsonSchemaResponseFormatParam = {
     model: TEXT_MODEL,
     reasoning: { effort: 'medium' },
     input: [
@@ -227,7 +236,9 @@ export async function enqueueGiftRecommendationJob(
       strict: true,
       schema: finalPayloadJsonSchema,
     },
-  });
+  };
+
+  const response = await openaiClient.responses.create(responseParams);
 
   const status: GiftJobStatus = response.status === 'in_progress' ? 'RUNNING' : 'QUEUED';
   const timeoutAt = new Date(Date.now() + JOB_TIMEOUT_MS).toISOString();
