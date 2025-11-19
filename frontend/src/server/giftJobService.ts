@@ -12,6 +12,16 @@ import { finalPayloadOutputSchema } from '@/server/textWorkerSchemas';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
+const TEXT_MAX_OUTPUT_TOKENS = (() => {
+  // gpt-5.1 model card documents a 128k output cap; clamp env overrides to that ceiling.
+  const raw = process.env.OPENAI_TEXT_MAX_OUTPUT_TOKENS;
+  const parsed = raw ? Number(raw) : NaN;
+  const fallback = 128_000;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.min(fallback, Math.floor(parsed));
+})();
 
 const JOB_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes safeguard
 
@@ -232,8 +242,7 @@ export async function enqueueGiftRecommendationJob(
       },
     ],
     metadata: openaiMetadata,
-    temperature: 0.2,
-    max_output_tokens: 1600,
+    max_output_tokens: TEXT_MAX_OUTPUT_TOKENS,
     background: true,
     text: {
       format: sakeGiftRecommendationTextFormat,
