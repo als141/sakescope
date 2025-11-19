@@ -26,7 +26,6 @@
 
 ## セキュリティと設定
 - `frontend/.env.local` に `OPENAI_API_KEY`, `OPENAI_TEXT_MODEL`, `OPENAI_REALTIME_MODEL`, `NEXT_PUBLIC_OPENAI_REALTIME_MODEL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` を定義し、Git には絶対に含めないでください。
-- Clerk や Supabase のキーを共有する際は 1Password 等のシークレットストアを使用し、`docs/openai-realtime.md` の更新履歴に合わせてモデル名を統一してください。
 
 ## 出荷前チェック
 - すべての変更についてローカルで `bun run lint` を通過させ、最終確認として `bun run build` で本番同等テストを必ず実行してください。
