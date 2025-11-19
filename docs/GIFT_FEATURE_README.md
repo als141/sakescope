@@ -84,9 +84,38 @@ Response:
    ↓ 会話
 4. POST /api/gift/[id]/trigger-handoff
    ↓ gift_jobs にバックグラウンドジョブを登録（Responses API background）
-5. `/api/cron/gift-jobs` が OpenAI Responses の完了を監視
+5. Supabase Edge Function `gift-jobs` が OpenAI Responses の完了を監視
    ↓ 推薦JSONを gift_recommendations へ保存 & 通知
 6. 送り手が /gift/[id]/result で結果閲覧
+
+### Supabase Edge Function / Cron セットアップ
+
+1. Supabase CLI でプロジェクトをリンク
+   ```bash
+   cd frontend
+   supabase link --project-ref <YOUR_PROJECT_REF>
+   ```
+2. Edge Function が参照するシークレットを登録
+   ```bash
+   supabase secrets set \
+     OPENAI_API_KEY=... \
+     OPENAI_TEXT_MODEL=gpt-5-mini \
+     SERVICE_ROLE_KEY=... \
+     NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co \
+     NEXT_PUBLIC_APP_URL=https://app.example.com \
+     LINE_MESSAGING_CHANNEL_ACCESS_TOKEN=...
+   ```
+3. `gift-jobs` Edge Function をデプロイ
+   ```bash
+   supabase functions deploy gift-jobs
+   ```
+4. Supabase Scheduled Trigger で 2 分間隔に実行
+   ```bash
+   supabase edge functions schedule create gift-jobs \
+     --cron "*/2 * * * *" \
+     --project-ref <YOUR_PROJECT_REF>
+   ```
+   ※ Dashboard から手動でスケジュールしても OK。
 ```
 
 ## データベーススキーマ
@@ -395,7 +424,7 @@ CREATE INDEX idx_gift_tokens_hash ON gift_tokens(token_hash);
 ### バックグラウンドジョブ監視（Responses API）
 
 - `/api/gift/[id]/trigger-handoff` で OpenAI Responses の `background` ジョブを起動し、`gift_jobs` にレスポンスIDを保存
-- Vercel Cron (`/api/cron/gift-jobs`) が 2 分ごとに `gift_jobs` をポーリングして OpenAI Responses の進捗を確認
+- Supabase Edge Function (`supabase/functions/gift-jobs`) を 2 分ごとにスケジュールし、`gift_jobs` をポーリングして OpenAI Responses の進捗を確認
 - 完了時は `gift_recommendations` へ upsert、`gifts.status` を `RECOMMEND_READY` に更新し、Supabase通知 + LINE push を送信
 - 失敗・タイムアウト時は `gift_jobs.status = FAILED`、`gifts.status = CLOSED` に更新し、`gift_job_events` に error イベントを記録
 
