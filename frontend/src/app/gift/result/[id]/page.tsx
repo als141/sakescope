@@ -3,16 +3,62 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Loader2, AlertCircle, Gift, ArrowLeft, Package } from 'lucide-react';
+import { Loader2, AlertCircle, Gift, ArrowLeft, Package, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { getBrowserSupabaseClient } from '@/lib/supabase';
+import { cn } from '@/lib/utils';
 import type { Gift as GiftType } from '@/types/gift';
 import SakeDisplay from '@/components/SakeDisplay';
 import type { PurchaseOffer } from '@/domain/sake/types';
 import { mapGiftRecommendationPayload } from '@/lib/giftRecommendation';
+
+const formatBudgetRange = (gift: GiftType) =>
+  `¥${gift.budget_min.toLocaleString()} - ¥${gift.budget_max.toLocaleString()}`;
+
+const statusLabels: Record<GiftStatusKey, string> = {
+  LINK_CREATED: 'リンク未送信',
+  OPENED: 'リンク開封済み',
+  INTAKE_STARTED: '聞き取り中',
+  INTAKE_COMPLETED: '聞き取り完了',
+  HANDOFFED: '推薦生成中',
+  RECOMMEND_READY: '推薦完了',
+  NOTIFIED: '送信済み',
+  CLOSED: 'クローズ',
+  EXPIRED: '期限切れ',
+  DRAFT: '下書き',
+};
+
+const waitingMessages: Record<string, string> = {
+  LINK_CREATED: 'リンクはまだ開封されていません。贈る相手に共有しましょう。',
+  OPENED: 'リンクが開封されました。聞き取りの開始をお待ちください。',
+  INTAKE_STARTED: '嗜好の聞き取りが進行中です。完了するとAIが推薦を作成します。',
+  INTAKE_COMPLETED: '聞き取りが完了しました。まもなく推薦が生成されます。',
+  HANDOFFED: 'AIが最適な一本を選定しています。',
+};
+
+type GiftStatusKey =
+  | 'LINK_CREATED'
+  | 'OPENED'
+  | 'INTAKE_STARTED'
+  | 'INTAKE_COMPLETED'
+  | 'HANDOFFED'
+  | 'RECOMMEND_READY'
+  | 'NOTIFIED'
+  | 'CLOSED'
+  | 'EXPIRED'
+  | 'DRAFT';
+
+const timelineOrder: Array<{ key: GiftStatusKey; label: string }> = [
+  { key: 'LINK_CREATED', label: 'リンク作成' },
+  { key: 'OPENED', label: 'リンク開封' },
+  { key: 'INTAKE_COMPLETED', label: '聞き取り完了' },
+  { key: 'HANDOFFED', label: '推薦生成中' },
+  { key: 'RECOMMEND_READY', label: '推薦完了' },
+];
 
 export default function GiftResultPage() {
   const params = useParams();
@@ -153,61 +199,85 @@ export default function GiftResultPage() {
 
   // Waiting for recommendation
   if (gift.status !== 'RECOMMEND_READY' && gift.status !== 'NOTIFIED' && gift.status !== 'CLOSED') {
-    const statusMessages: Record<string, string> = {
-      LINK_CREATED: 'ギフトリンクを作成しました。相手がリンクにアクセスするのを待っています。',
-      OPENED: '相手がリンクを開きました。',
-      INTAKE_STARTED: '相手との会話が始まりました。',
-      INTAKE_COMPLETED: '会話が完了しました。',
-      HANDOFFED: '最適な日本酒を検索しています...',
-    };
+    const currentIdx = Math.max(
+      timelineOrder.findIndex((step) => step.key === gift.status),
+      gift.status === 'INTAKE_STARTED' ? 1 : 0,
+    );
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="rounded-full bg-primary/10 p-2">
-                <Gift className="h-6 w-6 text-primary" />
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Card>
+            <CardHeader className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-primary/10 p-2">
+                    <Gift className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-semibold">推薦を準備中です</CardTitle>
+                    <CardDescription>
+                      {gift.occasion ?? '用途未設定'} ・ {gift.recipient_first_name ?? '宛先未設定'} さん
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge variant="secondary">{statusLabels[gift.status as GiftStatusKey] ?? '処理中'}</Badge>
               </div>
-              <CardTitle>ギフト推薦</CardTitle>
-            </div>
-            <CardDescription>
-              {gift.occasion && `用途: ${gift.occasion}`}
-              {gift.recipient_first_name && ` | 宛先: ${gift.recipient_first_name}さん`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col items-center gap-4 py-6">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <div className="text-center space-y-2">
-                <p className="font-medium">{statusMessages[gift.status] || '処理中...'}</p>
-                <p className="text-sm text-muted-foreground">
-                  推薦結果が準備でき次第、こちらに表示されます。
-                </p>
+              <p className="text-sm text-muted-foreground">
+                {waitingMessages[gift.status] ?? '推奨結果が確定すると自動的に更新されます。'}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-4">
+                {timelineOrder.map((step, index) => {
+                  const completed = index < currentIdx;
+                  const active = step.key === gift.status;
+                  return (
+                    <div key={step.key} className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          'h-7 w-7 rounded-full border flex items-center justify-center text-xs font-semibold',
+                          completed
+                            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-600'
+                            : active
+                              ? 'border-primary text-primary'
+                              : 'border-border text-muted-foreground',
+                        )}
+                      >
+                        {completed ? <Check className="h-4 w-4" /> : index + 1}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{step.label}</p>
+                        {active && (
+                          <p className="text-xs text-muted-foreground">
+                            {waitingMessages[gift.status] ?? '処理中です'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-            <Separator />
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">ギフト情報</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-muted-foreground">予算範囲:</div>
-                <div className="font-medium">¥{gift.budget_min.toLocaleString()} - ¥{gift.budget_max.toLocaleString()}</div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="text-muted-foreground">予算範囲</div>
+                <div className="font-medium">{formatBudgetRange(gift)}</div>
                 {gift.occasion && (
                   <>
-                    <div className="text-muted-foreground">用途:</div>
+                    <div className="text-muted-foreground">用途</div>
                     <div className="font-medium">{gift.occasion}</div>
                   </>
                 )}
-                <div className="text-muted-foreground">作成日:</div>
+                <div className="text-muted-foreground">作成日</div>
                 <div className="font-medium">{new Date(gift.created_at).toLocaleDateString('ja-JP')}</div>
               </div>
-            </div>
-            <Button onClick={() => router.push('/')} variant="outline" className="w-full">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              ホームに戻る
-            </Button>
-          </CardContent>
-        </Card>
+              <Button onClick={() => router.push('/')} variant="outline" className="w-full">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                ホームに戻る
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -216,38 +286,41 @@ export default function GiftResultPage() {
   if (offer) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
+            className="rounded-3xl border border-border/60 bg-card/80 backdrop-blur p-6 space-y-4 shadow-lg"
           >
-            <Button
-              onClick={() => router.push('/')}
-              variant="ghost"
-              className="mb-4"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              ホームに戻る
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-primary/10 p-3">
-                <Package className="h-6 w-6 text-primary" />
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-primary/10 p-3">
+                  <Package className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold">ギフト推薦結果</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {gift.recipient_first_name ?? '宛先未設定'} さんへの {gift.occasion ?? 'ギフト'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold">ギフト推薦結果</h1>
-                <p className="text-muted-foreground">
-                  {gift.recipient_first_name}さんへの{gift.occasion || 'ギフト'}におすすめの日本酒
-                </p>
-              </div>
+              <Badge variant="secondary" className="px-4 py-1 text-xs tracking-[0.3em] uppercase">
+                {gift.status === 'NOTIFIED' ? 'NOTIFIED' : 'READY'}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <span>予算 {formatBudgetRange(gift)}</span>
+              <span>作成日 {new Date(gift.created_at).toLocaleDateString('ja-JP')}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => router.push('/')} className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                ホームに戻る
+              </Button>
             </div>
           </motion.div>
 
-          <SakeDisplay
-            sake={offer.sake}
-            offer={offer}
-            onReset={() => {}}
-          />
+          <SakeDisplay sake={offer.sake} offer={offer} onReset={() => {}} />
         </div>
       </div>
     );

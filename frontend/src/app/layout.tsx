@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="ja" className="dark">
+      <html lang="ja">
         <body
           className={`${inter.variable} ${notoSansJp.variable} antialiased`}
         >

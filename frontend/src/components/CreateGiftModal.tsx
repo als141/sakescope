@@ -16,6 +16,12 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 
+const budgetPresets = [
+  { label: 'カジュアル (¥3k〜¥5k)', min: 3000, max: 5000 },
+  { label: 'スタンダード (¥5k〜¥10k)', min: 5000, max: 10000 },
+  { label: 'ハレの日 (¥10k〜¥20k)', min: 10000, max: 20000 },
+];
+
 const isCreateGiftResponse = (payload: unknown): payload is CreateGiftResponse => {
   if (!payload || typeof payload !== 'object') return false;
   const record = payload as Record<string, unknown>;
@@ -195,6 +201,33 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label>よく使う予算帯</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {budgetPresets.map((preset) => {
+                      const isActive =
+                        formData.budgetMin === preset.min && formData.budgetMax === preset.max;
+                      return (
+                        <Button
+                          key={preset.label}
+                          type="button"
+                          variant={isActive ? 'secondary' : 'outline'}
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() =>
+                            setFormData({
+                              ...formData,
+                              budgetMin: preset.min,
+                              budgetMax: preset.max,
+                            })
+                          }
+                        >
+                          {preset.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="budgetMin">予算下限（円）</Label>
                   <Input
@@ -236,13 +269,14 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
 
               <div className="space-y-2">
                 <Label htmlFor="message">メッセージ（任意）</Label>
-                <Input
+                <textarea
                   id="message"
                   placeholder="例：いつもありがとう"
                   value={formData.message}
                   onChange={(e) =>
                     setFormData({ ...formData, message: e.target.value })
                   }
+                  className="w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[90px]"
                 />
               </div>
 

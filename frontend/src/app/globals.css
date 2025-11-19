@@ -14,7 +14,7 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
-  
+
   /* ============================================
      Typography System - Japanese Optimized
      ============================================ */
@@ -24,7 +24,7 @@
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
-  
+
   /* Line Heights - 日本語に最適化 */
   --leading-none: 1;
   --leading-tight: 1.25;
@@ -32,7 +32,7 @@
   --leading-normal: 1.7;
   --leading-relaxed: 1.8;
   --leading-loose: 2;
-  
+
   /* Letter Spacing - 日本語に最適化 */
   --tracking-tighter: -0.05em;
   --tracking-tight: -0.025em;
@@ -40,90 +40,94 @@
   --tracking-wide: 0.025em;
   --tracking-wider: 0.05em;
   --tracking-widest: 0.1em;
-  
+
   /* ============================================
-     Color System - 日本酒の上品な配色
+     Color System - 日本酒の上品な配色 (Sake Aesthetic)
      ============================================ */
-  
-  /* Light mode */
-  --background: oklch(0.99 0.003 85);
-  --foreground: oklch(0.15 0.01 85);
-  
+
+  /* Light mode (Default) */
+  --background: oklch(0.985 0.002 85);
+  /* Soft Warm White (Rice Paper) */
+  --foreground: oklch(0.25 0.02 260);
+  /* Sumi Ink (Charcoal) */
+
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.01 85);
-  
+  /* Pure White for cards to pop against warm bg */
+  --card-foreground: oklch(0.25 0.02 260);
+
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.01 85);
-  
-  /* Primary Palette - 琥珀色のバリエーション（強化版） */
-  --primary-50: oklch(0.98 0.015 65);
-  --primary-100: oklch(0.95 0.03 65);
-  --primary-200: oklch(0.88 0.065 65);
-  --primary-300: oklch(0.78 0.10 65);
-  --primary-400: oklch(0.70 0.135 65);
-  --primary-500: oklch(0.62 0.15 65);
-  --primary-600: oklch(0.52 0.13 65);
-  --primary-700: oklch(0.42 0.11 65);
-  --primary-800: oklch(0.32 0.09 65);
-  --primary-900: oklch(0.22 0.07 65);
-  
+  --popover-foreground: oklch(0.25 0.02 260);
+
+  /* Primary Palette - 琥珀色 (Deep Amber / Liquid Gold) */
+  --primary-50: oklch(0.97 0.02 85);
+  --primary-100: oklch(0.92 0.05 85);
+  --primary-200: oklch(0.85 0.10 80);
+  --primary-300: oklch(0.75 0.15 80);
+  --primary-400: oklch(0.65 0.18 80);
+  --primary-500: oklch(0.55 0.18 80);
+  /* Deep Amber */
+  --primary-600: oklch(0.48 0.16 80);
+  --primary-700: oklch(0.40 0.14 80);
+  --primary-800: oklch(0.32 0.10 80);
+  --primary-900: oklch(0.25 0.08 80);
+
   --primary: var(--primary-500);
-  --primary-foreground: oklch(0.99 0.003 85);
-  
-  /* Secondary: 落ち着いた青灰色 */
-  --secondary: oklch(0.94 0.012 85);
-  --secondary-foreground: oklch(0.15 0.01 85);
-  
-  /* Muted: 控えめなグレー */
-  --muted: oklch(0.96 0.008 85);
-  --muted-foreground: oklch(0.50 0.01 85);
-  
-  /* Accent: 淡い金色 */
-  --accent: oklch(0.95 0.025 75);
-  --accent-foreground: oklch(0.30 0.02 65);
-  
+  --primary-foreground: oklch(0.99 0.002 85);
+
+  /* Secondary: 淡い藍色 (Pale Indigo / Water) */
+  --secondary: oklch(0.95 0.01 240);
+  --secondary-foreground: oklch(0.30 0.04 250);
+
+  /* Muted: 和紙のようなグレー */
+  --muted: oklch(0.96 0.005 85);
+  --muted-foreground: oklch(0.55 0.02 260);
+
+  /* Accent: 金箔 (Gold Leaf) */
+  --accent: oklch(0.90 0.05 85);
+  --accent-foreground: oklch(0.35 0.12 85);
+
   /* Semantic Colors */
-  --success: oklch(0.68 0.18 145);
-  --success-foreground: oklch(0.99 0.003 85);
-  --warning: oklch(0.73 0.15 70);
-  --warning-foreground: oklch(0.15 0.01 85);
-  --error: oklch(0.60 0.22 28);
-  --error-foreground: oklch(0.99 0.003 85);
-  --info: oklch(0.63 0.15 235);
-  --info-foreground: oklch(0.99 0.003 85);
-  
-  --destructive: oklch(0.60 0.22 28);
-  --destructive-foreground: oklch(0.99 0.003 85);
-  
-  --border: oklch(0.90 0.008 85);
-  --input: oklch(0.92 0.008 85);
-  --ring: oklch(0.62 0.15 65);
-  
+  --success: oklch(0.65 0.15 140);
+  --success-foreground: oklch(0.99 0.002 85);
+  --warning: oklch(0.75 0.12 70);
+  --warning-foreground: oklch(0.25 0.02 260);
+  --error: oklch(0.60 0.18 25);
+  --error-foreground: oklch(0.99 0.002 85);
+  --info: oklch(0.65 0.12 230);
+  --info-foreground: oklch(0.99 0.002 85);
+
+  --destructive: oklch(0.60 0.18 25);
+  --destructive-foreground: oklch(0.99 0.002 85);
+
+  --border: oklch(0.92 0.005 85);
+  --input: oklch(0.92 0.005 85);
+  --ring: var(--primary);
+
   /* ============================================
-     Shadow System - Enhanced
+     Shadow System - Soft & Diffuse (Fluffy)
      ============================================ */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.06);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.06);
-  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.20);
-  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.04);
-  
-  /* Glow Effects - Enhanced */
-  --glow-sm: 0 0 12px color-mix(in oklch, var(--primary) 35%, transparent);
-  --glow-md: 0 0 24px color-mix(in oklch, var(--primary) 45%, transparent);
-  --glow-lg: 0 0 36px color-mix(in oklch, var(--primary) 55%, transparent);
-  
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.02);
+  --shadow-sm: 0 2px 4px 0 rgb(0 0 0 / 0.03), 0 1px 2px -1px rgb(0 0 0 / 0.02);
+  --shadow-md: 0 6px 12px -2px rgb(0 0 0 / 0.04), 0 3px 6px -3px rgb(0 0 0 / 0.03);
+  --shadow-lg: 0 12px 24px -4px rgb(0 0 0 / 0.04), 0 6px 12px -6px rgb(0 0 0 / 0.03);
+  --shadow-xl: 0 24px 48px -8px rgb(0 0 0 / 0.04), 0 12px 24px -12px rgb(0 0 0 / 0.02);
+  --shadow-2xl: 0 32px 64px -12px rgb(0 0 0 / 0.08);
+  --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.02);
+
+  /* Glow Effects - Warm & Subtle */
+  --glow-sm: 0 0 16px color-mix(in oklch, var(--primary) 15%, transparent);
+  --glow-md: 0 0 32px color-mix(in oklch, var(--primary) 25%, transparent);
+  --glow-lg: 0 0 48px color-mix(in oklch, var(--primary) 35%, transparent);
+
   /* ============================================
      Elevation & Depth System
      ============================================ */
   --elevation-0: 0;
-  --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --elevation-2: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --elevation-3: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --elevation-4: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --elevation-5: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --elevation-1: 0 1px 3px 0 rgb(0 0 0 / 0.03);
+  --elevation-2: 0 4px 8px -2px rgb(0 0 0 / 0.04);
+  --elevation-3: 0 8px 16px -4px rgb(0 0 0 / 0.04);
+  --elevation-4: 0 16px 32px -8px rgb(0 0 0 / 0.04);
+  --elevation-5: 0 24px 48px -12px rgb(0 0 0 / 0.04);
 }
 
 body {
@@ -158,37 +162,41 @@ body {
 /* ============================================
    Glass Morphism - 洗練されたガラス効果
    ============================================ */
+/* ============================================
+   Glass Morphism - 洗練されたガラス効果 (Sake Aesthetic)
+   ============================================ */
 .glass {
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
-  background: color-mix(in oklch, var(--card) 90%, transparent);
-  border: 1px solid color-mix(in oklch, var(--border) 50%, transparent);
-  box-shadow: 
-    0 8px 32px 0 rgba(0, 0, 0, 0.08),
-    0 2px 8px 0 rgba(0, 0, 0, 0.05),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 4px 24px -2px rgba(0, 0, 0, 0.02),
+    0 2px 8px -2px rgba(0, 0, 0, 0.02),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.8);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-strong {
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  background: color-mix(in oklch, var(--card) 95%, transparent);
-  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-  box-shadow: 
-    0 12px 40px 0 rgba(0, 0, 0, 0.12),
-    0 4px 12px 0 rgba(0, 0, 0, 0.08),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 12px 36px -4px rgba(0, 0, 0, 0.04),
+    0 4px 12px -2px rgba(0, 0, 0, 0.02),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Gradient text utility - 日本酒の輝き */
 .gradient-text {
-  background: linear-gradient(135deg, 
-    oklch(0.68 0.15 70), 
-    oklch(0.78 0.12 60),
-    oklch(0.68 0.15 70)
-  );
+  background: linear-gradient(135deg,
+      oklch(0.55 0.18 80),
+      /* Deep Amber */
+      oklch(0.65 0.18 80),
+      /* Lighter Amber */
+      oklch(0.55 0.18 80));
   background-size: 200% auto;
   background-clip: text;
   -webkit-background-clip: text;
@@ -197,8 +205,15 @@ body {
 }
 
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* ============================================
@@ -207,10 +222,13 @@ body {
 
 /* Floating animation - smooth elevation */
 @keyframes float {
-  0%, 100% { 
+
+  0%,
+  100% {
     transform: translateY(0px);
   }
-  50% { 
+
+  50% {
     transform: translateY(-12px);
   }
 }
@@ -222,11 +240,12 @@ body {
 
 /* Pulse ring animation for microphone */
 @keyframes pulse-ring {
-  0% { 
+  0% {
     transform: scale(0.85);
     opacity: 0.9;
   }
-  100% { 
+
+  100% {
     transform: scale(2.8);
     opacity: 0;
   }
@@ -239,10 +258,11 @@ body {
 
 /* Shimmer loading effect - enhanced */
 @keyframes shimmer {
-  0% { 
+  0% {
     transform: translateX(-100%);
   }
-  100% { 
+
+  100% {
     transform: translateX(100%);
   }
 }
@@ -259,12 +279,10 @@ body {
   bottom: 0;
   left: 0;
   transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.15),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.15),
+      transparent);
   animation: shimmer 2.5s infinite;
   content: '';
   will-change: transform;
@@ -276,6 +294,7 @@ body {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -292,6 +311,7 @@ body {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -308,6 +328,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -342,7 +363,7 @@ body {
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
-  
+
   /* Colors - カスタムカラーシステム */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -373,7 +394,7 @@ body {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
+
   /* Spacing - 8pxグリッド */
   --spacing-0: 0;
   --spacing-px: 1px;
@@ -410,10 +431,10 @@ body {
   --spacing-72: 18rem;
   --spacing-80: 20rem;
   --spacing-96: 24rem;
-  
+
   /* Font Family */
   --font-sans: var(--font-inter), var(--font-noto-sans-jp), system-ui, -apple-system, "Segoe UI", sans-serif;
-  
+
   /* Shadows */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
@@ -427,13 +448,13 @@ body {
   /* Dark mode - 落ち着いた夜の酒蔵のイメージ（強化版） */
   --background: oklch(0.13 0.01 85);
   --foreground: oklch(0.97 0.008 85);
-  
+
   --card: oklch(0.17 0.012 85);
   --card-foreground: oklch(0.97 0.008 85);
-  
+
   --popover: oklch(0.15 0.012 85);
   --popover-foreground: oklch(0.97 0.008 85);
-  
+
   /* Primary Palette - ダークモード用（強化版） */
   --primary-50: oklch(0.20 0.06 65);
   --primary-100: oklch(0.30 0.08 65);
@@ -445,22 +466,22 @@ body {
   --primary-700: oklch(0.86 0.09 65);
   --primary-800: oklch(0.92 0.05 65);
   --primary-900: oklch(0.96 0.025 65);
-  
+
   --primary: var(--primary-500);
   --primary-foreground: oklch(0.13 0.01 85);
-  
+
   /* Secondary: ダークトーン */
   --secondary: oklch(0.24 0.015 85);
   --secondary-foreground: oklch(0.97 0.008 85);
-  
+
   /* Muted: ダークグレー */
   --muted: oklch(0.24 0.012 85);
   --muted-foreground: oklch(0.65 0.01 85);
-  
+
   /* Accent: 淡い金色（ダーク用） */
   --accent: oklch(0.28 0.025 75);
   --accent-foreground: oklch(0.82 0.12 70);
-  
+
   /* Semantic Colors - ダークモード用 */
   --success: oklch(0.72 0.18 145);
   --success-foreground: oklch(0.13 0.01 85);
@@ -470,19 +491,19 @@ body {
   --error-foreground: oklch(0.97 0.008 85);
   --info: oklch(0.68 0.15 235);
   --info-foreground: oklch(0.13 0.01 85);
-  
+
   --destructive: oklch(0.65 0.22 28);
   --destructive-foreground: oklch(0.97 0.008 85);
-  
+
   --border: oklch(0.26 0.015 85);
   --input: oklch(0.28 0.015 85);
   --ring: oklch(0.70 0.15 70);
-  
+
   /* Surface Colors - 階層的な深さ */
   --surface-base: oklch(0.13 0.01 85);
   --surface-raised: oklch(0.17 0.012 85);
   --surface-overlay: oklch(0.22 0.013 85);
-  
+
   /* Shadow System - ダークモード用（強化版） */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.35);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.45);
@@ -490,12 +511,12 @@ body {
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.45);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55), 0 8px 10px -6px rgb(0 0 0 / 0.45);
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.65);
-  
+
   /* Glow Effects - ダークモード用 */
   --glow-sm: 0 0 16px color-mix(in oklch, var(--primary) 45%, transparent);
   --glow-md: 0 0 28px color-mix(in oklch, var(--primary) 55%, transparent);
   --glow-lg: 0 0 40px color-mix(in oklch, var(--primary) 65%, transparent);
-  
+
   /* Elevation & Depth - ダークモード用 */
   --elevation-0: 0;
   --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -509,6 +530,7 @@ body {
    Base Layer - 基本スタイル
    ============================================ */
 @layer base {
+
   *,
   *::before,
   *::after {
@@ -517,23 +539,23 @@ body {
     border-style: solid;
     border-color: theme(colors.border);
   }
-  
+
   * {
     @apply outline-ring/50;
   }
-  
+
   html {
     -webkit-text-size-adjust: 100%;
     font-feature-settings: normal;
     font-variation-settings: normal;
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   body {
     @apply bg-background text-foreground antialiased;
     margin: 0;
   }
-  
+
   /* Container - Tailwind v4用の明示的定義 */
   .container {
     width: 100%;
@@ -542,7 +564,7 @@ body {
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  
+
   @media (min-width: 640px) {
     .container {
       max-width: 640px;
@@ -550,13 +572,13 @@ body {
       padding-right: 1.5rem;
     }
   }
-  
+
   @media (min-width: 768px) {
     .container {
       max-width: 768px;
     }
   }
-  
+
   @media (min-width: 1024px) {
     .container {
       max-width: 1024px;
@@ -564,35 +586,35 @@ body {
       padding-right: 2rem;
     }
   }
-  
+
   @media (min-width: 1280px) {
     .container {
       max-width: 1280px;
     }
   }
-  
+
   @media (min-width: 1536px) {
     .container {
       max-width: 1536px;
     }
   }
-  
+
   /* カスタムスクロールバー */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background: color-mix(in oklch, var(--primary) 40%, transparent);
     border-radius: 5px;
     border: 2px solid var(--background);
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background: color-mix(in oklch, var(--primary) 60%, transparent);
   }
