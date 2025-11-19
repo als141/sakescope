@@ -222,6 +222,7 @@ export async function enqueueGiftRecommendationJob(
         type: 'web_search',
         search_context_size: 'medium',
         user_location: {
+          type: 'approximate',
           country: 'JP',
           timezone: 'Asia/Tokyo',
         },
