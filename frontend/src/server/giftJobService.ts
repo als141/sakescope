@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
+import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Gift } from '@/types/gift';
 import {
@@ -206,7 +207,7 @@ export async function enqueueGiftRecommendationJob(
   }
   const { systemPrompt, userPrompt } = buildGuidance(payload);
 
-  const responseParams: OpenAI.ResponseCreateParamsNonStreaming & JsonSchemaResponseFormatParam = {
+  const responseParams: ResponseCreateParamsNonStreaming & JsonSchemaResponseFormatParam = {
     model: TEXT_MODEL,
     reasoning: { effort: 'medium' },
     input: [
