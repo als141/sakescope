@@ -116,6 +116,23 @@ function mapRecommendationCore(
   };
 }
 
+function mapAlternativeSuggestion(record: Record<string, unknown>): AlternativeRecommendation | null {
+  if (typeof record.name !== 'string' || record.name.trim().length === 0) {
+    return null;
+  }
+
+  const clean = (value: unknown): string | undefined =>
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+
+  return {
+    name: record.name.trim(),
+    highlight: clean(record.highlight),
+    url: clean(record.url),
+    priceText: clean(record.price_text),
+    notes: clean(record.notes),
+  };
+}
+
 export function mapGiftRecommendationPayload(
   payload: unknown,
   updatedAt?: string,
@@ -147,21 +164,11 @@ export function mapGiftRecommendationPayload(
       if (!alt || typeof alt !== 'object') {
         continue;
       }
-      const mapped = mapRecommendationCore(
-        alt as Record<string, unknown>,
-        offer.sake.name,
-      );
+      const mapped = mapAlternativeSuggestion(alt as Record<string, unknown>);
       if (!mapped) {
         continue;
       }
-      alternatives.push({
-        sake: mapped.sake,
-        summary: mapped.summary,
-        reasoning: mapped.reasoning,
-        shops: mapped.shops,
-        tastingHighlights: mapped.tastingHighlights,
-        servingSuggestions: mapped.servingSuggestions,
-      });
+      alternatives.push(mapped);
     }
     if (alternatives.length > 0) {
       offer.alternatives = alternatives;

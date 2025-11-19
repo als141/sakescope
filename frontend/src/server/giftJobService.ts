@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
+import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Gift } from '@/types/gift';
 import {
@@ -40,6 +41,15 @@ type GiftJobPayload = {
   additionalNotes?: string | null;
   preferences?: Record<string, unknown> | null;
   traceGroupId?: string | null;
+};
+
+type JsonSchemaResponseFormatParam = {
+  response_format: {
+    type: 'json_schema';
+    name: string;
+    strict?: boolean;
+    schema: typeof finalPayloadJsonSchema;
+  };
 };
 
 const openaiClient = OPENAI_API_KEY
@@ -197,7 +207,7 @@ export async function enqueueGiftRecommendationJob(
   }
   const { systemPrompt, userPrompt } = buildGuidance(payload);
 
-  const response = await openaiClient.responses.create({
+  const responseParams: ResponseCreateParamsNonStreaming & JsonSchemaResponseFormatParam = {
     model: TEXT_MODEL,
     reasoning: { effort: 'medium' },
     input: [
@@ -227,7 +237,9 @@ export async function enqueueGiftRecommendationJob(
       strict: true,
       schema: finalPayloadJsonSchema,
     },
-  });
+  };
+
+  const response = await openaiClient.responses.create(responseParams);
 
   const status: GiftJobStatus = response.status === 'in_progress' ? 'RUNNING' : 'QUEUED';
   const timeoutAt = new Date(Date.now() + JOB_TIMEOUT_MS).toISOString();

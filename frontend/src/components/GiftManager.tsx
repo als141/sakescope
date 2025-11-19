@@ -369,10 +369,27 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                         className="rounded-xl border border-border/50 bg-background/80 p-4 space-y-2"
                                       >
                                         <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <div className="font-semibold text-foreground">
+                                            {alt.name}
+                                          </div>
                                           <div className="flex items-center gap-2">
-                                            <div className="font-semibold text-foreground">
-                                              {alt.sake.name}
-                                            </div>
+                                            {alt.url ? (
+                                              <Button
+                                                asChild
+                                                variant="outline"
+                                                size="icon-sm"
+                                                className="h-7 w-7"
+                                              >
+                                                <a
+                                                  href={alt.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  aria-label={`${alt.name} の販売ページ`}
+                                                >
+                                                  <ExternalLink className="h-3.5 w-3.5" />
+                                                </a>
+                                              </Button>
+                                            ) : null}
                                             <Button
                                               asChild
                                               variant="outline"
@@ -380,22 +397,31 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                                               className="h-7 w-7"
                                             >
                                               <a
-                                                href={buildGoogleSearchUrl(alt.sake.name)}
+                                                href={buildGoogleSearchUrl(alt.name)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                aria-label={`${alt.sake.name} をGoogleで検索`}
+                                                aria-label={`${alt.name} をGoogleで検索`}
                                               >
                                                 <Search className="h-3.5 w-3.5" />
                                               </a>
                                             </Button>
                                           </div>
-                                          <span className="text-xs text-muted-foreground">
-                                            販売候補: {alt.shops.length} 件
-                                          </span>
                                         </div>
-                                        <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                          {alt.summary}
-                                        </p>
+                                        {alt.highlight ? (
+                                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                                            {alt.highlight}
+                                          </p>
+                                        ) : null}
+                                        {alt.priceText ? (
+                                          <p className="text-xs text-muted-foreground">
+                                            参考価格: {alt.priceText}
+                                          </p>
+                                        ) : null}
+                                        {alt.notes ? (
+                                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                                            {alt.notes}
+                                          </p>
+                                        ) : null}
                                       </div>
                                     ))}
                                   </div>

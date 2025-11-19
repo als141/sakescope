@@ -66,12 +66,11 @@ export interface SakeWithLinks {
 }
 
 export interface AlternativeRecommendation {
-  sake: Sake;
-  summary: string;
-  reasoning: string;
-  shops: ShopListing[];
-  tastingHighlights?: string[];
-  servingSuggestions?: string[];
+  name: string;
+  highlight?: string;
+  url?: string;
+  priceText?: string;
+  notes?: string;
 }
 
 export interface PurchaseOffer {

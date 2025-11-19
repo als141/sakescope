@@ -82,13 +82,27 @@ export const recommendationSchemaOutput = z.object({
   shops: z.array(shopSchema).min(1),
 });
 
+export const alternativeSuggestionSchema = z.object({
+  name: z.string(),
+  highlight: z.string().nullable(),
+  url: z
+    .string()
+    .min(1)
+    .describe(
+      'Product or reference URL that helps the user find this candidate',
+    )
+    .nullable(),
+  price_text: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
 export const finalPayloadInputSchema = recommendationSchemaInput.extend({
-  alternatives: z.array(recommendationSchemaInput).nullable(),
+  alternatives: z.array(alternativeSuggestionSchema).max(2).nullable(),
   follow_up_prompt: z.string().nullable(),
 });
 
 export const finalPayloadOutputSchema = recommendationSchemaOutput.extend({
-  alternatives: z.array(recommendationSchemaOutput).nullable(),
+  alternatives: z.array(alternativeSuggestionSchema).max(2).nullable(),
   follow_up_prompt: z.string().nullable(),
 });
 
@@ -119,7 +133,8 @@ export const finalPayloadJsonSchema = {
     },
     alternatives: {
       type: ['array', 'null'],
-      items: { $ref: '#/$defs/recommendation' },
+      maxItems: 2,
+      items: { $ref: '#/$defs/alternative' },
     },
     follow_up_prompt: { type: ['string', 'null'] },
   },
@@ -206,6 +221,18 @@ export const finalPayloadJsonSchema = {
           minItems: 1,
           items: { $ref: '#/$defs/shop' },
         },
+      },
+    },
+    alternative: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['name'],
+      properties: {
+        name: { type: 'string' },
+        highlight: { type: ['string', 'null'] },
+        url: { type: ['string', 'null'], format: 'uri-reference' },
+        price_text: { type: ['string', 'null'] },
+        notes: { type: ['string', 'null'] },
       },
     },
   },
