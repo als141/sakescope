@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { randomUUID } from 'node:crypto';
 import OpenAI from 'openai';
-import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses';
+import type {
+  ResponseCreateParamsNonStreaming,
+  ResponseFormatTextJSONSchemaConfig,
+} from 'openai/resources/responses/responses';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Gift } from '@/types/gift';
 import {
@@ -45,14 +48,7 @@ type GiftJobPayload = {
 
 type JsonSchemaTextFormatParam = {
   text: {
-    format: {
-      type: 'json_schema';
-      json_schema: {
-        name: string;
-        strict?: boolean;
-        schema: typeof finalPayloadJsonSchema;
-      };
-    };
+    format: ResponseFormatTextJSONSchemaConfig;
   };
 };
 
@@ -238,11 +234,9 @@ export async function enqueueGiftRecommendationJob(
     text: {
       format: {
         type: 'json_schema',
-        json_schema: {
-          name: 'SakeGiftRecommendation',
-          strict: true,
-          schema: finalPayloadJsonSchema,
-        },
+        name: 'SakeGiftRecommendation',
+        schema: finalPayloadJsonSchema,
+        strict: true,
       },
     },
   };
