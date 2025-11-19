@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+const absoluteImageUrlSchema = z
+  .string()
+  .min(1, '画像URLを指定してください')
+  .regex(/^https?:\/\/.+/, 'HTTP(S) から始まる画像URLを指定してください')
+  .describe(
+    'Direct image URL (e.g., https://example.com/image.jpg) - must be an actual image file, not a product page',
+  );
+
 export const shopSchema = z.object({
   retailer: z.string(),
   url: z.string().min(1, '商品リンクのURLを指定してください'),
@@ -34,12 +42,7 @@ export const sakeSchemaInput = z.object({
   tasting_notes: z.array(z.string()).nullable(),
   food_pairing: z.array(z.string()).nullable(),
   serving_temperature: z.array(z.string()).nullable(),
-  image_url: z
-    .string()
-    .min(1)
-    .describe(
-      'Direct image URL (e.g., https://example.com/image.jpg) - must be an actual image file, not a product page',
-    ),
+  image_url: absoluteImageUrlSchema,
   origin_sources: z.array(z.string()).nullable(),
   price_range: z.string().nullable(),
   flavor_profile: flavorProfileSchema,
@@ -58,7 +61,7 @@ export const sakeSchemaOutput = z.object({
   tasting_notes: z.array(z.string()).nullable(),
   food_pairing: z.array(z.string()).nullable(),
   serving_temperature: z.array(z.string()).nullable(),
-  image_url: z.string().url(),
+  image_url: absoluteImageUrlSchema,
   origin_sources: z.array(z.string()).nullable(),
   price_range: z.string().nullable(),
   flavor_profile: flavorProfileSchema,
