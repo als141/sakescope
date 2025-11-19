@@ -151,7 +151,7 @@ export default function VoiceChat({
   const avatarSpeechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mouthAnimationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const setIsRecordingStateRef = useRef(setIsRecording);
-  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
   const translateAbortControllerRef = useRef<AbortController | null>(null);
   const isChatMode = isConnected && !isRecording;
 
@@ -747,7 +747,7 @@ export default function VoiceChat({
     }
   };
 
-  const handleChatKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleChatKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void handleSendChatMessage();
@@ -963,33 +963,29 @@ export default function VoiceChat({
               </div>
 
               <motion.div
-                className="w-full max-w-2xl text-center"
+                className="w-full max-w-2xl"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <div className="rounded-2xl border border-border/60 bg-background/80 px-6 py-4 shadow-inner">
-                  {reasoningSummaryDisplay ? (
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold uppercase tracking-[0.3em] text-primary flex items-center justify-center gap-2">
-                        推論サマリ
-                        {isTranslatingSummary && (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        )}
-                      </div>
-                      <p className="text-lg sm:text-2xl font-semibold leading-relaxed whitespace-pre-wrap">
+                <div className="rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner">
+                  {reasoningSummaryDisplay && (
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary flex items-center gap-2 mb-2">
+                      推論サマリ
+                      {isTranslatingSummary && <Loader2 className="h-3 w-3 animate-spin" />}
+                    </div>
+                  )}
+                  <div className="h-36 sm:h-40 overflow-y-auto pr-2 space-y-2 text-sm sm:text-base leading-relaxed text-foreground font-medium">
+                    {reasoningSummaryDisplay && (
+                      <p className="whitespace-pre-wrap">
                         {reasoningSummaryDisplay}
                       </p>
-                      {baseSubtitle && baseSubtitle !== reasoningSummaryDisplay && (
-                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                          {baseSubtitle}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-lg sm:text-2xl font-semibold leading-relaxed">
-                      {baseSubtitle}
-                    </p>
-                  )}
+                    )}
+                    {baseSubtitle && (!reasoningSummaryDisplay || baseSubtitle !== reasoningSummaryDisplay) && (
+                      <p className="whitespace-pre-wrap">
+                        {baseSubtitle}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </motion.div>
 

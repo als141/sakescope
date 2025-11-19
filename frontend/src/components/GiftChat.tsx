@@ -1,17 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import Image from 'next/image';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   RealtimeSession,
   RealtimeSessionEventTypes,
 } from '@openai/agents-realtime';
-import { Mic, MicOff, Send, Loader2, Sparkles, Headphones } from 'lucide-react';
+import { Mic, MicOff, Send, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { IntakeSummary } from '@/types/gift';
 import type { AgentRuntimeContext } from '@/infrastructure/openai/agents/context';
@@ -85,7 +84,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
   const userMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingEchoRef = useRef<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+const composerRef = useRef<HTMLInputElement | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -476,159 +475,102 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
     }
   };
 
-  const handleKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       void handleSendMessage();
     }
   };
 
-  if (isFinished) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-        <Card className="w-full max-w-2xl glass shadow-2xl border-border/40">
-          <CardHeader className="space-y-4 text-center">
-            <div className="flex justify-center">
-              <div className="rounded-full bg-primary/10 p-3 border border-primary/30">
-                <Sparkles className="h-6 w-6 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold">会話は終了しました！</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              ありがとうございました。まもなく送り主へ推薦結果が共有されます。
-            </p>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  const latestAssistantMessage = useMemo(() => {
+    const assistantMessages = messages.filter((message) => message.role === 'assistant');
+    return assistantMessages[assistantMessages.length - 1]?.text ?? null;
+  }, [messages]);
+
+  const subtitleText = latestAssistantMessage
+    ?? (isConnecting
+      ? 'AIが接続中です…'
+      : isMuted
+        ? 'マイクをオンにするか、テキストで希望を入力してください'
+        : 'AIが耳を傾けています。自由にお話しください。');
+
+  const avatarImageSrc = !isMuted && isConnected
+    ? '/ai-avatar/open.png'
+    : '/ai-avatar/close.png';
+
+  const statusHelper = isCompleting
+    ? '聞き取った内容を整理しています…'
+    : isMuted
+      ? 'マイクをオンにすると声で会話できます'
+      : '会話中です';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      <Card className="w-full max-w-3xl glass shadow-2xl border-border/40">
-        <CardHeader className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-primary/10 p-2 border border-primary/20">
-                <Sparkles className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-xl font-semibold">日本酒ギフトアシスタント</CardTitle>
-                <p className="text-sm text-muted-foreground">どんな相手に贈るのか、落ち着いて教えてください。</p>
+    <div className="min-h-screen bg-background px-4 py-10 space-y-6">
+      <Card className="w-full max-w-4xl mx-auto border-border/40 shadow-2xl">
+        <CardHeader className="text-center space-y-1">
+          <div className="flex items-center justify-center gap-3">
+            <div className="rounded-full bg-primary/10 p-2 border border-primary/20">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <CardTitle className="text-xl font-semibold">日本酒ギフトアシスタント</CardTitle>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            お相手の好みを教えてください。途中でテキストを送って補足できます。
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-6">
+          <div className="relative w-full flex flex-col items-center">
+            <div className="relative w-[220px] h-[220px] sm:w-[280px] sm:h-[280px] flex items-center justify-center">
+              <Image
+                src={avatarImageSrc}
+                alt="AIギフトアシスタント"
+                fill
+                sizes="(max-width: 768px) 220px, 280px"
+                className="object-contain drop-shadow-2xl pointer-events-none select-none"
+                priority
+              />
+            </div>
+            {isCompleting && (
+              <Badge variant="secondary" className="mt-2">
+                情報整理中…
+              </Badge>
+            )}
+          </div>
+
+          <div className="w-full max-w-2xl">
+            <div className="rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner">
+              <div className="h-32 sm:h-36 overflow-y-auto pr-2 text-sm sm:text-base leading-relaxed text-foreground font-medium">
+                <p className="whitespace-pre-wrap">{subtitleText}</p>
               </div>
             </div>
-            <Badge variant="secondary" className="px-3 py-1 text-[10px] tracking-[0.3em] uppercase">
-              {isConnected ? (isMuted ? 'TEXT' : 'VOICE') : isConnecting ? 'CONNECTING' : 'STANDBY'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="rounded-3xl border border-border/40 bg-muted/30">
-            <ScrollArea ref={scrollAreaRef} className="h-[420px] px-5 py-6">
-              <div className="space-y-4">
-                {messages.length === 0 && (
-                  <div className="text-sm text-muted-foreground text-center py-10">
-                    AIとの会話内容がここに表示されます。
-                  </div>
-                )}
-                {messages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className={cn(
-                      'flex gap-3',
-                      message.role === 'assistant' ? 'flex-row' : 'flex-row-reverse',
-                    )}
-                  >
-                    <Avatar
-                      className={cn(
-                        'h-9 w-9 border shadow-sm',
-                        message.role === 'assistant'
-                          ? 'border-primary/30 bg-primary/10'
-                          : 'border-border bg-background',
-                      )}
-                    >
-                      <AvatarFallback className="text-xs">
-                        {message.role === 'assistant' ? 'AI' : 'YOU'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div
-                      className={cn(
-                        'rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm max-w-[75%] whitespace-pre-wrap',
-                        message.role === 'assistant'
-                          ? 'bg-primary/10 border border-primary/20 text-foreground'
-                          : 'bg-background border border-border/60 text-foreground',
-                      )}
-                    >
-                      {message.mode === 'voice' && (
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                          <Headphones className="h-3 w-3" />
-                          音声からの内容
-                        </div>
-                      )}
-                      {message.text}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </ScrollArea>
           </div>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center justify-between gap-3"
-            >
-              <span className="flex-1">{error}</span>
-              {!isConnected && !isConnecting && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRetryConnect}
-                  className="border-destructive/40 text-destructive hover:text-destructive"
-                >
-                  再接続
-                </Button>
-              )}
-            </motion.div>
-          )}
-
-          <div className="rounded-3xl border border-border/50 bg-background/80 p-4 space-y-3">
-            <label className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-              テキストで補足
-            </label>
-            <textarea
+          <div className="w-full max-w-2xl flex flex-row items-stretch gap-3">
+            <Input
               ref={composerRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isMuted ? 'マイクをオンにすると声で回答できます' : 'テキストで伝えたい内容を入力してください'}
-              className="w-full min-h-[80px] resize-none rounded-2xl border border-border/60 bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+              placeholder={isMuted ? 'マイクをオンにすると声でも会話できます' : 'テキストで補足したい内容を入力してください'}
+              className="flex-1 h-12 rounded-2xl border border-border/60 bg-background/80 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               disabled={isInputDisabled}
             />
-            <div className="flex items-center justify-between gap-3">
-              <Button
-                onClick={handleSendMessage}
-                disabled={isInputDisabled || input.trim().length === 0}
-                className="h-11 px-6 rounded-2xl"
-              >
-                {isCompleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    送信
-                  </>
-                )}
-              </Button>
-              <p className="text-[11px] text-muted-foreground">Enterで送信 / Shift+Enterで改行</p>
-            </div>
+            <Button
+              onClick={handleSendMessage}
+              disabled={isInputDisabled || input.trim().length === 0}
+              className="h-12 px-6 rounded-2xl flex items-center gap-2"
+            >
+              {isCompleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              送信
+            </Button>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground text-center space-y-1">
+            <p>{statusHelper}</p>
+            {error && <p className="text-destructive">{error}</p>}
+          </div>
+
+          <div className="flex items-center gap-3">
             <Button
               onClick={handleToggleMute}
               variant={isMuted ? 'secondary' : 'default'}
@@ -650,22 +592,15 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
                 </>
               )}
             </Button>
-            <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <Loader2
-                className={cn(
-                  'h-4 w-4',
-                  isCompleting ? 'animate-spin text-primary' : 'opacity-0',
-                )}
-              />
-              {isCompleting
-                ? '聞き取った内容を整理しています…'
-                : isMuted
-                  ? 'テキストで追加できます'
-                  : 'AIはあなたの声を聞いています'}
-            </div>
+            {!isConnected && !isConnecting && !isFinished && (
+              <Button variant="outline" onClick={handleRetryConnect}>
+                再接続
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
+
     </div>
   );
 }
