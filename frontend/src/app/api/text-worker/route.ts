@@ -17,6 +17,9 @@ import type { TextWorkerProgressEvent } from '@/types/textWorker';
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL ?? 'gpt-5-mini';
+
 const REASONING_EFFORT_LEVELS = ['minimal', 'low', 'medium', 'high'] as const;
 type ReasoningEffortLevel = (typeof REASONING_EFFORT_LEVELS)[number];
 const REASONING_SUMMARY_LEVELS = ['auto', 'concise', 'detailed'] as const;
