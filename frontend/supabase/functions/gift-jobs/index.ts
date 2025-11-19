@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.1";
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const TEXT_MODEL = Deno.env.get('OPENAI_TEXT_MODEL') ?? 'gpt-5-mini';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('NEXT_PUBLIC_SUPABASE_URL');
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const SERVICE_ROLE_KEY =
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
 const MAX_BATCH = Number(Deno.env.get('GIFT_JOB_MAX_BATCH') ?? '3');
 const APP_ORIGIN = Deno.env.get('NEXT_PUBLIC_APP_URL') ?? Deno.env.get('SITE_URL') ?? '';
 const LINE_TOKEN = Deno.env.get('LINE_MESSAGING_CHANNEL_ACCESS_TOKEN');
