@@ -47,16 +47,26 @@ export default function Home() {
 
 
   const isCompactMode = Boolean(recommendedSake);
+  const isVoiceSessionMobile = isVoiceConnected && !recommendedSake;
   const voiceChatVariant = isCompactMode ? 'compact' : 'full';
   const voiceChatContainerClass = isCompactMode
     ? 'pointer-events-auto fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-sm sm:max-w-md sm:bottom-8 sm:left-auto sm:right-8 sm:translate-x-0'
-    : isVoiceConnected
-      ? 'pointer-events-auto relative mt-1.5 sm:mt-6 w-full max-w-full sm:max-w-4xl lg:max-w-5xl px-0 sm:px-2'
-      : 'pointer-events-auto relative mt-6 sm:mt-12 w-full max-w-full sm:max-w-2xl lg:max-w-3xl px-0 sm:px-0';
+    : isVoiceSessionMobile
+      ? 'pointer-events-auto fixed inset-0 z-40 w-full h-[100dvh] bg-background flex flex-col sm:relative sm:inset-auto sm:h-auto sm:mt-1.5 sm:max-w-4xl lg:max-w-5xl sm:bg-transparent'
+      : isVoiceConnected
+        ? 'pointer-events-auto relative mt-1.5 sm:mt-6 w-full max-w-full sm:max-w-4xl lg:max-w-5xl px-0 sm:px-2'
+        : 'pointer-events-auto relative mt-6 sm:mt-12 w-full max-w-full sm:max-w-2xl lg:max-w-3xl px-0 sm:px-0';
+  const voiceChatInnerClass = isVoiceSessionMobile ? 'flex-1 overflow-y-auto' : '';
 
-  const mainSpacingClass = isVoiceConnected
-    ? 'pt-16 pb-24 gap-6 sm:gap-10'
-    : 'pt-24 pb-28 gap-10 sm:gap-14';
+  const mainSpacingClass = isVoiceSessionMobile
+    ? 'pt-0 pb-0 gap-0 sm:pt-16 sm:pb-24 sm:gap-10'
+    : isVoiceConnected
+      ? 'pt-16 pb-24 gap-6 sm:gap-10'
+      : 'pt-24 pb-28 gap-10 sm:gap-14';
+
+  const containerPaddingClass = isVoiceSessionMobile
+    ? 'px-0 sm:px-8 lg:px-12'
+    : 'px-4 sm:px-8 lg:px-12';
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
@@ -64,11 +74,11 @@ export default function Home() {
 
       {/* Main Content */}
       <div
-        className={`relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-8 lg:px-12 ${mainSpacingClass} overflow-hidden`}
+        className={`relative z-10 flex flex-col items-center justify-center min-h-screen ${containerPaddingClass} ${mainSpacingClass} overflow-hidden`}
       >
         {/* Header */}
         <motion.header
-          className="absolute top-0 left-0 right-0 z-50"
+          className={`absolute top-0 left-0 right-0 z-50 ${isVoiceSessionMobile ? 'hidden sm:block' : ''}`}
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -219,25 +229,28 @@ export default function Home() {
         </AnimatePresence>
 
         <div className={voiceChatContainerClass}>
-          <VoiceChat
-            variant={voiceChatVariant}
-            isRecording={isRecording}
-            setIsRecording={setIsRecording}
-            isMinimized={isVoiceChatMinimized}
-            onToggleMinimize={() => setIsVoiceChatMinimized(!isVoiceChatMinimized)}
-            onConnectionChange={setIsVoiceConnected}
-            onSakeRecommended={(sake) => {
-              setRecommendedSake(sake);
-              setPurchaseOffer(null);
-            }}
-            onOfferReady={(offer) => {
-              setRecommendedSake(offer.sake);
-              setPurchaseOffer(offer);
-              // 履歴に保存
-              SakeHistoryStorage.addToHistory(offer.sake, offer);
-            }}
-            preferences={preferences || undefined}
-          />
+          <div className={voiceChatInnerClass}>
+            <VoiceChat
+              variant={voiceChatVariant}
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              isMinimized={isVoiceChatMinimized}
+              onToggleMinimize={() => setIsVoiceChatMinimized(!isVoiceChatMinimized)}
+              onConnectionChange={setIsVoiceConnected}
+              onSakeRecommended={(sake) => {
+                setRecommendedSake(sake);
+                setPurchaseOffer(null);
+              }}
+              onOfferReady={(offer) => {
+                setRecommendedSake(offer.sake);
+                setPurchaseOffer(offer);
+                // 履歴に保存
+                SakeHistoryStorage.addToHistory(offer.sake, offer);
+              }}
+              preferences={preferences || undefined}
+              fullscreenMobile={isVoiceSessionMobile}
+            />
+          </div>
         </div>
 
       </div>

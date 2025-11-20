@@ -50,6 +50,7 @@ interface VoiceChatProps {
   variant?: 'full' | 'compact';
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
+  fullscreenMobile?: boolean;
 }
 
 type InteractionMode = 'voice' | 'chat';
@@ -121,6 +122,7 @@ export default function VoiceChat({
   variant = 'full',
   isMinimized = false,
   onToggleMinimize,
+  fullscreenMobile = false,
 }: VoiceChatProps) {
   const realtimeModel =
     process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
@@ -154,6 +156,7 @@ export default function VoiceChat({
   const chatInputRef = useRef<HTMLInputElement | null>(null);
   const translateAbortControllerRef = useRef<AbortController | null>(null);
   const isChatMode = isConnected && !isRecording;
+  const isFullscreenActive = Boolean(fullscreenMobile && isConnected);
 
   const openAvatarMouth = useCallback(() => {
     if (avatarSpeechTimeoutRef.current) {
@@ -854,7 +857,9 @@ export default function VoiceChat({
   }, []);
 
   const conversationWidthClass = isConnected
-    ? 'max-w-2xl sm:max-w-4xl lg:max-w-5xl'
+    ? isFullscreenActive
+      ? 'max-w-full sm:max-w-4xl lg:max-w-5xl'
+      : 'max-w-2xl sm:max-w-4xl lg:max-w-5xl'
     : 'max-w-xl sm:max-w-3xl';
   const avatarSizeClass = isConnected
     ? 'w-[280px] h-[280px] sm:w-[360px] sm:h-[360px]'
@@ -867,6 +872,7 @@ export default function VoiceChat({
       className={cn(
         'flex flex-col items-center w-full mx-auto space-y-6 px-3 sm:px-0',
         conversationWidthClass,
+        isFullscreenActive && 'min-h-[100dvh] px-0 !max-w-full',
       )}
     >
       {!isConnected ? (
@@ -936,8 +942,18 @@ export default function VoiceChat({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         >
-          <Card className="shadow-2xl border-border/30 bg-card/90 backdrop-blur">
-            <CardContent className="p-6 sm:p-10 flex flex-col items-center gap-6 sm:gap-8">
+          <Card
+            className={cn(
+              'shadow-2xl border-border/30 bg-card/90 backdrop-blur',
+              isFullscreenActive && 'rounded-none border-0 shadow-none bg-background',
+            )}
+          >
+            <CardContent
+              className={cn(
+                'p-6 sm:p-10 flex flex-col items-center gap-6 sm:gap-8',
+                isFullscreenActive && 'min-h-[100dvh] pb-16',
+              )}
+            >
 
               <div className="relative w-full flex flex-col items-center">
                 <motion.div
