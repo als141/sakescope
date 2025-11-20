@@ -215,12 +215,18 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
         setIsCompleting(false);
         setIsConnected(false);
         onCompleted?.({ summary, intakeSummary: intake });
-        connectedSessionRef.current = null;
-        try {
-          sessionRef.current?.close();
-        } catch {
-          // ignore close errors
-        }
+
+        // Delay closing the session to allow the tool output (function call result)
+        // to be sent to the server before the connection is severed.
+        // This prevents "WebRTC data channel is not connected" errors.
+        setTimeout(() => {
+          connectedSessionRef.current = null;
+          try {
+            sessionRef.current?.close();
+          } catch {
+            // ignore close errors
+          }
+        }, 1000);
       },
     });
 
