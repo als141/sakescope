@@ -133,23 +133,23 @@ export default function Home() {
                 </>
               </SignedOut>
               <SignedIn>
-                <>
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Button
                     asChild
                     variant="ghost"
                     size="default"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    className="h-11 px-4 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
                   >
-                    <Link href="/gift">
-                      <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      <span className="hidden sm:inline">ギフトを贈る</span>
+                    <Link href="/gift" className="flex items-center gap-2">
+                      <Gift className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="text-sm sm:text-base">ギフトを贈る</span>
                     </Link>
                   </Button>
                   <Link href="/settings">
                     <Button
                       variant="ghost"
                       size="icon-lg"
-                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-muted-foreground hover:text-foreground transition-colors h-11 w-11 sm:h-11 sm:w-11"
                     >
                       <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -163,7 +163,7 @@ export default function Home() {
                       },
                     }}
                   />
-                </>
+                </div>
               </SignedIn>
             </div>
           </div>
