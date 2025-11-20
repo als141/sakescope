@@ -1,82 +1,151 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Save, Check, Settings as SettingsIcon, Sparkles, MessageSquare } from 'lucide-react';
+import { useSignIn, useUser } from '@clerk/nextjs';
+import type { OAuthStrategy } from '@clerk/types';
+import { motion } from 'framer-motion';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Link2,
+  Loader2,
+  MessageSquare,
+  RefreshCcw,
+  Shield,
+  Sparkles,
+  Unlink,
+} from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
-type Flavor = 'dry' | 'sweet' | 'balanced';
-type Body = 'light' | 'medium' | 'rich';
-type Price = 'budget' | 'mid' | 'premium';
-
-type Prefs = {
-  flavor_preference: Flavor;
-  body_preference: Body;
-  price_range: Price;
-  food_pairing: string[] | null;
+type LineAccount = {
+  line_user_id: string;
+  display_name: string | null;
+  friend_flag: boolean | null;
+  linked_at: string;
 };
 
-const DEFAULT_PREFS: Prefs = {
-  flavor_preference: 'balanced',
-  body_preference: 'medium',
-  price_range: 'mid',
-  food_pairing: null,
+type PendingLink = {
+  nonce: string;
+  expires_at: string;
 };
+
+type LinkStatusResponse = {
+  account: LineAccount | null;
+  pending: PendingLink | null;
+  error?: string;
+};
+
+const lineProviderSlug = process.env.NEXT_PUBLIC_CLERK_LINE_OAUTH_SLUG;
+const lineStrategy = lineProviderSlug as OAuthStrategy | undefined;
+const addFriendUrl = process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL || '';
+const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID || '';
+
+function formatDate(value: string) {
+  if (!value) return '未取得';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '未取得';
+    return date.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return value;
+  }
+}
 
 export default function SettingsPage() {
-  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
-  const [foodPairingText, setFoodPairingText] = useState('');
-  const [saved, setSaved] = useState(false);
+  const { user } = useUser();
+  const { signIn, isLoaded: signInLoaded } = useSignIn();
+  const [status, setStatus] = useState<LinkStatusResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'connect' | 'disconnect' | null>(null);
 
-  useEffect(() => {
+  const fetchStatus = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setActionMessage(null);
     try {
-      const v = localStorage.getItem('sakePreferences');
-      if (v) {
-        const parsed = JSON.parse(v);
-        setPrefs({
-          flavor_preference: parsed.flavor_preference ?? DEFAULT_PREFS.flavor_preference,
-          body_preference: parsed.body_preference ?? DEFAULT_PREFS.body_preference,
-          price_range: parsed.price_range ?? DEFAULT_PREFS.price_range,
-          food_pairing: Array.isArray(parsed.food_pairing) ? parsed.food_pairing : null,
-        });
-        setFoodPairingText(
-          Array.isArray(parsed.food_pairing) ? parsed.food_pairing.join(', ') : ''
-        );
+      const response = await fetch('/api/line/link-status', { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('LINE連携状況の取得に失敗しました。');
       }
-    } catch {}
+      const data = (await response.json()) as LinkStatusResponse;
+      setStatus(data);
+    } catch (err) {
+      console.error('Failed to fetch LINE link status', err);
+      setError(err instanceof Error ? err.message : '情報の取得に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const save = () => {
-    const list = foodPairingText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const next: Prefs = {
-      ...prefs,
-      food_pairing: list.length > 0 ? list : null,
-    };
-    localStorage.setItem('sakePreferences', JSON.stringify(next));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    void fetchStatus();
+  }, [fetchStatus]);
+
+  const lineExternalAccount = useMemo(() => {
+    if (!user || !lineProviderSlug) return null;
+    return user.externalAccounts?.find((account) => account.provider === lineProviderSlug) ?? null;
+  }, [user, lineProviderSlug]);
+
+  const linked = Boolean(status?.account);
+  const friendOk = status?.account?.friend_flag ?? false;
+  const deepLink = useMemo(() => {
+    if (!liffId) return '';
+    return `https://liff.line.me/${liffId}?scene=link`;
+  }, [liffId]);
+
+  const handleConnect = async () => {
+    if (!signIn || !lineStrategy) {
+      setActionMessage('LINE OAuth の設定が見つかりませんでした。');
+      return;
+    }
+    setPendingAction('connect');
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: lineStrategy,
+        redirectUrl: '/settings',
+        redirectUrlComplete: '/settings',
+      });
+      setActionMessage('LINEアプリで承認してください。');
+    } catch (err) {
+      console.error('Failed to start LINE OAuth', err);
+      setActionMessage('LINE連携の開始に失敗しました。');
+      setPendingAction(null);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!lineExternalAccount) {
+      return;
+    }
+    setPendingAction('disconnect');
+    try {
+      await lineExternalAccount.destroy();
+      setActionMessage('LINE連携を解除しました。');
+      await fetchStatus();
+    } catch (err) {
+      console.error('Failed to unlink LINE account', err);
+      setActionMessage('LINE連携の解除に失敗しました。');
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
-      {/* Background Effects */}
       <div className="fixed inset-0 -z-10">
         <motion.div
           className="absolute inset-0 opacity-20"
@@ -86,302 +155,324 @@ export default function SettingsPage() {
               'radial-gradient(circle at 80% 20%, oklch(0.78 0.12 60) 0%, transparent 50%)',
             ],
           }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
+          transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
         />
       </div>
 
       <div className="relative z-10 w-full px-6 sm:px-8 lg:px-12 xl:px-16 py-10 sm:py-14 lg:py-16">
-        {/* Header */}
-        <header className="w-full max-w-4xl mx-auto mb-10 sm:mb-12">
+        <header className="w-full max-w-5xl mx-auto mb-10 sm:mb-12">
           <Link href="/">
             <Button variant="ghost" size="lg" className="mb-6 sm:mb-8 group">
               <ArrowLeft className="mr-2 sm:mr-2.5 h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
               戻る
             </Button>
           </Link>
-          
+
           <div className="flex items-center gap-3 sm:gap-4 lg:gap-5 mb-4 sm:mb-5">
             <div className="rounded-2xl bg-primary/10 p-3 sm:p-4 border border-primary/20">
-              <SettingsIcon className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+              <SettingsGlyph />
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold gradient-text tracking-tight">設定</h1>
+            <div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold gradient-text tracking-tight">
+                設定
+              </h1>
+              <p className="text-muted-foreground text-base sm:text-lg lg:text-xl leading-relaxed font-light">
+                LINE 連携と通知の設定をまとめて管理します
+              </p>
+            </div>
           </div>
-          <p className="text-muted-foreground text-base sm:text-lg lg:text-xl leading-relaxed font-light">
-            あなたの好みを設定して、より精度の高いレコメンドを受け取りましょう
-          </p>
         </header>
 
-        {/* LINE Integration CTA */}
-        <Card className="w-full max-w-4xl mx-auto mb-8 border-primary/20 bg-primary/5">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-primary text-primary-foreground p-3">
-                <MessageSquare className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-xl">LINE連携で通知を受け取る</CardTitle>
-                <CardDescription>
-                  推薦結果をLINEで即時受信。友だち追加とワンタップ連携で完了します。
-                </CardDescription>
-              </div>
-            </div>
-            <Button asChild>
-              <Link href="/settings/line">LINE連携を設定</Link>
-            </Button>
-          </CardHeader>
-        </Card>
+        <div className="grid gap-6 xl:gap-8 lg:grid-cols-[1.6fr_1fr] w-full max-w-5xl mx-auto">
+          <motion.div
+            className="space-y-6"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
+            <Card className="shadow-2xl border-primary/25 bg-primary/5">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-primary text-primary-foreground p-3">
+                    <MessageSquare className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl sm:text-3xl">LINE連携</CardTitle>
+                    <CardDescription>
+                      推薦完了通知を LINE で受け取るための必須設定です。
+                    </CardDescription>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => fetchStatus()} disabled={loading}>
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  状態を更新
+                </Button>
+              </CardHeader>
 
-        {/* Settings Card */}
-        <motion.div
-          className="w-full max-w-4xl mx-auto"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <Card className="shadow-2xl border-border/40">
-            <CardHeader className="p-6 sm:p-8 space-y-2.5 sm:space-y-3">
-              <CardTitle className="text-2xl sm:text-3xl">好みの設定</CardTitle>
-              <CardDescription className="text-sm sm:text-base leading-relaxed">
-                AIソムリエが参考にする、あなたの日本酒の好みを設定します
-              </CardDescription>
-            </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <StatusTile
+                    label="Clerk認証"
+                    status={lineExternalAccount ? '連携済み' : '未連携'}
+                    tone={lineExternalAccount ? 'positive' : 'warn'}
+                    helper={
+                      lineExternalAccount
+                        ? `userId: ${lineExternalAccount.providerUserId}`
+                        : 'LINEアプリで承認すると取得されます'
+                    }
+                  />
+                  <StatusTile
+                    label="通知登録"
+                    status={linked ? '通知に使用可能' : '未登録'}
+                    tone={linked ? 'positive' : 'warn'}
+                    helper={
+                      linked
+                        ? `登録日時: ${formatDate(status?.account?.linked_at ?? '')}`
+                        : 'Clerk連携が完了すると自動登録されます'
+                    }
+                  />
+                  <StatusTile
+                    label="友だち状態"
+                    status={friendOk ? '友だち済み' : '友だち登録を確認'}
+                    tone={friendOk ? 'positive' : 'neutral'}
+                    helper="公式アカウントを友だち追加しているかを確認します"
+                  />
+                </div>
 
-            <Separator />
-
-            <CardContent className="p-6 sm:p-8 pt-8 sm:pt-10 space-y-8 sm:space-y-10">
-              {/* Flavor Preference */}
-              <div className="space-y-4">
-                <Label htmlFor="flavor" className="text-lg font-semibold">
-                  味の好み
-                </Label>
-                <Select
-                  value={prefs.flavor_preference}
-                  onValueChange={(value) =>
-                    setPrefs((p) => ({ ...p, flavor_preference: value as Flavor }))
-                  }
-                >
-                  <SelectTrigger 
-                    id="flavor" 
-                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={handleConnect}
+                    disabled={!lineProviderSlug || !signInLoaded || pendingAction === 'connect'}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="dry" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">辛口</span>
-                        <Badge variant="outline" size="sm">
-                          キレのある
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="sweet" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">甘口</span>
-                        <Badge variant="outline" size="sm">
-                          まろやか
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="balanced" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">バランス型</span>
-                        <Badge variant="outline" size="sm">
-                          どちらも楽しめる
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  日本酒の味わいの甘辛度を選択してください
-                </p>
-              </div>
+                    {pendingAction === 'connect' ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        連携中…
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="mr-2 h-4 w-4" />
+                        LINEアカウントを連携
+                      </>
+                    )}
+                  </Button>
+                  {lineExternalAccount && (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnect}
+                      disabled={pendingAction === 'disconnect'}
+                    >
+                      {pendingAction === 'disconnect' ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          解除中…
+                        </>
+                      ) : (
+                        <>
+                          <Unlink className="mr-2 h-4 w-4" />
+                          連携を解除
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {!lineProviderSlug && (
+                    <Badge variant="destructive" className="flex items-center gap-2">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      NEXT_PUBLIC_CLERK_LINE_OAUTH_SLUG が未設定です
+                    </Badge>
+                  )}
+                </div>
 
-              <Separator className="opacity-50" />
+                {(actionMessage || error) && (
+                  <Alert variant={error ? 'destructive' : 'default'}>
+                    <AlertDescription>{error ?? actionMessage}</AlertDescription>
+                  </Alert>
+                )}
 
-              {/* Body Preference */}
-              <div className="space-y-4">
-                <Label htmlFor="body" className="text-lg font-semibold">
-                  ボディ
-                </Label>
-                <Select
-                  value={prefs.body_preference}
-                  onValueChange={(value) =>
-                    setPrefs((p) => ({ ...p, body_preference: value as Body }))
-                  }
-                >
-                  <SelectTrigger 
-                    id="body" 
-                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="light" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">軽快</span>
-                        <Badge variant="outline" size="sm">
-                          すっきり
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="medium" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">中程度</span>
-                        <Badge variant="outline" size="sm">
-                          バランス良い
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="rich" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">濃厚</span>
-                        <Badge variant="outline" size="sm">
-                          しっかり
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  日本酒の口当たりや厚みを選択してください
-                </p>
-              </div>
+                <Separator />
 
-              <Separator className="opacity-50" />
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 font-medium text-foreground">
+                    <Shield className="h-4 w-4 text-primary" />
+                    連携方法
+                  </div>
+                  <p>
+                    「LINEアカウントを連携」を押し、LINE アプリで承認すると Clerk に外部アカウントが登録され、
+                    Supabase に通知用の LINE ID が保存されます。解除すると通知も停止します。
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Price Range */}
-              <div className="space-y-4">
-                <Label htmlFor="price" className="text-lg font-semibold">
-                  価格帯
-                </Label>
-                <Select
-                  value={prefs.price_range}
-                  onValueChange={(value) =>
-                    setPrefs((p) => ({ ...p, price_range: value as Price }))
-                  }
-                >
-                  <SelectTrigger 
-                    id="price" 
-                    className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="budget" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">お手頃</span>
-                        <Badge variant="outline" size="sm">
-                          〜¥2,000
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="mid" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">中価格帯</span>
-                        <Badge variant="outline" size="sm">
-                          ¥2,000〜¥5,000
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="premium" className="py-4 text-base">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="font-medium">高級</span>
-                        <Badge variant="outline" size="sm">
-                          ¥5,000〜
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  普段購入する価格帯を選択してください
-                </p>
-              </div>
-
-              <Separator className="opacity-50" />
-
-              {/* Food Pairing */}
-              <div className="space-y-4">
-                <Label htmlFor="food" className="text-lg font-semibold">
-                  一緒に楽しむ料理
-                </Label>
-                <Input
-                  id="food"
-                  placeholder="刺身, 天ぷら, 焼き鳥 など"
-                  value={foodPairingText}
-                  onChange={(e) => setFoodPairingText(e.target.value)}
-                  className="w-full h-14 text-base rounded-xl border-2 hover:border-primary/50 transition-colors"
-                />
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  カンマ区切りで入力してください（例: 刺身, 天ぷら, 焼き鳥）
-                </p>
-                {foodPairingText && (
-                  <div className="flex flex-wrap gap-2 pt-3">
-                    {foodPairingText.split(',').map((food, i) => {
-                      const trimmed = food.trim();
-                      return trimmed ? (
-                        <Badge key={i} variant="secondary" size="lg">
-                          {trimmed}
-                        </Badge>
-                      ) : null;
-                    })}
+            <Card className="shadow-xl border-border/50">
+              <CardHeader>
+                <CardTitle>通知ステータス</CardTitle>
+                <CardDescription>Supabase へ登録された通知用 ID を確認できます。</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {loading && (
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    状態を読み込んでいます…
                   </div>
                 )}
-              </div>
-            </CardContent>
-
-            <Separator />
-
-            {/* Save Button */}
-            <CardContent className="pt-8 pb-8">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                <p className="text-base text-muted-foreground leading-relaxed">
-                  設定は自動的にローカルに保存されます
-                </p>
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                  <motion.div
-                    initial={false}
-                    animate={saved ? { scale: [0, 1.2, 1], opacity: [0, 1, 1] } : {}}
-                    transition={{ duration: 0.4 }}
-                  >
-                    {saved && (
-                      <div className="flex items-center gap-2.5 text-base text-emerald-500 font-medium">
-                        <Check className="h-5 w-5" />
-                        <span>保存しました</span>
+                {!loading && error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                {!loading && !error && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Badge variant={linked ? 'default' : 'outline'}>
+                        {linked ? '通知に使用可能' : '未登録'}
+                      </Badge>
+                      <Badge variant={friendOk ? 'default' : 'secondary'}>
+                        {friendOk ? '友だち済み' : '友だち登録が必要'}
+                      </Badge>
+                      {status?.pending && (
+                        <Badge variant="outline">
+                          連携待ち: {formatDate(status.pending.expires_at)}
+                        </Badge>
+                      )}
+                    </div>
+                    {status?.account ? (
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <p>LINE表示名: {status.account.display_name ?? '未取得'}</p>
+                        <p>LINE userId: {status.account.line_user_id}</p>
+                        <p>登録日時: {formatDate(status.account.linked_at)}</p>
                       </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Clerk の外部アカウント連携が完了すると自動で登録されます。
+                      </p>
                     )}
-                  </motion.div>
-                  <Button
-                    onClick={save}
-                    size="lg"
-                    className="w-full sm:w-auto"
-                  >
-                    <Save className="h-5 w-5" />
-                    保存
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
 
-          {/* Info Alert */}
-          <Alert className="mt-8 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 backdrop-blur-sm shadow-lg">
-            <Sparkles className="h-6 w-6 text-primary" />
-            <AlertDescription className="ml-0 mt-3">
-              <p className="text-base leading-relaxed">
-                <strong className="text-foreground font-semibold">ヒント:</strong> これらの設定はAIソムリエへの初期情報として使用されます。
-                会話の中でさらに詳しい好みを伝えることで、より精度の高いレコメンドが得られます。
-              </p>
-            </AlertDescription>
-          </Alert>
-        </motion.div>
+          <div className="space-y-6">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle>セットアップ手順</CardTitle>
+                <CardDescription>友だち追加と LIFF テストリンクをここから開けます。</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <p className="font-semibold flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    LINE公式アカウント
+                  </p>
+                  {addFriendUrl ? (
+                    <Button asChild variant="outline">
+                      <a href={addFriendUrl} target="_blank" rel="noreferrer">
+                        友だち追加ページを開く
+                      </a>
+                    </Button>
+                  ) : (
+                    <Alert variant="destructive">
+                      <AlertDescription>
+                        NEXT_PUBLIC_LINE_ADD_FRIEND_URL が未設定です。環境変数を設定してください。
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="font-semibold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    LIFF テスト
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Button asChild>
+                      <Link href="/liff/link" target="_blank" rel="noreferrer">
+                        LINE連携フローを開く
+                      </Link>
+                    </Button>
+                    {deepLink && (
+                      <Button asChild variant="outline">
+                        <a href={deepLink} target="_blank" rel="noreferrer">
+                          LINEアプリで開く
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    LIFF のテスト用リンクです。Clerk 認証済みの場合、自動的に LINE トークンが取得されます。
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Alert className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10 backdrop-blur-sm shadow-lg">
+              <Sparkles className="h-6 w-6 text-primary" />
+              <AlertDescription className="ml-0 mt-3 space-y-2">
+                <p className="text-base leading-relaxed">
+                  <strong className="text-foreground font-semibold">ヒント:</strong>{' '}
+                  LINE 連携が完了していれば、設定の保存操作は不要です。通知を再開したい場合は再度連携してください。
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  動作が不安定な場合は「状態を更新」で最新の連携状況を取得できます。
+                </p>
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function SettingsGlyph() {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-8 w-8 text-primary"
+      aria-hidden
+    >
+      <path
+        fill="currentColor"
+        d="M32 8c1.7 0 3 .9 3.8 2.3l1.7 3.2a2 2 0 0 0 1.7 1l3.6-.2a4 4 0 0 1 4 2.7l1 3.4c.3 1.1 0 2.3-.8 3.1l-2.6 2.6a2 2 0 0 0-.5 2l1 3.4c.3 1.1 0 2.3-.8 3.1l-2.7 2.7a2 2 0 0 0-.5 2l1 3.2c.5 1.6-.3 3.3-1.8 4l-3.3 1.5c-1 .5-2.3.4-3.2-.3L32 48a2 2 0 0 0-2.4 0l-2.9 2.1c-.9.7-2.1.8-3.2.3l-3.3-1.5a3.6 3.6 0 0 1-1.8-4l1-3.2a2 2 0 0 0-.6-2l-2.6-2.7a3.6 3.6 0 0 1-.8-3l1-3.4a2 2 0 0 0-.5-2l-2.6-2.6a3.6 3.6 0 0 1-.9-3.1l1-3.4a4 4 0 0 1 4-2.7l3.6.2a2 2 0 0 0 1.7-1l1.7-3.2A4 4 0 0 1 32 8Zm0 12a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z"
+      />
+    </svg>
+  );
+}
+
+type StatusTileTone = 'positive' | 'warn' | 'neutral';
+
+function StatusTile({
+  label,
+  status,
+  helper,
+  tone,
+}: {
+  label: string;
+  status: string;
+  helper?: string;
+  tone: StatusTileTone;
+}) {
+  const icon =
+    tone === 'positive' ? (
+      <Check className="h-4 w-4 text-emerald-500" />
+    ) : tone === 'warn' ? (
+      <AlertCircle className="h-4 w-4 text-amber-500" />
+    ) : (
+      <Sparkles className="h-4 w-4 text-primary" />
+    );
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/60 p-4 space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="flex items-center gap-2 text-base font-medium text-foreground">
+        {icon}
+        <span>{status}</span>
+      </div>
+      {helper && <p className="text-xs text-muted-foreground leading-relaxed">{helper}</p>}
     </div>
   );
 }
