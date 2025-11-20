@@ -73,7 +73,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-5 sm:py-8 lg:py-10 flex flex-wrap items-start gap-3 sm:gap-4 justify-between">
+          <div className="relative w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-5 sm:py-7 lg:py-9 flex items-start gap-3 sm:gap-4">
             {/* 左側 - ロゴまたは戻るボタン */}
             {recommendedSake ? (
               <Button
@@ -89,7 +89,7 @@ export default function Home() {
                 <span className="text-sm sm:text-base">他の日本酒を探す</span>
               </Button>
             ) : (
-              <div className="flex flex-col items-start gap-2">
+              <div className="flex flex-col items-start gap-2 pr-28 sm:pr-0">
                 <motion.div
                   className="flex items-center gap-3 sm:gap-4"
                   whileHover={{ scale: 1.02 }}
@@ -112,7 +112,7 @@ export default function Home() {
             )}
 
             {/* 右側ナビゲーション */}
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 absolute right-5 top-5 sm:static sm:ml-auto">
               <SignedOut>
                 <>
                   <SignInButton mode="modal">
