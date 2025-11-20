@@ -52,11 +52,11 @@ export default function Home() {
   const voiceChatContainerClass = isCompactMode
     ? 'pointer-events-auto fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-sm sm:max-w-md sm:bottom-8 sm:left-auto sm:right-8 sm:translate-x-0'
     : isVoiceSessionMobile
-      ? 'pointer-events-auto fixed inset-0 z-40 w-full h-[100dvh] bg-background flex flex-col sm:relative sm:inset-auto sm:h-auto sm:mt-1.5 sm:max-w-4xl lg:max-w-5xl sm:bg-transparent'
+      ? 'pointer-events-auto fixed inset-0 z-40 w-full h-[100dvh] bg-background flex flex-col overflow-hidden sm:relative sm:inset-auto sm:h-auto sm:mt-1.5 sm:max-w-4xl lg:max-w-5xl sm:bg-transparent'
       : isVoiceConnected
         ? 'pointer-events-auto relative mt-1.5 sm:mt-6 w-full max-w-full sm:max-w-4xl lg:max-w-5xl px-0 sm:px-2'
         : 'pointer-events-auto relative mt-6 sm:mt-12 w-full max-w-full sm:max-w-2xl lg:max-w-3xl px-0 sm:px-0';
-  const voiceChatInnerClass = isVoiceSessionMobile ? 'flex-1 overflow-y-auto' : '';
+  const voiceChatInnerClass = isVoiceSessionMobile ? 'flex-1 h-full flex' : '';
 
   const mainSpacingClass = isVoiceSessionMobile
     ? 'pt-0 pb-0 gap-0 sm:pt-16 sm:pb-24 sm:gap-10'

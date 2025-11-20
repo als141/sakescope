@@ -862,9 +862,14 @@ export default function VoiceChat({
       : 'max-w-2xl sm:max-w-4xl lg:max-w-5xl'
     : 'max-w-xl sm:max-w-3xl';
   const avatarSizeClass = isConnected
-    ? 'w-[280px] h-[280px] sm:w-[360px] sm:h-[360px]'
+    ? isFullscreenActive
+      ? 'w-[320px] h-[320px] sm:w-[420px] sm:h-[420px]'
+      : 'w-[300px] h-[300px] sm:w-[380px] sm:h-[380px]'
     : 'w-[240px] h-[240px] sm:w-[320px] sm:h-[320px]';
   const summaryWidthClass = isConnected ? 'max-w-3xl' : 'max-w-2xl';
+  const summaryHeightClass = isFullscreenActive
+    ? 'max-h-[16vh] min-h-[96px] h-auto sm:h-[19vh] sm:min-h-[128px] sm:max-h-[24vh]'
+    : 'max-h-[14vh] min-h-[96px] h-auto sm:h-40 sm:max-h-none';
 
   // Full variant (大画面表示)
   const fullContent = (
@@ -872,7 +877,7 @@ export default function VoiceChat({
       className={cn(
         'flex flex-col items-center w-full mx-auto space-y-6 px-3 sm:px-0',
         conversationWidthClass,
-        isFullscreenActive && 'min-h-[100dvh] px-0 !max-w-full',
+        isFullscreenActive && 'min-h-[90vh] px-0 !max-w-full overflow-hidden justify-center',
       )}
     >
       {!isConnected ? (
@@ -945,17 +950,18 @@ export default function VoiceChat({
           <Card
             className={cn(
               'shadow-2xl border-border/30 bg-card/90 backdrop-blur',
-              isFullscreenActive && 'rounded-none border-0 shadow-none bg-background',
+              isFullscreenActive && 'rounded-none border-0 shadow-none bg-background h-full w-full',
             )}
           >
             <CardContent
               className={cn(
                 'p-6 sm:p-10 flex flex-col items-center gap-6 sm:gap-8',
-                isFullscreenActive && 'min-h-[100dvh] pb-16',
+                isFullscreenActive &&
+                  'min-h-[90vh] w-full pb-6 px-4 gap-5 sm:gap-8 justify-center items-center',
               )}
             >
 
-              <div className="relative w-full flex flex-col items-center">
+              <div className={cn('relative w-full flex flex-col items-center', isFullscreenActive && 'mt-2')}>
                 <motion.div
                   className="absolute inset-6 sm:inset-8 rounded-[2.5rem] border border-primary/40"
                   animate={
@@ -992,18 +998,24 @@ export default function VoiceChat({
               </div>
 
               <motion.div
-                className={cn('w-full', summaryWidthClass)}
+                className={cn('w-full', summaryWidthClass, isFullscreenActive && 'flex flex-col items-stretch')}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <div className="rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner">
+                <div className={cn(
+                  'rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner',
+                  isFullscreenActive && 'h-full flex flex-col'
+                )}>
                   {reasoningSummaryDisplay && (
                     <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary flex items-center gap-2 mb-2">
                       推論サマリ
                       {isTranslatingSummary && <Loader2 className="h-3 w-3 animate-spin" />}
                     </div>
                   )}
-                  <div className="h-36 sm:h-40 overflow-y-auto pr-2 space-y-2 text-sm sm:text-base leading-relaxed text-foreground font-medium">
+                  <div className={cn(
+                    'overflow-y-auto pr-2 space-y-2 text-sm sm:text-base leading-relaxed text-foreground font-medium',
+                    summaryHeightClass,
+                  )}>
                     {reasoningSummaryDisplay && (
                       <p className="whitespace-pre-wrap">
                         {reasoningSummaryDisplay}
@@ -1018,7 +1030,9 @@ export default function VoiceChat({
                 </div>
               </motion.div>
 
-              {renderChatComposer('full')}
+              <div className={cn(isFullscreenActive && 'w-full px-3')}>
+                {renderChatComposer('full')}
+              </div>
 
               <div className="w-full flex flex-col items-center gap-3 sm:gap-4">
                 {/* モバイル：丸ボタン横並び */}
