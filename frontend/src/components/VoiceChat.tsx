@@ -822,7 +822,7 @@ export default function VoiceChat({
     );
 
     return (
-      <div className={cn('w-full', mode === 'full' && 'max-w-2xl')}>
+      <div className={cn('w-full', mode === 'full' && 'max-w-3xl mx-auto px-1 sm:px-0')}>
         <div className={layoutClass}>
           <Input
             ref={chatInputRef}
@@ -855,7 +855,7 @@ export default function VoiceChat({
 
   // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center w-full max-w-4xl mx-auto space-y-6">
+    <div className="flex flex-col items-center w-full max-w-xl sm:max-w-3xl mx-auto space-y-6 px-3 sm:px-0">
       {!isConnected ? (
         <>
           <motion.div
@@ -865,17 +865,17 @@ export default function VoiceChat({
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
           >
-            <Button
-              onClick={handleStartConversation}
-              disabled={isLoading}
-              size="xl"
-              className={cn(
-                'relative h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 rounded-full p-0',
-                'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
-                'shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]',
-                'hover:scale-105 active:scale-100',
-                'transition-all duration-300',
-                'border-4 border-primary-200/20',
+              <Button
+                onClick={handleStartConversation}
+                disabled={isLoading}
+                size="xl"
+                className={cn(
+                  'relative h-20 w-20 sm:h-24 sm:w-24 lg:h-28 lg:w-28 rounded-full p-0',
+                  'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
+                  'shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]',
+                  'hover:scale-105 active:scale-100',
+                  'transition-all duration-300',
+                  'border-4 border-primary-200/20',
                 'disabled:opacity-70',
               )}
             >
@@ -992,7 +992,34 @@ export default function VoiceChat({
               {renderChatComposer('full')}
 
               <div className="w-full flex flex-col items-center gap-3 sm:gap-4">
-                <div className="w-full flex flex-col sm:flex-row gap-3">
+                {/* モバイル：丸ボタン横並び */}
+                <div className="flex sm:hidden items-center justify-center gap-4">
+                  <Button
+                    onClick={handleToggleMute}
+                    variant={isMuted ? 'secondary' : 'default'}
+                    size="icon-lg"
+                    className={cn(
+                      'h-14 w-14 rounded-full shadow-lg',
+                      !isMuted &&
+                        'bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:via-emerald-500 hover:to-emerald-600'
+                    )}
+                  >
+                    {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    <span className="sr-only">{isMuted ? 'ミュート解除' : 'ミュート'}</span>
+                  </Button>
+                  <Button
+                    onClick={handleStopConversation}
+                    variant="destructive"
+                    size="icon-lg"
+                    className="h-14 w-14 rounded-full shadow-lg"
+                  >
+                    <PhoneOff className="h-5 w-5" />
+                    <span className="sr-only">終了</span>
+                  </Button>
+                </div>
+
+                {/* タブレット以上：従来の横並びラージボタン */}
+                <div className="hidden sm:flex w-full flex-col sm:flex-row gap-3">
                   <Button
                     onClick={handleToggleMute}
                     variant={isMuted ? 'secondary' : 'default'}

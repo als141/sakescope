@@ -35,20 +35,20 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
 
   return (
     <motion.div
-      className="w-full h-screen flex flex-col px-6 sm:px-8 lg:px-12 pt-24 sm:pt-28 lg:pt-32 pb-6 sm:pb-8 overflow-hidden"
+      className="w-full min-h-screen flex flex-col px-0 sm:px-6 lg:px-12 pt-20 sm:pt-24 lg:pt-28 pb-16 sm:pb-20 gap-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
       {/* Main Card - Scrollable */}
-      <Card className="overflow-hidden shadow-2xl border-border/40 flex-1 flex flex-col min-h-0 max-w-7xl mx-auto w-full">
-        <div className="overflow-y-auto flex-1">
+      <Card className="shadow-2xl border-border/40 flex-1 flex flex-col min-h-0 w-full max-w-5xl mx-auto rounded-none sm:rounded-3xl border-x-0 sm:border">
+        <div className="flex-1">
           {/* Header Section */}
-          <CardHeader className="p-6 sm:p-8 pb-6">
-            <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
+          <CardHeader className="p-4 sm:p-8 pb-5 sm:pb-6">
+            <div className="flex flex-col lg:flex-row gap-5 sm:gap-8">
               {/* Image */}
               <motion.div
-                className="relative flex-shrink-0 w-full lg:w-80 h-64 sm:h-80 lg:h-96 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border-2 border-border/50"
+                className="relative flex-shrink-0 w-full lg:w-80 h-56 sm:h-72 lg:h-96 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.1, duration: 0.5 }}
@@ -100,8 +100,8 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                   transition={{ delay: 0.2, duration: 0.5 }}
                 >
                   <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text leading-tight">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text leading-tight pr-2">
                         {sake.name}
                       </h1>
                       <Button

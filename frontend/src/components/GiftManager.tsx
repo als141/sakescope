@@ -235,26 +235,29 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 pb-20 pt-16">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 sm:gap-10 px-4 sm:px-6 pb-16 sm:pb-20 pt-14 sm:pt-16">
         <header className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-primary/10 p-3 border border-primary/20">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">ギフト管理</h1>
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">ギフト管理</h1>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 ギフトリンクの進行状況や推薦結果をまとめて確認できます。
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={handleModalOpen} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+            <Button
+              onClick={handleModalOpen}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md w-full sm:w-auto justify-center"
+            >
               <Gift className="mr-2 h-4 w-4" />
               新しいギフトを贈る
             </Button>
             <Link href="/">
-              <Button variant="outline" className="border-border">
+              <Button variant="outline" className="border-border w-full sm:w-auto justify-center">
                 ホームに戻る
               </Button>
             </Link>
@@ -279,31 +282,42 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
               <section className="space-y-4">
                 <div className="flex items-center gap-2">
                   <ListChecks className="h-5 w-5 text-primary" />
-                  <h2 className="text-xl font-semibold">推薦が完了したギフト</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold">推薦が完了したギフト</h2>
                 </div>
-                <div className="grid gap-6 md:grid-cols-2">
+                <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
                   {readyGifts.map((gift) => (
-                    <Card key={gift.id} className="border-border/60 hover:border-primary/40 transition-colors shadow-sm">
-                      <CardHeader className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <CardTitle className="text-lg font-semibold">
+                    <Card
+                      key={gift.id}
+                      className="border-border/60 hover:border-primary/40 transition-colors shadow-sm rounded-2xl sm:rounded-3xl"
+                    >
+                      <CardHeader className="space-y-3 pb-3 sm:pb-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+                          <div className="min-w-0">
+                            <CardTitle className="text-base sm:text-lg font-semibold leading-tight">
                               {gift.recipientFirstName ? `${gift.recipientFirstName} へのギフト` : 'ギフト'}
                             </CardTitle>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[11px] sm:text-xs text-muted-foreground">
                               {gift.occasion ?? '用途未設定'} ・ {formatDateTime(gift.createdAt)}
                             </p>
                           </div>
                           {renderStatusBadge(gift.status)}
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-3 sm:space-y-4">
                         {gift.recommendation && (
-                          <div className="rounded-2xl border border-border/50 bg-background/80 p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground">おすすめの一本</p>
-                                <p className="text-lg font-semibold text-foreground">
+                          <div className="rounded-2xl border border-border/50 bg-background/80 p-3 sm:p-4 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 space-y-1">
+                                <p className="text-[11px] sm:text-xs text-muted-foreground">おすすめの一本</p>
+                                <p
+                                  className="text-base sm:text-lg font-semibold text-foreground leading-tight"
+                                  style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
                                   {gift.recommendation.sake.name}
                                 </p>
                               </div>
@@ -312,22 +326,32 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                               )}
                             </div>
                             {gift.recommendation.summary && (
-                              <p className="text-sm text-muted-foreground line-clamp-3">
+                              <p
+                                className="text-sm text-muted-foreground"
+                                style={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 3,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }}
+                              >
                                 {gift.recommendation.summary}
                               </p>
                             )}
                           </div>
                         )}
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline">予算 {formatBudget(gift.budgetMin, gift.budgetMax)}</Badge>
+                        <div className="flex flex-wrap gap-2 text-[11px] sm:text-xs text-muted-foreground">
+                          <Badge variant="outline" className="whitespace-nowrap">
+                            予算 {formatBudget(gift.budgetMin, gift.budgetMax)}
+                          </Badge>
                           {gift.intakeSummary && (
-                            <Badge variant="outline">
+                            <Badge variant="outline" className="line-clamp-1 max-w-full">
                               聞き取り {buildIntakeSummary(gift.intakeSummary).slice(0, 2).join(' / ') || '—'}
                             </Badge>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button asChild className="flex-1 min-w-[140px]">
+                        <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                          <Button asChild className="w-full sm:flex-1 min-w-[140px] justify-center">
                             <Link href={`/gift/result/${gift.id}`}>
                               結果ページを開く
                               <ExternalLink className="ml-2 h-4 w-4" />
@@ -335,7 +359,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                           </Button>
                           <Button
                             variant="outline"
-                            className="min-w-[120px]"
+                            className="w-full sm:w-auto sm:min-w-[120px] justify-center"
                             onClick={() => router.push(`/gift/result/${gift.id}#alternatives`)}
                           >
                             詳細を見る
