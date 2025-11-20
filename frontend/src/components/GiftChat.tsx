@@ -6,7 +6,7 @@ import type {
   RealtimeSession,
   RealtimeSessionEventTypes,
 } from '@openai/agents-realtime';
-import { Mic, MicOff, Send, Loader2, Sparkles, PhoneOff, Activity } from 'lucide-react';
+import { Mic, MicOff, Send, Loader2, Activity, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
   createGiftRealtimeBundle,
   type GiftAgentBundle,
 } from '@/infrastructure/openai/realtime/giftSessionFactory';
+import { getBrowserSupabaseClient } from '@/lib/supabase';
 
 type ChatMessage = {
   id: string;
@@ -38,6 +39,7 @@ interface GiftChatProps {
 }
 
 const TEXT_PREFIX = '[TEXT]';
+const FINISHED_STATUSES = new Set(['HANDOFFED', 'RECOMMEND_READY', 'NOTIFIED', 'CLOSED']);
 
 function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string | undefined {
   if (input == null) return undefined;
@@ -85,6 +87,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
   const userMessageIdsRef = useRef<Set<string>>(new Set());
   const pendingEchoRef = useRef<Set<string>>(new Set());
   const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const isFinishedRef = useRef(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -136,6 +139,30 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
       setIsMouthOpenFrame(false);
     }
   }, [isAvatarSpeaking]);
+
+  useEffect(() => {
+    isFinishedRef.current = isFinished;
+  }, [isFinished]);
+
+  const markSessionFinished = useCallback(() => {
+    if (isFinishedRef.current) {
+      return;
+    }
+    isFinishedRef.current = true;
+    setIsFinished(true);
+    setIsCompleting(false);
+    setIsConnected(false);
+
+    // Close the session shortly after to allow any final tool payloads to flush.
+    setTimeout(() => {
+      connectedSessionRef.current = null;
+      try {
+        sessionRef.current?.close();
+      } catch {
+        // ignore close errors
+      }
+    }, 600);
+  }, []);
 
   const addMessage = useCallback((message: ChatMessage) => {
     setMessages((prev) => {
@@ -211,22 +238,8 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
         setError(msg);
       },
       onGiftIntakeCompleted: ({ summary, intakeSummary: intake }) => {
-        setIsFinished(true);
-        setIsCompleting(false);
-        setIsConnected(false);
+        markSessionFinished();
         onCompleted?.({ summary, intakeSummary: intake });
-
-        // Delay closing the session to allow the tool output (function call result)
-        // to be sent to the server before the connection is severed.
-        // This prevents "WebRTC data channel is not connected" errors.
-        setTimeout(() => {
-          connectedSessionRef.current = null;
-          try {
-            sessionRef.current?.close();
-          } catch {
-            // ignore close errors
-          }
-        }, 1000);
       },
     });
 
@@ -391,7 +404,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
       bundleRef.current = null;
       sessionRef.current = null;
     };
-  }, [giftId, sessionId, upsertAssistantMessage, appendUserMessage, addMessage, onCompleted, openAvatarMouth, scheduleAvatarMouthClose]);
+  }, [giftId, sessionId, upsertAssistantMessage, appendUserMessage, addMessage, onCompleted, openAvatarMouth, scheduleAvatarMouthClose, markSessionFinished]);
 
   const connectToSession = useCallback(async () => {
     const session = sessionRef.current;
@@ -469,6 +482,51 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
   }, [connectToSession, isConnected, isConnecting, isFinished, hasAttemptedConnect]);
 
   useEffect(() => {
+    if (!giftId || !sessionId || isFinished) {
+      return undefined;
+    }
+
+    const supabase = getBrowserSupabaseClient();
+    const channel = supabase
+      .channel(`gift-session-${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'gift_sessions',
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const completedAt = (payload.new as { completed_at?: string | null })?.completed_at;
+          if (completedAt) {
+            markSessionFinished();
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'gifts',
+          filter: `id=eq.${giftId}`,
+        },
+        (payload) => {
+          const nextStatus = (payload.new as { status?: string | null })?.status ?? '';
+          if (FINISHED_STATUSES.has(nextStatus)) {
+            markSessionFinished();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [giftId, sessionId, isFinished, markSessionFinished]);
+
+  useEffect(() => {
     if (!isConnected) {
       if (avatarSpeechTimeoutRef.current) {
         clearTimeout(avatarSpeechTimeoutRef.current);
@@ -525,17 +583,6 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
       event.preventDefault();
       void handleSendChatMessage();
     }
-  };
-
-  const handleStopConversation = () => {
-    if (sessionRef.current) {
-      try {
-        sessionRef.current.close();
-      } catch { }
-    }
-    setIsConnected(false);
-    setIsFinished(true);
-    // Note: We don't call onCompleted here because that's for successful completion
   };
 
   const latestAssistantMessage = useMemo(() => {
@@ -613,6 +660,43 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
       </div>
     );
   };
+
+  if (isFinished) {
+    return (
+      <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
+        <Card className="w-full max-w-md border-none shadow-none bg-transparent">
+          <CardContent className="flex flex-col items-center text-center space-y-8">
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
+              <CheckCircle2 className="h-24 w-24 text-primary relative z-10" />
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold tracking-tight">会話は終了しました</h2>
+              <p className="text-muted-foreground leading-relaxed">
+                ご協力ありがとうございます。<br />
+                送り主からのご返答をお待ちください。<br />
+                このままタブを閉じても問題ありません。
+              </p>
+            </div>
+
+            <div className="w-full pt-4">
+              <Button
+                size="lg"
+                className="w-full h-14 text-lg rounded-full shadow-lg"
+                onClick={() => window.close()}
+              >
+                閉じる
+              </Button>
+              <p className="mt-4 text-xs text-muted-foreground">
+                ※ブラウザが閉じない場合は、手動でタブを閉じてください
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div
