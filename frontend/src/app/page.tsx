@@ -11,6 +11,7 @@ import SakeHistory from '@/components/SakeHistory';
 import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
+import WatercolorBackground from '@/components/WatercolorBackground';
 
 
 export default function Home() {
@@ -53,8 +54,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
-      {/* Subtle Background */}
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
+      <WatercolorBackground />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center justify-center h-screen px-6 sm:px-8 lg:px-12 overflow-hidden">
