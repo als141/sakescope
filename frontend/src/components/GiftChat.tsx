@@ -178,12 +178,6 @@ const composerRef = useRef<HTMLInputElement | null>(null);
   }, [messages]);
 
   useEffect(() => {
-    if (isConnected && !isMuted && composerRef.current) {
-      composerRef.current.focus();
-    }
-  }, [isConnected, isMuted]);
-
-  useEffect(() => {
     const bundle = createGiftRealtimeBundle(giftId, sessionId, {
       onError: (msg) => {
         setError(msg);
@@ -390,13 +384,6 @@ const composerRef = useRef<HTMLInputElement | null>(null);
       setIsMuted(false);
       setIsConnected(true);
       setIsConnecting(false);
-      addMessage({
-        id: `system-${Date.now().toString(36)}`,
-        role: 'assistant',
-        text: 'こんにちは。あなたの日本酒の好みを教えてください。飲む頻度や好きな香り・味わいなど、思いつくことから気軽にどうぞ。',
-        mode: 'voice',
-        timestamp: new Date(),
-      });
     } catch (err) {
       if (connectedSessionRef.current === session) {
         connectedSessionRef.current = null;
@@ -445,15 +432,6 @@ const composerRef = useRef<HTMLInputElement | null>(null);
     }
   };
 
-  const handleRetryConnect = () => {
-    if (isConnecting || isConnected || isFinished) {
-      return;
-    }
-    connectedSessionRef.current = null;
-    setHasAttemptedConnect(false);
-    setError(null);
-  };
-
   const handleSendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || !sessionRef.current || !isConnected) {
@@ -492,7 +470,7 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
       ? 'AIが接続中です…'
       : isMuted
         ? 'マイクをオンにするか、テキストで好みを入力してください'
-        : 'AIが耳を傾けています。普段の飲み方や好きな味・香りから教えてください。');
+        : 'AIが耳を傾けています。普段の飲み方や好きな香り・味わいから教えてください。');
 
   const avatarImageSrc = !isMuted && isConnected
     ? '/ai-avatar/open.png'
@@ -504,28 +482,47 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
       ? 'マイクはオフですが、テキストで伝えれば大丈夫です'
       : '会話中です';
 
+  const avatarSizeClass = isConnected
+    ? 'w-[300px] h-[300px] sm:w-[380px] sm:h-[380px]'
+    : 'w-[240px] h-[240px] sm:w-[300px] sm:h-[300px]';
+  const summaryHeightClass =
+    'max-h-[14vh] min-h-[96px] h-auto sm:h-[18vh] sm:min-h-[128px] sm:max-h-[22vh]';
+
   return (
-    <div className="min-h-screen bg-background px-4 py-10 space-y-6">
-      <Card className="w-full max-w-4xl mx-auto border-border/40 shadow-2xl">
-        <CardHeader className="text-center space-y-1">
+    <div
+      className={cn(
+        // モバイル: 全画面オーバーレイ
+        'fixed inset-0 z-40 h-[100dvh] bg-background overflow-hidden px-3 py-3 flex items-center justify-center',
+        // デスクトップ: 従来のセンター寄せ
+        'sm:static sm:min-h-screen sm:h-auto sm:overflow-visible sm:px-6 sm:py-12',
+      )}
+    >
+      <Card
+        className={cn(
+          'w-full h-full max-w-full border-0 shadow-none rounded-none overflow-hidden flex flex-col',
+          'sm:h-auto sm:max-w-4xl sm:border-border/40 sm:shadow-2xl sm:rounded-3xl',
+        )}
+      >
+        <CardHeader className="text-center space-y-1 pt-4 pb-2 sm:pt-6 sm:pb-4">
           <div className="flex items-center justify-center gap-3">
             <div className="rounded-full bg-primary/10 p-2 border border-primary/20">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <CardTitle className="text-xl font-semibold">日本酒お好みアシスタント</CardTitle>
           </div>
-          <p className="text-sm text-muted-foreground">
-            あなたの好みを教えてください。途中でテキストを送って補足できます。
-          </p>
         </CardHeader>
-        <CardContent className="flex flex-col items-center gap-6">
+        <CardContent
+          className={cn(
+            'flex flex-col items-center gap-5 sm:gap-8 flex-1 sm:flex-none h-[calc(100dvh-140px)] sm:h-auto overflow-y-auto sm:overflow-visible px-2 sm:px-6 pb-6 sm:pb-8',
+          )}
+        >
           <div className="relative w-full flex flex-col items-center">
-            <div className="relative w-[220px] h-[220px] sm:w-[280px] sm:h-[280px] flex items-center justify-center">
+            <div className={cn('relative flex items-center justify-center', avatarSizeClass)}>
               <Image
                 src={avatarImageSrc}
                 alt="日本酒お好みアシスタント"
                 fill
-                sizes="(max-width: 768px) 220px, 280px"
+                sizes="(max-width: 768px) 360px, 420px"
                 className="object-contain drop-shadow-2xl pointer-events-none select-none"
                 priority
               />
@@ -537,15 +534,20 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
             )}
           </div>
 
-          <div className="w-full max-w-2xl">
+          <div className="w-full max-w-2xl sm:max-w-3xl">
             <div className="rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner">
-              <div className="h-32 sm:h-36 overflow-y-auto pr-2 text-sm sm:text-base leading-relaxed text-foreground font-medium">
+              <div
+                className={cn(
+                  'overflow-y-auto pr-2 text-sm sm:text-base leading-relaxed text-foreground font-medium',
+                  summaryHeightClass,
+                )}
+              >
                 <p className="whitespace-pre-wrap">{subtitleText}</p>
               </div>
             </div>
           </div>
 
-          <div className="w-full max-w-2xl flex flex-row items-stretch gap-3">
+          <div className="w-full max-w-2xl sm:max-w-3xl flex flex-row items-stretch gap-3">
             <Input
               ref={composerRef}
               value={input}
@@ -570,7 +572,7 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
             {error && <p className="text-destructive">{error}</p>}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center gap-3">
             <Button
               onClick={handleToggleMute}
               variant={isMuted ? 'secondary' : 'default'}
@@ -592,15 +594,9 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
                 </>
               )}
             </Button>
-            {!isConnected && !isConnecting && !isFinished && (
-              <Button variant="outline" onClick={handleRetryConnect}>
-                再接続
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }

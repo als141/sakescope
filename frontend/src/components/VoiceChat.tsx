@@ -304,12 +304,6 @@ export default function VoiceChat({
   }, [setIsRecording]);
 
   useEffect(() => {
-    if (isConnected && chatInputRef.current) {
-      chatInputRef.current.focus();
-    }
-  }, [isConnected]);
-
-  useEffect(() => {
     if (!isConnected) {
       if (avatarSpeechTimeoutRef.current) {
         clearTimeout(avatarSpeechTimeoutRef.current);
