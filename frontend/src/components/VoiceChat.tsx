@@ -853,9 +853,22 @@ export default function VoiceChat({
     } catch {}
   }, []);
 
+  const conversationWidthClass = isConnected
+    ? 'max-w-2xl sm:max-w-4xl lg:max-w-5xl'
+    : 'max-w-xl sm:max-w-3xl';
+  const avatarSizeClass = isConnected
+    ? 'w-[280px] h-[280px] sm:w-[360px] sm:h-[360px]'
+    : 'w-[240px] h-[240px] sm:w-[320px] sm:h-[320px]';
+  const summaryWidthClass = isConnected ? 'max-w-3xl' : 'max-w-2xl';
+
   // Full variant (大画面表示)
   const fullContent = (
-    <div className="flex flex-col items-center w-full max-w-xl sm:max-w-3xl mx-auto space-y-6 px-3 sm:px-0">
+    <div
+      className={cn(
+        'flex flex-col items-center w-full mx-auto space-y-6 px-3 sm:px-0',
+        conversationWidthClass,
+      )}
+    >
       {!isConnected ? (
         <>
           <motion.div
@@ -941,7 +954,7 @@ export default function VoiceChat({
                   }}
                 />
                 <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-b from-primary/15 via-primary/5 to-transparent blur-xl opacity-70" />
-                <div className="relative w-[240px] h-[240px] sm:w-[320px] sm:h-[320px] flex items-center justify-center">
+                <div className={cn('relative flex items-center justify-center', avatarSizeClass)}>
                   <Image
                     src={avatarImageSrc}
                     alt="AIソムリエのアバター"
@@ -963,7 +976,7 @@ export default function VoiceChat({
               </div>
 
               <motion.div
-                className="w-full max-w-2xl"
+                className={cn('w-full', summaryWidthClass)}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >

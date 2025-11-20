@@ -50,14 +50,22 @@ export default function Home() {
   const voiceChatVariant = isCompactMode ? 'compact' : 'full';
   const voiceChatContainerClass = isCompactMode
     ? 'pointer-events-auto fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-sm sm:max-w-md sm:bottom-8 sm:left-auto sm:right-8 sm:translate-x-0'
-    : 'pointer-events-auto relative mt-6 sm:mt-12 w-full max-w-full sm:max-w-2xl lg:max-w-3xl px-0 sm:px-0';
+    : isVoiceConnected
+      ? 'pointer-events-auto relative mt-1.5 sm:mt-6 w-full max-w-full sm:max-w-4xl lg:max-w-5xl px-0 sm:px-2'
+      : 'pointer-events-auto relative mt-6 sm:mt-12 w-full max-w-full sm:max-w-2xl lg:max-w-3xl px-0 sm:px-0';
+
+  const mainSpacingClass = isVoiceConnected
+    ? 'pt-16 pb-24 gap-6 sm:gap-10'
+    : 'pt-24 pb-28 gap-10 sm:gap-14';
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
       <WatercolorBackground />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-8 lg:px-12 pt-24 pb-28 gap-10 sm:gap-14 overflow-hidden">
+      <div
+        className={`relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-8 lg:px-12 ${mainSpacingClass} overflow-hidden`}
+      >
         {/* Header */}
         <motion.header
           className="absolute top-0 left-0 right-0 z-50"
@@ -91,13 +99,15 @@ export default function Home() {
                     Sakescope
                   </h1>
                 </motion.div>
-                <SakeHistory
-                  placement="header"
-                  onSelectSake={(item: SakeHistoryItem) => {
-                    setRecommendedSake(item.sake);
-                    setPurchaseOffer(item.offer);
-                  }}
-                />
+                {!isVoiceConnected && (
+                  <SakeHistory
+                    placement="header"
+                    onSelectSake={(item: SakeHistoryItem) => {
+                      setRecommendedSake(item.sake);
+                      setPurchaseOffer(item.offer);
+                    }}
+                  />
+                )}
               </div>
             )}
 
