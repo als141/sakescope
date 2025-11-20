@@ -345,7 +345,16 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             予算 {formatBudget(gift.budgetMin, gift.budgetMax)}
                           </Badge>
                           {gift.intakeSummary && (
-                            <Badge variant="outline" className="line-clamp-1 max-w-full">
+                            <Badge
+                              variant="outline"
+                              className="max-w-full"
+                              style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 1,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              }}
+                            >
                               聞き取り {buildIntakeSummary(gift.intakeSummary).slice(0, 2).join(' / ') || '—'}
                             </Badge>
                           )}
@@ -375,7 +384,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <Clock className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">進行中のギフト</h2>
+                <h2 className="text-lg sm:text-xl font-semibold">進行中のギフト</h2>
               </div>
               {activeGifts.length === 0 ? (
                 <Card className="border-border/60">
@@ -384,7 +393,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-6">
+                <div className="grid gap-4 sm:gap-6">
                   {activeGifts.map((gift) => {
                     const linkInfo = linkStatus[gift.id];
                     const summaryLines = buildIntakeSummary(gift.intakeSummary);
@@ -396,28 +405,28 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                           ? 'リンクをコピー'
                           : 'リンクを作成';
                     return (
-                      <Card key={gift.id} className="border-border/60">
-                        <CardHeader className="space-y-3">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <CardTitle className="text-lg font-semibold">
+                      <Card key={gift.id} className="border-border/60 rounded-2xl sm:rounded-3xl">
+                        <CardHeader className="space-y-3 pb-3 sm:pb-4">
+                          <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
+                            <div className="min-w-0">
+                              <CardTitle className="text-base sm:text-lg font-semibold leading-tight">
                                 {gift.recipientFirstName ? `${gift.recipientFirstName} へのギフト` : 'ギフト'}
                               </CardTitle>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-[11px] sm:text-xs text-muted-foreground">
                                 {gift.occasion ?? '用途未設定'} ・ {formatDateTime(gift.createdAt)}
                               </p>
                             </div>
                             {renderStatusBadge(gift.status)}
                           </div>
-                          <div className="text-xs text-muted-foreground flex flex-wrap gap-4">
-                            <span>予算 {formatBudget(gift.budgetMin, gift.budgetMax)}</span>
-                            {gift.intakeCompletedAt && <span>最終更新 {formatDateTime(gift.intakeCompletedAt)}</span>}
+                          <div className="text-[11px] sm:text-xs text-muted-foreground flex flex-wrap gap-3">
+                            <span className="whitespace-nowrap">予算 {formatBudget(gift.budgetMin, gift.budgetMax)}</span>
+                            {gift.intakeCompletedAt && <span className="whitespace-nowrap">最終更新 {formatDateTime(gift.intakeCompletedAt)}</span>}
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground space-y-2">
-                            <p className="font-semibold text-foreground">進捗メモ</p>
-                            <p>{progressMessages[gift.status] ?? '現在のステータスをご確認ください。'}</p>
+                        <CardContent className="space-y-3 sm:space-y-4">
+                          <div className="rounded-2xl border border-border/50 bg-muted/30 p-3 sm:p-4 text-sm text-muted-foreground space-y-1.5">
+                            <p className="font-semibold text-foreground text-sm">進捗メモ</p>
+                            <p className="leading-relaxed">{progressMessages[gift.status] ?? '現在のステータスをご確認ください。'}</p>
                           </div>
                           {summaryLines.length > 0 && (
                             <div className="space-y-2">
@@ -432,10 +441,10 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             </div>
                           )}
                           <Separator />
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                             <Button
                               variant="outline"
-                              className="flex items-center gap-2"
+                              className="flex items-center gap-2 justify-center w-full sm:w-auto"
                               onClick={() => handleGenerateLink(gift.id)}
                               disabled={linkInfo?.loading}
                             >
@@ -448,7 +457,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                               )}
                               {shareLabel}
                             </Button>
-                            <Button asChild variant="ghost" className="flex items-center gap-2">
+                            <Button asChild variant="ghost" className="flex items-center gap-2 justify-center w-full sm:w-auto">
                               <Link href={`/gift/result/${gift.id}`}>
                                 進行状況を見る
                                 <ExternalLink className="h-4 w-4" />
