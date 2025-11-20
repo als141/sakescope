@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import GiftChat from '@/components/GiftChat';
+import WatercolorBackground from '@/components/WatercolorBackground';
 
 export default function GiftPage() {
   const params = useParams();
@@ -222,15 +223,18 @@ export default function GiftPage() {
 
   // Show chat interface
   return (
-    <div className="min-h-screen bg-background">
-      <AnimatePresence>
-        {giftId && sessionId && (
-          <GiftChat
-            giftId={giftId}
-            sessionId={sessionId}
-          />
-        )}
-      </AnimatePresence>
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      <WatercolorBackground />
+      <div className="relative z-10 min-h-screen">
+        <AnimatePresence>
+          {giftId && sessionId && (
+            <GiftChat
+              giftId={giftId}
+              sessionId={sessionId}
+            />
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
