@@ -17,9 +17,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 
 const budgetPresets = [
-  { label: 'カジュアル (¥3k〜¥5k)', min: 3000, max: 5000 },
-  { label: 'スタンダード (¥5k〜¥10k)', min: 5000, max: 10000 },
-  { label: 'ハレの日 (¥10k〜¥20k)', min: 10000, max: 20000 },
+  { label: '千円〜三千円', min: 1000, max: 3000 },
+  { label: '三千円〜五千円', min: 3000, max: 5000 },
+  { label: '五千円〜一万円', min: 5000, max: 10000 },
 ];
 
 const isCreateGiftResponse = (payload: unknown): payload is CreateGiftResponse => {
@@ -46,8 +46,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
   const [formData, setFormData] = useState<CreateGiftRequest>({
     occasion: '',
     recipientFirstName: '',
-    budgetMin: 3000,
-    budgetMax: 10000,
+    budgetMin: 1000,
+    budgetMax: 3000,
     message: '',
   });
 
@@ -57,12 +57,22 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     setIsLoading(true);
 
     try {
+      const budgetMinClean = Math.max(1, Number.isFinite(formData.budgetMin) ? formData.budgetMin : 0);
+      const budgetMaxClean = Math.max(
+        budgetMinClean,
+        Number.isFinite(formData.budgetMax) ? formData.budgetMax : budgetMinClean,
+      );
+
       const response = await fetch('/api/gift/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          budgetMin: budgetMinClean,
+          budgetMax: budgetMaxClean,
+        }),
       });
 
       const data: unknown = await response.json();
@@ -115,8 +125,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     setFormData({
       occasion: '',
       recipientFirstName: '',
-      budgetMin: 3000,
-      budgetMax: 10000,
+      budgetMin: 1000,
+      budgetMax: 3000,
       message: '',
     });
     setError(null);
@@ -233,13 +243,15 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                   <Input
                     id="budgetMin"
                     type="number"
-                    min="1000"
-                    step="1000"
+                    min="0"
+                    step="1"
                     value={formData.budgetMin}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        budgetMin: parseInt(e.target.value) || 1000,
+                        budgetMin: Number.isFinite(Number(e.target.value))
+                          ? Number(e.target.value)
+                          : 0,
                       })
                     }
                     required
@@ -250,13 +262,15 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                   <Input
                     id="budgetMax"
                     type="number"
-                    min="1000"
-                    step="1000"
+                    min="0"
+                    step="1"
                     value={formData.budgetMax}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        budgetMax: parseInt(e.target.value) || 1000,
+                        budgetMax: Number.isFinite(Number(e.target.value))
+                          ? Number(e.target.value)
+                          : 0,
                       })
                     }
                     required
@@ -264,7 +278,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                ※予算は相手に表示されません
+                ※予算は相手に表示されません。0円も入力できますが送信時は1円以上に丸めます。
               </p>
 
               <div className="space-y-2">
