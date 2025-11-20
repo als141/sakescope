@@ -156,21 +156,106 @@ const notifyGiftRecommendationReady = async (
     return false;
   }
 
-  const contextParts: string[] = [];
-  if (options.recipientName) {
-    contextParts.push(`宛先: ${options.recipientName}`);
-  }
-  if (options.occasion) {
-    contextParts.push(`シーン: ${options.occasion}`);
-  }
-
   const baseOrigin = APP_ORIGIN.replace(/\/$/, '');
   const url = `${baseOrigin || ''}/gift/result/${options.giftId}`;
-  const messages = [
-    ...(contextParts.length ? [{ type: 'text', text: contextParts.join(' / ') }] : []),
-    { type: 'text', text: 'ギフト推薦が完成しました！' },
-    { type: 'text', text: `結果を見る: ${url}` },
-  ];
+
+  const message = {
+    type: 'flex',
+    altText: 'ギフト推薦が完了しました！',
+    contents: {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '✨ ギフト推薦完了',
+            weight: 'bold',
+            size: 'md',
+            color: '#d4a373',
+          },
+          {
+            type: 'text',
+            text: 'AIソムリエによる日本酒の選定が完了しました。結果をご確認ください。',
+            wrap: true,
+            size: 'sm',
+            margin: 'md',
+            color: '#666666',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'lg',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '宛先',
+                    color: '#aaaaaa',
+                    size: 'xs',
+                    flex: 2,
+                  },
+                  {
+                    type: 'text',
+                    text: options.recipientName || '未設定',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'xs',
+                    flex: 5,
+                  },
+                ],
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'シーン',
+                    color: '#aaaaaa',
+                    size: 'xs',
+                    flex: 2,
+                  },
+                  {
+                    type: 'text',
+                    text: options.occasion || '未設定',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'xs',
+                    flex: 5,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '結果を見る',
+              uri: url,
+            },
+            color: '#d4a373',
+          },
+        ],
+        flex: 0,
+      },
+    },
+  };
 
   try {
     const res = await fetch('https://api.line.me/v2/bot/message/push', {
@@ -179,7 +264,7 @@ const notifyGiftRecommendationReady = async (
         'Content-Type': 'application/json',
         Authorization: `Bearer ${LINE_TOKEN}`,
       },
-      body: JSON.stringify({ to: lineUserId, messages }),
+      body: JSON.stringify({ to: lineUserId, messages: [message] }),
     });
 
     if (!res.ok) {

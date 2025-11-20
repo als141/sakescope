@@ -3,10 +3,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const LINE_PUSH_ENDPOINT = 'https://api.line.me/v2/bot/message/push';
 
-type LineMessage = {
-  type: 'text';
-  text: string;
+type FlexMessage = {
+  type: 'flex';
+  altText: string;
+  contents: Record<string, any>;
 };
+
+type LineMessage =
+  | {
+    type: 'text';
+    text: string;
+  }
+  | FlexMessage;
 
 type Supabase = SupabaseClient<any, any, any>;
 
@@ -17,15 +25,218 @@ type GiftContext = {
   recipientName?: string | null;
 };
 
-function formatGiftContext({ occasion, recipientName }: GiftContext) {
-  const parts: string[] = [];
-  if (recipientName) {
-    parts.push(`宛先: ${recipientName}`);
-  }
-  if (occasion) {
-    parts.push(`シーン: ${occasion}`);
-  }
-  return parts.join(' / ');
+function createGiftStartedFlexMessage({
+  giftId,
+  origin,
+  occasion,
+  recipientName,
+}: GiftContext): FlexMessage {
+  const progressUrl = `${origin.replace(/\/$/, '')}/gift`;
+
+  return {
+    type: 'flex',
+    altText: 'ギフトリンクが開かれ、会話が開始されました',
+    contents: {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '🎁 会話が開始されました',
+            weight: 'bold',
+            size: 'md',
+            color: '#1DB446',
+          },
+          {
+            type: 'text',
+            text: 'お相手がギフトリンクを開き、AIソムリエとの会話を始めました。',
+            wrap: true,
+            size: 'sm',
+            margin: 'md',
+            color: '#666666',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'lg',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '宛先',
+                    color: '#aaaaaa',
+                    size: 'xs',
+                    flex: 2,
+                  },
+                  {
+                    type: 'text',
+                    text: recipientName || '未設定',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'xs',
+                    flex: 5,
+                  },
+                ],
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'シーン',
+                    color: '#aaaaaa',
+                    size: 'xs',
+                    flex: 2,
+                  },
+                  {
+                    type: 'text',
+                    text: occasion || '未設定',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'xs',
+                    flex: 5,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '進捗を見る',
+              uri: progressUrl,
+            },
+            color: '#2c2c2c',
+          },
+        ],
+        flex: 0,
+      },
+    },
+  };
+}
+
+function createGiftReadyFlexMessage({
+  giftId,
+  origin,
+  occasion,
+  recipientName,
+}: GiftContext): FlexMessage {
+  const url = `${origin.replace(/\/$/, '')}/gift/result/${giftId}`;
+
+  return {
+    type: 'flex',
+    altText: 'ギフト推薦が完了しました！',
+    contents: {
+      type: 'bubble',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'text',
+            text: '✨ ギフト推薦完了',
+            weight: 'bold',
+            size: 'md',
+            color: '#d4a373', // Gold/Brownish color for premium feel
+          },
+          {
+            type: 'text',
+            text: 'AIソムリエによる日本酒の選定が完了しました。結果をご確認ください。',
+            wrap: true,
+            size: 'sm',
+            margin: 'md',
+            color: '#666666',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'lg',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '宛先',
+                    color: '#aaaaaa',
+                    size: 'xs',
+                    flex: 2,
+                  },
+                  {
+                    type: 'text',
+                    text: recipientName || '未設定',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'xs',
+                    flex: 5,
+                  },
+                ],
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  {
+                    type: 'text',
+                    text: 'シーン',
+                    color: '#aaaaaa',
+                    size: 'xs',
+                    flex: 2,
+                  },
+                  {
+                    type: 'text',
+                    text: occasion || '未設定',
+                    wrap: true,
+                    color: '#666666',
+                    size: 'xs',
+                    flex: 5,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'button',
+            style: 'primary',
+            height: 'sm',
+            action: {
+              type: 'uri',
+              label: '結果を見る',
+              uri: url,
+            },
+            color: '#d4a373',
+          },
+        ],
+        flex: 0,
+      },
+    },
+  };
 }
 
 async function getLineUserId(
@@ -92,29 +303,13 @@ async function pushLineMessagesForUser({
 }
 
 export async function notifyGiftLinkOpened(options: GiftContext & { supabase: Supabase; userId: string }) {
-  const { supabase, userId, giftId, origin, recipientName, occasion } = options;
-  const contextLine = formatGiftContext({ occasion, recipientName, giftId, origin });
-  const progressUrl = `${origin.replace(/\/$/, '')}/gift`;
-  const messages: LineMessage[] = [
-    { type: 'text', text: 'ギフトリンクが開かれ、会話が開始されました。' },
-    { type: 'text', text: `進捗を見る: ${progressUrl}` },
-  ];
-  if (contextLine) {
-    messages.unshift({ type: 'text', text: contextLine });
-  }
-  return pushLineMessagesForUser({ supabase, userId, messages });
+  const { supabase, userId, ...context } = options;
+  const message = createGiftStartedFlexMessage(context);
+  return pushLineMessagesForUser({ supabase, userId, messages: [message] });
 }
 
 export async function notifyGiftRecommendationReady(options: GiftContext & { supabase: Supabase; userId: string }) {
-  const { supabase, userId, giftId, origin, recipientName, occasion } = options;
-  const url = `${origin.replace(/\/$/, '')}/gift/result/${giftId}`;
-  const contextLine = formatGiftContext({ occasion, recipientName, giftId, origin });
-  const messages: LineMessage[] = [
-    { type: 'text', text: 'ギフト推薦が完成しました！' },
-    { type: 'text', text: `結果を見る: ${url}` },
-  ];
-  if (contextLine) {
-    messages.unshift({ type: 'text', text: contextLine });
-  }
-  return pushLineMessagesForUser({ supabase, userId, messages });
+  const { supabase, userId, ...context } = options;
+  const message = createGiftReadyFlexMessage(context);
+  return pushLineMessagesForUser({ supabase, userId, messages: [message] });
 }
