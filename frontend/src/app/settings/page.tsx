@@ -98,14 +98,14 @@ export default function SettingsPage() {
   const lineExternalAccount = useMemo(() => {
     if (!user || !lineProviderSlug) return null;
     return user.externalAccounts?.find((account) => account.provider === lineProviderSlug) ?? null;
-  }, [user, lineProviderSlug]);
+  }, [user]);
 
   const linked = Boolean(status?.account);
   const friendOk = status?.account?.friend_flag ?? false;
   const deepLink = useMemo(() => {
     if (!liffId) return '';
     return `https://liff.line.me/${liffId}?scene=link`;
-  }, [liffId]);
+  }, []);
 
   const handleConnect = async () => {
     if (!signIn || !lineStrategy) {
