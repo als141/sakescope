@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift, Copy, Check, Loader2 } from 'lucide-react';
+import { Gift, Copy, Check, Loader2, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,12 +14,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 
 const budgetPresets = [
-  { label: 'カジュアル (¥3k〜¥5k)', min: 3000, max: 5000 },
-  { label: 'スタンダード (¥5k〜¥10k)', min: 5000, max: 10000 },
-  { label: 'ハレの日 (¥10k〜¥20k)', min: 10000, max: 20000 },
+  { label: '1,000円〜3,000円', min: 1000, max: 3000 },
+  { label: '3,000円〜5,000円', min: 3000, max: 5000 },
+  { label: '5,000円〜10,000円', min: 5000, max: 10000 },
 ];
 
 const isCreateGiftResponse = (payload: unknown): payload is CreateGiftResponse => {
@@ -46,8 +47,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
   const [formData, setFormData] = useState<CreateGiftRequest>({
     occasion: '',
     recipientFirstName: '',
-    budgetMin: 3000,
-    budgetMax: 10000,
+    budgetMin: 1000,
+    budgetMax: 3000,
     message: '',
   });
 
@@ -57,12 +58,22 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     setIsLoading(true);
 
     try {
+      const budgetMinClean = Math.max(1, Number.isFinite(formData.budgetMin) ? formData.budgetMin : 0);
+      const budgetMaxClean = Math.max(
+        budgetMinClean,
+        Number.isFinite(formData.budgetMax) ? formData.budgetMax : budgetMinClean,
+      );
+
       const response = await fetch('/api/gift/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          budgetMin: budgetMinClean,
+          budgetMax: budgetMaxClean,
+        }),
       });
 
       const data: unknown = await response.json();
@@ -110,13 +121,25 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     }
   };
 
+  const handleLineShare = () => {
+    const lineShareIntentUrl = lineShareUrl
+      ? `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(lineShareUrl)}`
+      : null;
+    if (!lineShareIntentUrl) return;
+    try {
+      window.open(lineShareIntentUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Failed to open LINE share', err);
+    }
+  };
+
   const handleClose = () => {
     setStep('form');
     setFormData({
       occasion: '',
       recipientFirstName: '',
-      budgetMin: 3000,
-      budgetMax: 10000,
+      budgetMin: 1000,
+      budgetMax: 3000,
       message: '',
     });
     setError(null);
@@ -233,13 +256,15 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                   <Input
                     id="budgetMin"
                     type="number"
-                    min="1000"
-                    step="1000"
+                    min="0"
+                    step="1"
                     value={formData.budgetMin}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        budgetMin: parseInt(e.target.value) || 1000,
+                        budgetMin: Number.isFinite(Number(e.target.value))
+                          ? Number(e.target.value)
+                          : 0,
                       })
                     }
                     required
@@ -250,13 +275,15 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                   <Input
                     id="budgetMax"
                     type="number"
-                    min="1000"
-                    step="1000"
+                    min="0"
+                    step="1"
                     value={formData.budgetMax}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        budgetMax: parseInt(e.target.value) || 1000,
+                        budgetMax: Number.isFinite(Number(e.target.value))
+                          ? Number(e.target.value)
+                          : 0,
                       })
                     }
                     required
@@ -264,7 +291,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                ※予算は相手に表示されません
+                ※予算は相手に表示されません。0円も入力できますが送信時は1円以上に丸めます。
               </p>
 
               <div className="space-y-2">
@@ -319,57 +346,79 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
               <Alert>
                 <Check className="h-4 w-4" />
                 <AlertDescription>
-                  ギフトリンクが生成されました！このリンクを相手に送ってください。
+                  ギフトリンクが生成されました！LINE用をそのまま送るのが推奨です。
                 </AlertDescription>
               </Alert>
 
-              <div className="space-y-2">
-                <Label>ブラウザ用URL</Label>
-                <div className="flex gap-2">
-                  <Input value={shareUrl} readOnly className="font-mono text-sm" />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleCopy('web')}
-                  >
-                    {copiedTarget === 'web' ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  このリンクは72時間有効で、一度のみ使用できます
-                </p>
-              </div>
+              <Tabs defaultValue={lineShareUrl ? 'line' : 'web'} className="w-full">
+                <TabsList>
+                  {lineShareUrl ? <TabsTrigger value="line">LINE用</TabsTrigger> : null}
+                  <TabsTrigger value="web">PC/ブラウザ用</TabsTrigger>
+                </TabsList>
 
-              {lineShareUrl ? (
-                <div className="space-y-2">
-                  <Label>LINEミニアプリ用URL（スマホで開く場合）</Label>
-                  <div className="flex gap-2">
-                    <Input value={lineShareUrl} readOnly className="font-mono text-sm" />
+                {lineShareUrl ? (
+                  <TabsContent value="line" className="space-y-2">
+                    <Label>LINE用URL</Label>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                      <Input value={lineShareUrl} readOnly className="font-mono text-sm flex-1" />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleCopy('line')}
+                        >
+                          {copiedTarget === 'line' ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          className="gap-2"
+                          onClick={handleLineShare}
+                        >
+                          <Share2 className="h-4 w-4" />
+                          LINEで共有
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      受け手はLINEミニアプリで開きます。72時間以内・1回のみ有効です。
+                    </p>
+                  </TabsContent>
+                ) : null}
+
+                <TabsContent value="web" className="space-y-2">
+                  <Label>ブラウザ用URL（PC向け）</Label>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <Input value={shareUrl} readOnly className="font-mono text-sm flex-1" />
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={() => handleCopy('line')}
+                      onClick={() => handleCopy('web')}
                     >
-                      {copiedTarget === 'line' ? (
+                      {copiedTarget === 'web' ? (
                         <Check className="h-4 w-4 text-green-600" />
                       ) : (
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
-                </div>
-              ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    PCブラウザで確認する場合はこちらを使用します（同じく72時間有効）。
+                  </p>
+                </TabsContent>
+              </Tabs>
 
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-semibold text-sm">使い方</h4>
                 <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
-                  <li>上記のURLを相手に送信します</li>
+                  <li>LINE用タブのURLをコピー、または「LINEで共有」で送信します</li>
                   <li>相手がリンクを開き、好みについて会話します</li>
                   <li>会話が終わると、あなたに推薦結果が届きます</li>
                   <li>結果はマイページから確認できます</li>

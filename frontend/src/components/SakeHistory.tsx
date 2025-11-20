@@ -21,9 +21,10 @@ import { cn } from '@/lib/utils';
 
 interface SakeHistoryProps {
   onSelectSake: (item: SakeHistoryItem) => void;
+  placement?: 'floating' | 'header';
 }
 
-export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
+export default function SakeHistory({ onSelectSake, placement = 'floating' }: SakeHistoryProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState<SakeHistoryItem[]>([]);
 
@@ -73,14 +74,22 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
         <Button
           variant="outline"
           size="icon-lg"
-          className="fixed left-4 sm:left-6 lg:left-10 top-24 sm:top-28 z-40 rounded-full shadow-xl glass border-border/50 hover:shadow-2xl hover:scale-105 hover:border-primary/50 transition-all backdrop-blur-md"
+          className={cn(
+            "rounded-full shadow-xl glass border-border/50 transition-all backdrop-blur-md",
+            placement === 'floating'
+              ? "fixed left-4 bottom-24 sm:bottom-auto sm:left-6 sm:top-24 lg:left-10 z-40 hover:shadow-2xl hover:scale-105 hover:border-primary/50"
+              : "relative self-start mt-2 sm:mt-3 shadow-md hover:shadow-lg"
+          )}
         >
           <History className="h-5 w-5 sm:h-6 sm:w-6" />
           {history.length > 0 && (
             <Badge
               variant="default"
               size="sm"
-              className="absolute -top-1 -right-1 h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 text-[9px] sm:text-[10px] font-bold rounded-full shadow-md"
+              className={cn(
+                "absolute -top-1 -right-1 h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 text-[9px] sm:text-[10px] font-bold rounded-full shadow-md",
+                placement === 'header' && "translate-y-0.5"
+              )}
             >
               {history.length > 9 ? '9+' : history.length}
             </Badge>
@@ -88,7 +97,10 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-full sm:max-w-lg p-0 flex flex-col">
+      <SheetContent
+        side="left"
+        className="w-full sm:max-w-lg p-0 flex h-[85vh] sm:h-auto flex-col"
+      >
         <SheetHeader className="px-6 sm:px-8 py-6 sm:py-8 border-b border-border/50">
           <SheetTitle className="flex items-center gap-3 sm:gap-4 text-2xl sm:text-3xl">
             <div className="rounded-2xl bg-primary/10 p-2.5 sm:p-3 border border-primary/20">
@@ -101,7 +113,7 @@ export default function SakeHistory({ onSelectSake }: SakeHistoryProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-5 sm:p-6">
             {history.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full min-h-[320px] sm:min-h-[400px] text-center space-y-6 sm:space-y-8 px-6 sm:px-8">

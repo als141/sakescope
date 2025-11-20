@@ -11,6 +11,7 @@ import SakeHistory from '@/components/SakeHistory';
 import { SakeHistoryStorage, type SakeHistoryItem } from '@/infrastructure/storage/sakeHistoryStorage';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
+import WatercolorBackground from '@/components/WatercolorBackground';
 
 
 export default function Home() {
@@ -48,24 +49,23 @@ export default function Home() {
   const isCompactMode = Boolean(recommendedSake);
   const voiceChatVariant = isCompactMode ? 'compact' : 'full';
   const voiceChatContainerClass = isCompactMode
-    ? 'pointer-events-auto fixed bottom-6 right-4 z-40 w-full max-w-sm sm:right-8 sm:bottom-8'
-    : 'pointer-events-auto relative mt-12 w-full max-w-2xl mx-auto';
+    ? 'pointer-events-auto fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-sm sm:max-w-md sm:bottom-8 sm:left-auto sm:right-8 sm:translate-x-0'
+    : isVoiceConnected
+      ? 'pointer-events-auto relative mt-1.5 sm:mt-6 w-full max-w-full sm:max-w-4xl lg:max-w-5xl px-0 sm:px-2'
+      : 'pointer-events-auto relative mt-6 sm:mt-12 w-full max-w-full sm:max-w-2xl lg:max-w-3xl px-0 sm:px-0';
+
+  const mainSpacingClass = isVoiceConnected
+    ? 'pt-16 pb-24 gap-6 sm:gap-10'
+    : 'pt-24 pb-28 gap-10 sm:gap-14';
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
-      {/* Subtle Background */}
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
+      <WatercolorBackground />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center h-screen px-6 sm:px-8 lg:px-12 overflow-hidden">
-        {/* History Panel */}
-        <SakeHistory
-          onSelectSake={(item: SakeHistoryItem) => {
-            setRecommendedSake(item.sake);
-            setPurchaseOffer(item.offer);
-          }}
-        />
-
+      <div
+        className={`relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-8 lg:px-12 ${mainSpacingClass} overflow-hidden`}
+      >
         {/* Header */}
         <motion.header
           className="absolute top-0 left-0 right-0 z-50"
@@ -73,7 +73,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 xl:px-16 py-6 sm:py-8 lg:py-10 flex justify-between items-center">
+          <div className="w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-5 sm:py-8 lg:py-10 flex flex-wrap items-start gap-3 sm:gap-4 justify-between">
             {/* 左側 - ロゴまたは戻るボタン */}
             {recommendedSake ? (
               <Button
@@ -83,21 +83,32 @@ export default function Home() {
                 }}
                 variant="ghost"
                 size="lg"
-                className="group -ml-2"
+                className="group -ml-1 sm:-ml-2"
               >
                 <ArrowLeft className="mr-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform" />
                 <span className="text-sm sm:text-base">他の日本酒を探す</span>
               </Button>
             ) : (
-              <motion.div
-                className="flex items-center gap-3 sm:gap-4"
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 400 }}
-              >
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text tracking-tight">
-                  Sakescope
-                </h1>
-              </motion.div>
+              <div className="flex flex-col items-start gap-2">
+                <motion.div
+                  className="flex items-center gap-3 sm:gap-4"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold gradient-text tracking-tight">
+                    Sakescope
+                  </h1>
+                </motion.div>
+                {!isVoiceConnected && (
+                  <SakeHistory
+                    placement="header"
+                    onSelectSake={(item: SakeHistoryItem) => {
+                      setRecommendedSake(item.sake);
+                      setPurchaseOffer(item.offer);
+                    }}
+                  />
+                )}
+              </div>
             )}
 
             {/* 右側ナビゲーション */}
@@ -122,23 +133,23 @@ export default function Home() {
                 </>
               </SignedOut>
               <SignedIn>
-                <>
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Button
                     asChild
                     variant="ghost"
                     size="default"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    className="h-11 px-4 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
                   >
-                    <Link href="/gift">
-                      <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      <span className="hidden sm:inline">ギフトを贈る</span>
+                    <Link href="/gift" className="flex items-center gap-2">
+                      <Gift className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="text-sm sm:text-base">ギフトを贈る</span>
                     </Link>
                   </Button>
                   <Link href="/settings">
                     <Button
                       variant="ghost"
                       size="icon-lg"
-                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-muted-foreground hover:text-foreground transition-colors h-11 w-11 sm:h-11 sm:w-11"
                     >
                       <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                     </Button>
@@ -152,7 +163,7 @@ export default function Home() {
                       },
                     }}
                   />
-                </>
+                </div>
               </SignedIn>
             </div>
           </div>
@@ -163,7 +174,7 @@ export default function Home() {
           {!recommendedSake ? (
             <motion.div
               key="voice-interface"
-              className="text-center space-y-8 sm:space-y-10 lg:space-y-12 max-w-4xl px-4 sm:px-0"
+              className="text-center space-y-8 sm:space-y-10 lg:space-y-12 w-full max-w-3xl px-3 sm:px-6 mt-2 sm:mt-0 flex flex-col items-center"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -172,27 +183,27 @@ export default function Home() {
               {/* Welcome Message - フェードアウト */}
               <AnimatePresence>
                 {!isVoiceConnected && (
-                  <motion.div
-                    className="space-y-6 sm:space-y-8 lg:space-y-10"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -30, scale: 0.95 }}
-                    transition={{ duration: 0.5, ease: "easeInOut" }}
-                  >
+              <motion.div
+                className="space-y-5 sm:space-y-8 lg:space-y-10"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+              >
 
-                    {/* メインヘッドライン */}
-                    <div className="space-y-4 sm:space-y-6">
-                      <h2 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tighter">
-                        <span className="gradient-text block mb-2">最高の一杯を</span>
-                        <span className="gradient-text block">一緒に見つけましょう</span>
-                      </h2>
+                {/* メインヘッドライン */}
+                <div className="space-y-3 sm:space-y-6">
+                  <h2 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.08] tracking-tighter px-2 sm:px-0">
+                    <span className="gradient-text block mb-1 sm:mb-2">最高の一杯を</span>
+                    <span className="gradient-text block">一緒に見つけましょう</span>
+                  </h2>
 
-                      <p className="text-base sm:text-lg md:text-xl text-muted-foreground/80 max-w-2xl mx-auto leading-relaxed font-light px-4">
-                        あなたの好みにぴったりの日本酒をお探しします
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
+                  <p className="text-base sm:text-lg md:text-xl text-muted-foreground/80 max-w-2xl mx-auto leading-relaxed font-light px-2 sm:px-4">
+                    あなたの好みにぴったりの日本酒をお探しします
+                  </p>
+                </div>
+              </motion.div>
+            )}
               </AnimatePresence>
             </motion.div>
           ) : (

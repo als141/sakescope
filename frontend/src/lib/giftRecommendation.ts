@@ -86,22 +86,16 @@ function mapRecommendationCore(
     return null;
   }
 
-  if (!Array.isArray(shopsPayload)) {
-    return null;
-  }
+  const shopsArray = Array.isArray(shopsPayload) ? shopsPayload : [];
 
   const sake = mapSakeRecord(sakePayload as Record<string, unknown>, fallbackName);
-  const shops = shopsPayload
+  const shops = shopsArray
     .map((shop) =>
       shop && typeof shop === 'object'
         ? mapShopListing(shop as Record<string, unknown>)
         : null,
     )
     .filter((shop): shop is ShopListing => Boolean(shop));
-
-  if (shops.length === 0) {
-    return null;
-  }
 
   return {
     sake,

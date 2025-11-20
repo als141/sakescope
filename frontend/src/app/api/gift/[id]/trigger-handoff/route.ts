@@ -88,6 +88,18 @@ export async function POST(
       );
     }
 
+    // Invalidate all tokens for this gift now that会話完了
+    const { error: tokenConsumeError } = await supabase
+      .from('gift_tokens')
+      .update({ consumed_at: completedAt })
+      .eq('gift_id', giftId)
+      .is('consumed_at', null);
+
+    if (tokenConsumeError) {
+      console.error('Failed to consume gift tokens on handoff', tokenConsumeError);
+      // Do not fail the request; logging only to avoid blocking handoff
+    }
+
     const metadataPayload: Record<string, unknown> = {
       gift_mode: true,
       budget_min: gift.budget_min,

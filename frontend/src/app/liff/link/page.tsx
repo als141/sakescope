@@ -103,7 +103,7 @@ export default function LiffLinkPage() {
           <Button variant="outline" onClick={() => window.location.reload()}>
             リトライ
           </Button>
-          <Button onClick={() => (window.location.href = '/settings/line')}>設定に戻る</Button>
+          <Button onClick={() => (window.location.href = '/settings')}>設定に戻る</Button>
         </div>
       )}
     </div>
