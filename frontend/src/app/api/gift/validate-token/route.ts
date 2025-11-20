@@ -46,33 +46,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if token has already been consumed
+    // Check if token has already been consumed (conversation完了)
     if (tokenData.consumed_at) {
-      return NextResponse.json<ValidateTokenResponse>(
-        { valid: false, error: 'Token has already been used' },
-        { status: 410 }
-      );
-    }
-
-    // Mark token as consumed (guard against parallel consumption)
-    const consumedAt = new Date().toISOString();
-    const { data: consumedToken, error: updateError } = await supabase
-      .from('gift_tokens')
-      .update({ consumed_at: consumedAt })
-      .eq('token_hash', tokenHash)
-      .is('consumed_at', null)
-      .select('gift_id')
-      .maybeSingle();
-
-    if (updateError) {
-      console.error('Error updating token:', updateError);
-      return NextResponse.json<ValidateTokenResponse>(
-        { valid: false, error: 'Failed to consume token' },
-        { status: 500 }
-      );
-    }
-
-    if (!consumedToken) {
       return NextResponse.json<ValidateTokenResponse>(
         { valid: false, error: 'Token has already been used' },
         { status: 410 }

@@ -65,8 +65,6 @@ export default function GiftResultPage() {
   const router = useRouter();
   const giftId = params.id as string;
 
-  const supabase = getBrowserSupabaseClient();
-
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [gift, setGift] = useState<GiftType | null>(null);
@@ -76,53 +74,33 @@ export default function GiftResultPage() {
     async function loadGiftResult() {
       try {
         setOffer(null);
-        // Fetch gift data
-        const { data: giftData, error: giftError } = await supabase
-          .from('gifts')
-          .select('*')
-          .eq('id', giftId)
-          .single();
+        setError(null);
 
-        if (giftError || !giftData) {
-          setError('ギフトが見つかりませんでした');
+        const response = await fetch(`/api/gift/${giftId}/detail`, { cache: 'no-store' });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => null);
+          const message =
+            (data && typeof data.error === 'string' && data.error) || 'ギフトが見つかりませんでした';
+          setError(message);
           setIsLoading(false);
           return;
         }
 
-        setGift(giftData as GiftType);
+        const payload = (await response.json()) as {
+          gift: GiftType;
+          recommendation: { recommendations: unknown; created_at: string | null } | null;
+        };
 
-        // Check if recommendation is ready
-        if (giftData.status === 'RECOMMEND_READY' || giftData.status === 'NOTIFIED') {
-          const { data: recData, error: recError } = await supabase
-            .from('gift_recommendations')
-            .select('*')
-            .eq('gift_id', giftId)
-            .single();
+        setGift(payload.gift);
 
-          if (!recError && recData) {
-            const mappedOffer = mapGiftRecommendationPayload(
-              recData.recommendations,
-              recData.created_at ?? undefined,
-            );
-            if (mappedOffer) {
-              setOffer(mappedOffer);
-            }
-          }
-
-          // Mark notification as read
-          await supabase
-            .from('notifications')
-            .update({ read_at: new Date().toISOString() })
-            .eq('user_id', giftData.sender_user_id)
-            .eq('type', 'gift_recommend_ready')
-            .match({ 'payload->gift_id': giftId });
-
-          // Update gift status to NOTIFIED
-          if (giftData.status === 'RECOMMEND_READY') {
-            await supabase
-              .from('gifts')
-              .update({ status: 'NOTIFIED' })
-              .eq('id', giftId);
+        if (payload.recommendation) {
+          const mappedOffer = mapGiftRecommendationPayload(
+            payload.recommendation.recommendations,
+            payload.recommendation.created_at ?? undefined,
+          );
+          if (mappedOffer) {
+            setOffer(mappedOffer);
           }
         }
       } catch (err) {
@@ -137,7 +115,8 @@ export default function GiftResultPage() {
       void loadGiftResult();
     }
 
-    // Subscribe to realtime updates
+    // Subscribe to realtime updates (still via anon key; used only to trigger refetch)
+    const supabase = getBrowserSupabaseClient();
     const channel = supabase
       .channel(`gift-${giftId}`)
       .on(
@@ -157,7 +136,7 @@ export default function GiftResultPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [giftId, supabase]);
+  }, [giftId]);
 
   if (isLoading) {
     return (
@@ -188,8 +167,8 @@ export default function GiftResultPage() {
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-            <Button onClick={() => router.push('/')} className="w-full">
-              ホームに戻る
+            <Button onClick={() => router.push('/gift')} className="w-full">
+              ギフト一覧に戻る
             </Button>
           </CardContent>
         </Card>
@@ -205,17 +184,17 @@ export default function GiftResultPage() {
     );
 
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <Card>
+      <div className="min-h-screen bg-background px-3 py-6 sm:px-6 sm:py-10">
+        <div className="max-w-2xl mx-auto space-y-5 sm:space-y-6">
+          <Card className="rounded-2xl sm:rounded-3xl">
             <CardHeader className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-full bg-primary/10 p-2">
                     <Gift className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl font-semibold">推薦を準備中です</CardTitle>
+                    <CardTitle className="text-lg sm:text-xl font-semibold">推薦を準備中です</CardTitle>
                     <CardDescription>
                       {gift.occasion ?? '用途未設定'} ・ {gift.recipient_first_name ?? '宛先未設定'} さん
                     </CardDescription>
@@ -271,9 +250,9 @@ export default function GiftResultPage() {
                 <div className="text-muted-foreground">作成日</div>
                 <div className="font-medium">{new Date(gift.created_at).toLocaleDateString('ja-JP')}</div>
               </div>
-              <Button onClick={() => router.push('/')} variant="outline" className="w-full">
+              <Button onClick={() => router.push('/gift')} variant="outline" className="w-full">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                ホームに戻る
+                ギフト一覧に戻る
               </Button>
             </CardContent>
           </Card>
@@ -286,36 +265,36 @@ export default function GiftResultPage() {
   if (offer) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-8 sm:py-10 space-y-6 sm:space-y-8">
           <motion.div
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-3xl border border-border/60 bg-card/80 backdrop-blur p-6 space-y-4 shadow-lg"
+            className="rounded-2xl sm:rounded-3xl border border-border/60 bg-card/80 backdrop-blur p-5 sm:p-6 space-y-3 sm:space-y-4 shadow-lg"
           >
-            <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 flex-wrap">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-primary/10 p-3">
                   <Package className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">ギフト推薦結果</h1>
-                  <p className="text-sm text-muted-foreground">
+                  <h1 className="text-2xl sm:text-3xl font-bold">ギフト推薦結果</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {gift.recipient_first_name ?? '宛先未設定'} さんへの {gift.occasion ?? 'ギフト'}
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="px-4 py-1 text-xs tracking-[0.3em] uppercase">
+              <Badge variant="secondary" className="px-3 py-1 text-[10px] sm:text-xs tracking-[0.25em] uppercase">
                 {gift.status === 'NOTIFIED' ? 'NOTIFIED' : 'READY'}
               </Badge>
             </div>
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-muted-foreground">
               <span>予算 {formatBudgetRange(gift)}</span>
               <span>作成日 {new Date(gift.created_at).toLocaleDateString('ja-JP')}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => router.push('/')} className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => router.push('/gift')} className="flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
-                ホームに戻る
+                ギフト一覧に戻る
               </Button>
             </div>
           </motion.div>
@@ -329,14 +308,14 @@ export default function GiftResultPage() {
   // Recommendation missing but status is ready/notified: show fallback
   if (gift.status === 'RECOMMEND_READY' || gift.status === 'NOTIFIED') {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <Card className="shadow-xl border-border/60">
+      <div className="min-h-screen bg-background px-3 py-6 sm:px-6 sm:py-10">
+        <div className="max-w-2xl mx-auto space-y-5 sm:space-y-6">
+          <Card className="shadow-xl border-border/60 rounded-2xl sm:rounded-3xl">
             <CardHeader className="space-y-2">
               <div className="flex items-center gap-3">
                 <Package className="h-6 w-6 text-primary" />
                 <div>
-                  <CardTitle className="text-xl font-semibold">推薦結果を取得できませんでした</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl font-semibold">推薦結果を取得できませんでした</CardTitle>
                   <CardDescription>
                     {gift.recipient_first_name ?? '宛先未設定'} さんへの {gift.occasion ?? 'ギフト'}
                   </CardDescription>
@@ -358,9 +337,9 @@ export default function GiftResultPage() {
                 <Button variant="default" onClick={() => window.location.reload()}>
                   再読み込み
                 </Button>
-                <Button variant="outline" onClick={() => router.push('/')}>
+                <Button variant="outline" onClick={() => router.push('/gift')}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  ホームに戻る
+                  ギフト一覧に戻る
                 </Button>
               </div>
             </CardContent>

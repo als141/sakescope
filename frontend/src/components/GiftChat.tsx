@@ -96,7 +96,7 @@ const composerRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasAttemptedConnect, setHasAttemptedConnect] = useState(false);
 
-  const isInputDisabled = !isConnected || isMuted || isCompleting || isFinished;
+  const isInputDisabled = !isConnected || isCompleting || isFinished;
 
   const addMessage = useCallback((message: ChatMessage) => {
     setMessages((prev) => {
@@ -393,7 +393,7 @@ const composerRef = useRef<HTMLInputElement | null>(null);
       addMessage({
         id: `system-${Date.now().toString(36)}`,
         role: 'assistant',
-        text: 'こんにちは！日本酒ギフトの好みについて、気軽にお話ししましょう。',
+        text: 'こんにちは。あなたの日本酒の好みを教えてください。飲む頻度や好きな香り・味わいなど、思いつくことから気軽にどうぞ。',
         mode: 'voice',
         timestamp: new Date(),
       });
@@ -456,7 +456,7 @@ const composerRef = useRef<HTMLInputElement | null>(null);
 
   const handleSendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed || !sessionRef.current || !isConnected || isMuted) {
+    if (!trimmed || !sessionRef.current || !isConnected) {
       return;
     }
     setInput('');
@@ -491,8 +491,8 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
     ?? (isConnecting
       ? 'AIが接続中です…'
       : isMuted
-        ? 'マイクをオンにするか、テキストで希望を入力してください'
-        : 'AIが耳を傾けています。自由にお話しください。');
+        ? 'マイクをオンにするか、テキストで好みを入力してください'
+        : 'AIが耳を傾けています。普段の飲み方や好きな味・香りから教えてください。');
 
   const avatarImageSrc = !isMuted && isConnected
     ? '/ai-avatar/open.png'
@@ -501,7 +501,7 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
   const statusHelper = isCompleting
     ? '聞き取った内容を整理しています…'
     : isMuted
-      ? 'マイクをオンにすると声で会話できます'
+      ? 'マイクはオフですが、テキストで伝えれば大丈夫です'
       : '会話中です';
 
   return (
@@ -512,10 +512,10 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
             <div className="rounded-full bg-primary/10 p-2 border border-primary/20">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
-            <CardTitle className="text-xl font-semibold">日本酒ギフトアシスタント</CardTitle>
+            <CardTitle className="text-xl font-semibold">日本酒お好みアシスタント</CardTitle>
           </div>
           <p className="text-sm text-muted-foreground">
-            お相手の好みを教えてください。途中でテキストを送って補足できます。
+            あなたの好みを教えてください。途中でテキストを送って補足できます。
           </p>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6">
@@ -523,7 +523,7 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
             <div className="relative w-[220px] h-[220px] sm:w-[280px] sm:h-[280px] flex items-center justify-center">
               <Image
                 src={avatarImageSrc}
-                alt="AIギフトアシスタント"
+                alt="日本酒お好みアシスタント"
                 fill
                 sizes="(max-width: 768px) 220px, 280px"
                 className="object-contain drop-shadow-2xl pointer-events-none select-none"
@@ -551,7 +551,7 @@ const handleKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (event) => {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isMuted ? 'マイクをオンにすると声でも会話できます' : 'テキストで補足したい内容を入力してください'}
+              placeholder={isMuted ? 'テキストで好みを教えてください（マイクはオフです）' : 'テキストで補足したい内容を入力してください'}
               className="flex-1 h-12 rounded-2xl border border-border/60 bg-background/80 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               disabled={isInputDisabled}
             />
