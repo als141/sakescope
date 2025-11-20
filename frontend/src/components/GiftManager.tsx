@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -121,8 +121,16 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
   const [refreshOnClose, setRefreshOnClose] = useState(false);
   const [linkStatus, setLinkStatus] = useState<Record<string, LinkStatus>>({});
 
-  const readyGifts = useMemo(() => gifts.filter((gift) => gift.recommendation), [gifts]);
-  const activeGifts = useMemo(() => gifts.filter((gift) => !gift.recommendation), [gifts]);
+  const isReadyGift = useCallback(
+    (gift: GiftDashboardItem) =>
+      gift.status === 'RECOMMEND_READY' ||
+      gift.status === 'NOTIFIED' ||
+      Boolean(gift.recommendation),
+    [],
+  );
+
+  const readyGifts = useMemo(() => gifts.filter((gift) => isReadyGift(gift)), [gifts, isReadyGift]);
+  const activeGifts = useMemo(() => gifts.filter((gift) => !isReadyGift(gift)), [gifts, isReadyGift]);
 
   const scheduleCopyReset = (giftId: string, target: 'web' | 'line') => {
     setTimeout(() => {
@@ -288,7 +296,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                   {readyGifts.map((gift) => (
                     <Card
                       key={gift.id}
-                      className="border-border/60 hover:border-primary/40 transition-colors shadow-sm rounded-2xl sm:rounded-3xl"
+                      className="border-border/60 hover:border-primary/40 transition-colors shadow-sm rounded-2xl sm:rounded-3xl h-full flex flex-col"
                     >
                       <CardHeader className="space-y-3 pb-3 sm:pb-4">
                         <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
@@ -303,49 +311,50 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                           {renderStatusBadge(gift.status)}
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-3 sm:space-y-4">
-                        {gift.recommendation && (
+                      <CardContent className="flex flex-col gap-3 sm:gap-4 flex-1">
+                        {gift.recommendation ? (
                           <div className="rounded-2xl border border-border/50 bg-background/80 p-3 sm:p-4 space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 space-y-1">
                                 <p className="text-[11px] sm:text-xs text-muted-foreground">おすすめの一本</p>
                                 <p
-                                  className="text-base sm:text-lg font-semibold text-foreground leading-tight"
-                                  style={{
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                  }}
+                                  className="text-base sm:text-lg font-semibold text-foreground leading-tight line-clamp-2 break-words"
                                 >
                                   {gift.recommendation.sake.name}
                                 </p>
                               </div>
                               {gift.recommendation.sake.type && (
-                                <Badge variant="secondary">{gift.recommendation.sake.type}</Badge>
+                                <Badge
+                                  variant="secondary"
+                                  className="max-w-[140px] truncate"
+                                  title={gift.recommendation.sake.type}
+                                >
+                                  {gift.recommendation.sake.type}
+                                </Badge>
                               )}
                             </div>
                             {gift.recommendation.summary && (
                               <p
-                                className="text-sm text-muted-foreground"
-                                style={{
-                                  display: '-webkit-box',
-                                  WebkitLineClamp: 3,
-                                  WebkitBoxOrient: 'vertical',
-                                  overflow: 'hidden',
-                                }}
+                                className="text-sm text-muted-foreground line-clamp-3 leading-relaxed"
                               >
                                 {gift.recommendation.summary}
                               </p>
                             )}
                           </div>
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-3 sm:p-4 space-y-2">
+                            <p className="text-sm font-semibold text-foreground">推薦データを取得できませんでした</p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              推薦は完了していますが詳細データの取得に失敗しました。結果ページを開くと最新の情報を再取得します。
+                            </p>
+                          </div>
                         )}
-                        <div className="flex flex-wrap gap-2 text-[11px] sm:text-xs text-muted-foreground">
-                          <Badge variant="outline" className="whitespace-nowrap">
-                            予算 {formatBudget(gift.budgetMin, gift.budgetMax)}
-                          </Badge>
-                          {gift.intakeSummary && (
-                            <Badge
+                          <div className="flex flex-wrap gap-2 text-[11px] sm:text-xs text-muted-foreground">
+                            <Badge variant="outline" className="whitespace-nowrap">
+                              予算 {formatBudget(gift.budgetMin, gift.budgetMax)}
+                            </Badge>
+                            {gift.intakeSummary && (
+                              <Badge
                               variant="outline"
                               className="max-w-full"
                               style={{
@@ -359,7 +368,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                        <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-auto pt-1">
                           <Button asChild className="w-full sm:flex-1 min-w-[140px] justify-center">
                             <Link href={`/gift/result/${gift.id}`}>
                               結果ページを開く
@@ -405,7 +414,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                           ? 'リンクをコピー'
                           : 'リンクを作成';
                     return (
-                      <Card key={gift.id} className="border-border/60 rounded-2xl sm:rounded-3xl">
+                      <Card key={gift.id} className="border-border/60 rounded-2xl sm:rounded-3xl h-full flex flex-col">
                         <CardHeader className="space-y-3 pb-3 sm:pb-4">
                           <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
                             <div className="min-w-0">
@@ -423,7 +432,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             {gift.intakeCompletedAt && <span className="whitespace-nowrap">最終更新 {formatDateTime(gift.intakeCompletedAt)}</span>}
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-3 sm:space-y-4">
+                        <CardContent className="flex flex-col gap-3 sm:gap-4 flex-1">
                           <div className="rounded-2xl border border-border/50 bg-muted/30 p-3 sm:p-4 text-sm text-muted-foreground space-y-1.5">
                             <p className="font-semibold text-foreground text-sm">進捗メモ</p>
                             <p className="leading-relaxed">{progressMessages[gift.status] ?? '現在のステータスをご確認ください。'}</p>
@@ -441,7 +450,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             </div>
                           )}
                           <Separator />
-                          <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                          <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-auto pt-1">
                             <Button
                               variant="outline"
                               className="flex items-center gap-2 justify-center w-full sm:w-auto"

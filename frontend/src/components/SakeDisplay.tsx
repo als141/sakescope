@@ -193,7 +193,7 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                       </p>
                     )}
 
-                    {purchaseShops.length > 0 && (
+                    {purchaseShops.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {purchaseShops.map((shop) => (
                           <a
@@ -222,6 +222,10 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
                             </Card>
                           </a>
                         ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+                        購入先の詳細は現在取得中です。店頭・公式ショップでの在庫をご確認ください。
                       </div>
                     )}
                   </motion.div>

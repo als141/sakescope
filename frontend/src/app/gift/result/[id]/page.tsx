@@ -326,5 +326,49 @@ export default function GiftResultPage() {
     );
   }
 
+  // Recommendation missing but status is ready/notified: show fallback
+  if (gift.status === 'RECOMMEND_READY' || gift.status === 'NOTIFIED') {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <Card className="shadow-xl border-border/60">
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-3">
+                <Package className="h-6 w-6 text-primary" />
+                <div>
+                  <CardTitle className="text-xl font-semibold">推薦結果を取得できませんでした</CardTitle>
+                  <CardDescription>
+                    {gift.recipient_first_name ?? '宛先未設定'} さんへの {gift.occasion ?? 'ギフト'}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertDescription className="text-sm">
+                  推薦は完了していますが、詳細データの取得に失敗しました。数秒後に再読み込みすると解決する場合があります。
+                </AlertDescription>
+              </Alert>
+              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground space-y-1">
+                <p>予算: {formatBudgetRange(gift)}</p>
+                <p>作成日: {new Date(gift.created_at).toLocaleDateString('ja-JP')}</p>
+                <p>ステータス: {statusLabels[gift.status as GiftStatusKey] ?? '完了'}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="default" onClick={() => window.location.reload()}>
+                  再読み込み
+                </Button>
+                <Button variant="outline" onClick={() => router.push('/')}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  ホームに戻る
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
