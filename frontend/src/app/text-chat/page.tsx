@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Send, Loader2, Search, Brain, Sparkles } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Search, Brain, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,10 +17,6 @@ type ChatMessage = {
   content: string;
   citations?: string[];
 };
-
-type TraceStepState = 'pending' | 'active' | 'done';
-
-type TraceStep = { id: string; label: string; state: TraceStepState; note?: string };
 
 const SYSTEM_PRIMER = `
 あなたは日本酒のソムリエAIです。回答は必ず日本語で行い、簡潔な結論と根拠をセットにしてください。
@@ -46,11 +42,10 @@ export default function TextChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
-  const [traceSteps, setTraceSteps] = useState<TraceStep[]>([
-    { id: 'search', label: '調査', state: 'pending' },
-    { id: 'reason', label: '整理', state: 'pending' },
-    { id: 'answer', label: '回答', state: 'pending' },
-  ]);
+  const [searchLog, setSearchLog] = useState<
+    Array<{ id: string; status: 'searching' | 'completed'; query?: string }>
+  >([]);
+  const [showDetails, setShowDetails] = useState(false);
   const assistantIdRef = useRef<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -63,19 +58,11 @@ export default function TextChatPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, reasoning, scrollToBottom]);
+  }, [messages, reasoning, searchLog, scrollToBottom]);
 
   const resetTrace = useCallback(() => {
-    setTraceSteps([
-      { id: 'search', label: '調査', state: 'pending' },
-      { id: 'reason', label: '整理', state: 'pending' },
-      { id: 'answer', label: '回答', state: 'pending' },
-    ]);
+    setSearchLog([]);
     setReasoning('');
-  }, []);
-
-  const updateTrace = useCallback((id: string, updater: (prev: TraceStep) => TraceStep) => {
-    setTraceSteps((prev) => prev.map((step) => (step.id === id ? updater(step) : step)));
   }, []);
 
   const buildPayload = (userContent: string) => {
@@ -127,25 +114,33 @@ export default function TextChatPage() {
         case 'delta':
           if (typeof data?.delta === 'string') {
             appendAssistantDelta(data.delta);
-            updateTrace('answer', (s) => ({ ...s, state: 'active' }));
           }
           if (data?.final && typeof data?.text === 'string') {
             finalizeAssistant(data.text, data.citations);
-            updateTrace('answer', (s) => ({ ...s, state: 'done' }));
             setIsStreaming(false);
           }
           break;
         case 'reasoning':
           if (typeof data?.delta === 'string') {
             setReasoning((prev) => prev + data.delta);
-            updateTrace('reason', (s) => ({ ...s, state: 'active' }));
           }
           break;
         case 'search':
           if (data?.status === 'searching') {
-            updateTrace('search', (s) => ({ ...s, state: 'active', note: data.query || '' }));
+            setSearchLog((prev) => [
+              ...prev,
+              { id: createId('search'), status: 'searching', query: data.query },
+            ]);
           } else if (data?.status === 'completed') {
-            updateTrace('search', (s) => ({ ...s, state: 'done', note: data.query || s.note }));
+            setSearchLog((prev) =>
+              prev.length === 0
+                ? [{ id: createId('search'), status: 'completed', query: data.query }]
+                : prev.map((item, idx) =>
+                    idx === prev.length - 1
+                      ? { ...item, status: 'completed', query: data.query ?? item.query }
+                      : item,
+                  ),
+            );
           }
           break;
         case 'done':
@@ -153,7 +148,6 @@ export default function TextChatPage() {
             finalizeAssistant(data.text, data.citations);
           }
           setIsStreaming(false);
-          updateTrace('answer', (s) => ({ ...s, state: 'done' }));
           break;
         case 'error':
           setError(typeof data?.message === 'string' ? data.message : '予期しないエラーが発生しました');
@@ -163,7 +157,7 @@ export default function TextChatPage() {
           break;
       }
     },
-    [appendAssistantDelta, finalizeAssistant, updateTrace],
+    [appendAssistantDelta, finalizeAssistant],
   );
 
   const parseSseChunk = useCallback(
@@ -283,7 +277,7 @@ export default function TextChatPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-[1.75fr_1fr]">
+        <div className="space-y-4">
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <p className="text-sm text-muted-foreground">{headerSub}</p>
@@ -330,7 +324,7 @@ export default function TextChatPage() {
                 {isStreaming && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                    回答を生成しています...
+                    考え中です...
                   </div>
                 )}
               </div>
@@ -373,58 +367,58 @@ export default function TextChatPage() {
                   {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
 
-          <div className="space-y-4">
-            <Card className="shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Search className="h-4 w-4" />
-                  進行ログ
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {traceSteps.map((step) => (
-                  <div
-                    key={step.id}
-                    className={cn(
-                      'flex items-center justify-between rounded-xl border px-3 py-2 text-sm',
-                      step.state === 'done' && 'border-border/60 bg-muted/40',
-                      step.state === 'active' && 'border-primary/40 bg-primary/5',
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDetails((v) => !v)}
+                  className="flex items-center gap-2 text-muted-foreground px-0"
+                >
+                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  推論過程を表示
+                </Button>
+                {showDetails && (
+                  <div className="mt-3 space-y-3 rounded-xl border border-border/60 bg-muted/30 p-3 text-sm">
+                    {searchLog.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                          <Search className="h-4 w-4" />
+                          Web検索ログ
+                        </div>
+                        <div className="space-y-1">
+                          {searchLog.map((log) => (
+                            <div
+                              key={log.id}
+                              className="flex items-center justify-between rounded-lg bg-background/70 px-3 py-2 border border-border/50"
+                            >
+                              <span className="truncate">{log.query || '検索キーワード取得中'}</span>
+                              <Badge variant="outline" className="text-[11px]">
+                                {log.status === 'searching' ? '検索中' : '完了'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  >
-                    <div className="flex items-center gap-2">
-                      {step.id === 'search' ? (
-                        <Search className="h-4 w-4 text-muted-foreground" />
-                      ) : step.id === 'reason' ? (
-                        <Brain className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Sparkles className="h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span className="font-medium">{step.label}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[11px]">
-                      {step.state === 'pending'
-                        ? '待機中'
-                        : step.state === 'active'
-                          ? '進行中'
-                          : '完了'}
-                    </Badge>
-                  </div>
-                ))}
-                {reasoning && (
-                  <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-3 text-sm leading-relaxed">
-                    <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-                      <Brain className="h-4 w-4" />
-                      推論メモ
-                    </div>
-                    <p className="whitespace-pre-wrap">{reasoning.trim()}</p>
+                    {reasoning && (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                          <Brain className="h-4 w-4" />
+                          推論メモ
+                        </div>
+                        <p className="whitespace-pre-wrap leading-relaxed">{reasoning.trim()}</p>
+                      </div>
+                    )}
+                    {!reasoning && searchLog.length === 0 && (
+                      <p className="text-xs text-muted-foreground">推論過程はまだありません。</p>
+                    )}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
