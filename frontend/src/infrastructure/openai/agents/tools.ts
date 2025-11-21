@@ -35,6 +35,10 @@ const extractTextFromContent = (content: unknown[]): string | null => {
       fragments.push(part.text);
     } else if (part.type === 'output_audio' && typeof part.transcript === 'string') {
       fragments.push(part.transcript);
+    } else if (part.type === 'input_audio_transcription' && typeof part.transcript === 'string') {
+      fragments.push(part.transcript);
+    } else if (part.type === 'output_audio_transcript' && typeof part.transcript === 'string') {
+      fragments.push(part.transcript);
     } else if (part.type === 'input_text' && typeof part.text === 'string') {
       fragments.push(part.text);
     }
@@ -72,9 +76,17 @@ function buildConversationLog(history: unknown[]): string | null {
   if (lines.length === 0) {
     return null;
   }
-  const transcript = lines.join('\n');
-  // Prevent runaway payloads; keep roughly last ~6000 chars.
-  return transcript.length > 8000 ? transcript.slice(-8000) : transcript;
+  // Keep full transcript; downstream agent (GPT-5) can handle long context.
+  return lines.join('\n');
+}
+
+function buildTranscriptLogString(ctx: AgentRuntimeContext): string | null {
+  const log = ctx.session.transcriptLog;
+  if (!log || log.length === 0) return null;
+  const lines = log
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map((entry) => `${entry.role}: ${entry.text}`);
+  return lines.length ? lines.join('\n') : null;
 }
 
 const shopListingSchema = z.object({
@@ -220,9 +232,9 @@ export const completeGiftIntakeTool = tool({
   async execute(input, runContext): Promise<string> {
     const ctx = getRuntimeContext(runContext as RuntimeRunContext);
     const giftSession = ctx.session.gift;
-    const conversationLog = buildConversationLog(
-      (runContext as RuntimeRunContext | undefined)?.history ?? [],
-    );
+    const conversationLog =
+      buildTranscriptLogString(ctx) ??
+      buildConversationLog((runContext as RuntimeRunContext | undefined)?.history ?? []);
 
     if (!giftSession?.giftId || !giftSession?.sessionId) {
       throw new Error('Gift session metadata is not configured.');
@@ -629,7 +641,9 @@ export const recommendSakeTool = tool({
           : true;
     const focus =
       toCleanString(input.focus) ?? toCleanString(metadata?.focus);
+    const transcriptLog = buildTranscriptLogString(ctx);
     const conversationContext =
+      transcriptLog ??
       conversationLog ??
       toCleanString(input.conversation_context) ??
       toCleanString(metadata?.conversation_context);
@@ -708,8 +722,8 @@ export const recommendSakeTool = tool({
       if (conversationContext) {
         metadataPayload.conversation_context = conversationContext;
       }
-      if (conversationLog) {
-        metadataPayload.conversation_log = conversationLog;
+      if (transcriptLog || conversationLog) {
+        metadataPayload.conversation_log = transcriptLog ?? conversationLog;
       }
       if (currentSakePayload) {
         metadataPayload.current_sake = currentSakePayload;
@@ -733,6 +747,9 @@ export const recommendSakeTool = tool({
       }
       if (conversationContext) {
         requestBody.conversation_context = conversationContext;
+      }
+      if (transcriptLog || conversationLog) {
+        requestBody.conversation_log = transcriptLog ?? conversationLog;
       }
       if (preferenceNote) {
         requestBody.preference_note = preferenceNote;

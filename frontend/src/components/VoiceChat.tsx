@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Mic,
@@ -147,6 +148,21 @@ export default function VoiceChat({
   const preferencesRef = useRef(preferences);
   const assistantMessageIdsRef = useRef<Set<string>>(new Set());
   const assistantMessageOrderRef = useRef<string[]>([]);
+  const pushTranscript = useCallback((role: 'user' | 'assistant', text: string, mode: 'text' | 'voice' = 'text') => {
+    const session = sessionRef.current;
+    if (!session) return;
+    const ctx = session.context.context as AgentRuntimeContext | undefined;
+    if (!ctx) return;
+    if (!ctx.session.transcriptLog) {
+      ctx.session.transcriptLog = [];
+    }
+    ctx.session.transcriptLog.push({
+      role,
+      text,
+      mode,
+      timestamp: Date.now(),
+    });
+  }, []);
   const isCompact = variant === 'compact';
   const isRecordingRef = useRef(isRecording);
   const autoMutedRef = useRef(false);
@@ -440,6 +456,7 @@ export default function VoiceChat({
         const text = (event as { text?: unknown }).text;
         if (typeof text === 'string') {
           upsertAiMessage(itemId, text);
+          pushTranscript('assistant', text, 'text');
         }
         return;
       }
@@ -463,7 +480,15 @@ export default function VoiceChat({
         const transcript = (event as { transcript?: unknown }).transcript;
         if (typeof transcript === 'string') {
           upsertAiMessage(itemId, transcript);
+          pushTranscript('assistant', transcript, 'voice');
           scheduleAvatarMouthClose(320);
+        }
+        return;
+      }
+      if (type === 'conversation.item.input_audio_transcription.done') {
+        const transcript = (event as { transcript?: unknown }).transcript;
+        if (typeof transcript === 'string') {
+          pushTranscript('user', transcript, 'voice');
         }
         return;
       }
@@ -598,6 +623,7 @@ export default function VoiceChat({
     openAvatarMouth,
     scheduleAvatarMouthClose,
     handleTextWorkerProgress,
+    pushTranscript,
   ]);
 
   const connectToSession = useCallback(
@@ -735,6 +761,7 @@ export default function VoiceChat({
         role: 'user',
         content: [{ type: 'input_text', text: trimmed }],
       });
+      pushTranscript('user', trimmed, 'text');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'テキスト送信に失敗しました';
@@ -883,6 +910,7 @@ export default function VoiceChat({
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
           >
+            <div className="flex items-center gap-3 sm:gap-4">
               <Button
                 onClick={handleStartConversation}
                 disabled={isLoading}
@@ -894,20 +922,33 @@ export default function VoiceChat({
                   'hover:scale-105 active:scale-100',
                   'transition-all duration-300',
                   'border-4 border-primary-200/20',
-                'disabled:opacity-70',
-              )}
-            >
-              <motion.div
-                animate={isLoading ? { rotate: 360 } : {}}
-                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
-                ) : (
-                  <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+                  'disabled:opacity-70',
                 )}
-              </motion.div>
-            </Button>
+              >
+                <motion.div
+                  animate={isLoading ? { rotate: 360 } : {}}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+                  ) : (
+                    <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+                  )}
+                </motion.div>
+              </Button>
+
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="h-12 sm:h-14 rounded-full px-5 sm:px-6 border-border/60 bg-background/80 shadow-md hover:-translate-y-0.5 transition-all"
+              >
+                <Link href="/text-chat" className="flex items-center">
+                  <MessageSquare className="h-5 w-5 mr-2" />
+                  テキスト相談
+                </Link>
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground text-center max-w-sm">
               会話を開始すると字幕の下にテキスト入力欄が表示され、補足を送信できます。
             </p>

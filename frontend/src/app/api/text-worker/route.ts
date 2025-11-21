@@ -173,6 +173,7 @@ const handoffRequestMetadataSchema = z
     budget_max: z.number().optional(),
     recipient_name: z.string().nullable().optional(),
     occasion: z.string().nullable().optional(),
+    conversation_log: z.string().nullable().optional(),
   })
   .catchall(z.unknown())
   .nullable()
@@ -181,6 +182,7 @@ const handoffRequestMetadataSchema = z
 const handoffRequestSchema = z.object({
   handoff_summary: z.string().nullable().optional(),
   additional_context: z.string().nullable().optional(),
+  conversation_log: z.string().nullable().optional(),
   metadata: handoffRequestMetadataSchema,
   trace_group_id: z.string().nullable().optional(),
   run_id: z.string().nullable().optional(),
@@ -711,11 +713,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
     (section) => section && section.trim().length > 0,
   );
   if (conversationLogRaw) {
-    const clippedLog =
-      conversationLogRaw.length > 8000
-        ? conversationLogRaw.slice(conversationLogRaw.length - 8000)
-        : conversationLogRaw;
-    guidanceSections.push(`会話ログ（全文・直近）:\n${clippedLog}`);
+    guidanceSections.push(`会話ログ（全文）:\n${conversationLogRaw}`);
   }
 
   const guidanceBlock =

@@ -166,11 +166,7 @@ function buildGuidance({
         (preferences as { __conversation_log?: unknown })?.__conversation_log,
     ) ?? null;
   if (conversationLog) {
-    const clipped =
-      conversationLog.length > 8000
-        ? `${conversationLog.slice(conversationLog.length - 8000)}`
-        : conversationLog;
-    sections.push(`会話ログ:\n${clipped}`);
+    sections.push(`会話ログ:\n${conversationLog}`);
   }
   if (additionalNotes) {
     sections.push(`その他の注意点:\n${additionalNotes}`);

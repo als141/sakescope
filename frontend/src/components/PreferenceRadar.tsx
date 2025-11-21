@@ -11,8 +11,6 @@ interface PreferenceRadarProps {
   title?: string;
 }
 
-const toRadian = (degree: number) => (degree * Math.PI) / 180;
-
 function clampLevel(level: number) {
   if (Number.isNaN(level)) return 1;
   return Math.max(1, Math.min(5, Math.round(level)));

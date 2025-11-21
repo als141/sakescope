@@ -19,14 +19,13 @@ type LineMessage =
 type Supabase = SupabaseClient<any, any, any>;
 
 type GiftContext = {
-  giftId: string;
+  giftId?: string;
   origin: string;
   occasion?: string | null;
   recipientName?: string | null;
 };
 
 function createGiftStartedFlexMessage({
-  giftId,
   origin,
   occasion,
   recipientName,
@@ -137,7 +136,7 @@ function createGiftReadyFlexMessage({
   origin,
   occasion,
   recipientName,
-}: GiftContext): FlexMessage {
+}: GiftContext & { giftId: string }): FlexMessage {
   const url = `${origin.replace(/\/$/, '')}/gift/result/${giftId}`;
 
   return {
@@ -308,7 +307,9 @@ export async function notifyGiftLinkOpened(options: GiftContext & { supabase: Su
   return pushLineMessagesForUser({ supabase, userId, messages: [message] });
 }
 
-export async function notifyGiftRecommendationReady(options: GiftContext & { supabase: Supabase; userId: string }) {
+export async function notifyGiftRecommendationReady(
+  options: GiftContext & { giftId: string; supabase: Supabase; userId: string },
+) {
   const { supabase, userId, ...context } = options;
   const message = createGiftReadyFlexMessage(context);
   return pushLineMessagesForUser({ supabase, userId, messages: [message] });

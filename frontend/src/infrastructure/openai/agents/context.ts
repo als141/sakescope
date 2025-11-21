@@ -40,6 +40,12 @@ export interface AgentRuntimeSessionState {
     sessionId: string;
     status?: 'collecting' | 'handed_off';
   };
+  transcriptLog?: Array<{
+    role: 'user' | 'assistant';
+    text: string;
+    timestamp: number;
+    mode?: 'text' | 'voice';
+  }>;
 }
 
 export interface AgentRuntimeContext {

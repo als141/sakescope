@@ -28,6 +28,7 @@ const runtimeContext: AgentRuntimeContext = {
       userPreferences: undefined,
       lastQuery: undefined,
       traceGroupId,
+      transcriptLog: [],
     },
   };
 
