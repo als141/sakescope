@@ -12,6 +12,7 @@ import type {
   AgentRuntimeContext,
   AgentUserPreferences,
 } from './context';
+import type { PreferenceMap } from '@/types/preferences';
 
 type RuntimeRunContext = RunContext<{
   history: unknown[];
@@ -23,6 +24,57 @@ function getRuntimeContext(runContext?: RuntimeRunContext): AgentRuntimeContext 
     throw new Error('Runtime context is not available for the agent tool.');
   }
   return ctx;
+}
+
+const extractTextFromContent = (content: unknown[]): string | null => {
+  const fragments: string[] = [];
+  for (const piece of content) {
+    if (!piece || typeof piece !== 'object') continue;
+    const part = piece as Record<string, unknown>;
+    if (part.type === 'output_text' && typeof part.text === 'string') {
+      fragments.push(part.text);
+    } else if (part.type === 'output_audio' && typeof part.transcript === 'string') {
+      fragments.push(part.transcript);
+    } else if (part.type === 'input_text' && typeof part.text === 'string') {
+      fragments.push(part.text);
+    }
+  }
+  if (fragments.length === 0) {
+    return null;
+  }
+  return fragments.join('\n').trim();
+};
+
+function buildConversationLog(history: unknown[]): string | null {
+  if (!Array.isArray(history) || history.length === 0) {
+    return null;
+  }
+  const lines: string[] = [];
+  history.forEach((item) => {
+    if (!item || typeof item !== 'object') {
+      return;
+    }
+    const record = item as Record<string, unknown>;
+    if (record.type !== 'message') {
+      return;
+    }
+    const role = typeof record.role === 'string' ? record.role : null;
+    if (!role) {
+      return;
+    }
+    const rawContent = Array.isArray(record.content) ? record.content : [];
+    const parsed = extractTextFromContent(rawContent);
+    if (!parsed) {
+      return;
+    }
+    lines.push(`${role}: ${parsed}`);
+  });
+  if (lines.length === 0) {
+    return null;
+  }
+  const transcript = lines.join('\n');
+  // Prevent runaway payloads; keep roughly last ~6000 chars.
+  return transcript.length > 8000 ? transcript.slice(-8000) : transcript;
 }
 
 const shopListingSchema = z.object({
@@ -45,6 +97,23 @@ const flavorProfileSchema = z
     fruitiness: z.number().nullable(),
   })
   .nullable();
+
+const preferenceAxisSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  level: z.number().min(1).max(5),
+  evidence: z.string().nullable().optional(),
+});
+
+const preferenceMapSchema = z
+  .object({
+    title: z.string().nullable().optional(),
+    axes: z.array(preferenceAxisSchema).min(3).max(6),
+    summary: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .nullable()
+  .optional();
 
 const sakePayloadSchema = z.object({
   id: z.string().nullable(),
@@ -103,6 +172,7 @@ const recommendationPayloadSchema = z.object({
   tasting_highlights: z.array(z.string()).nullable(),
   serving_suggestions: z.array(z.string()).nullable(),
   shops: z.array(shopListingSchema).min(1),
+  preference_map: preferenceMapSchema,
 });
 
 const alternativeSuggestionSchema = z.object({
@@ -130,6 +200,7 @@ const giftIntakeSummarySchema = z
     drinking_frequency: z.string().nullable().optional(),
     region_preference: z.array(z.string()).nullable().optional(),
     notes: z.string().nullable().optional(),
+    preference_map: preferenceMapSchema,
   })
   .nullable()
   .optional();
@@ -149,6 +220,9 @@ export const completeGiftIntakeTool = tool({
   async execute(input, runContext): Promise<string> {
     const ctx = getRuntimeContext(runContext as RuntimeRunContext);
     const giftSession = ctx.session.gift;
+    const conversationLog = buildConversationLog(
+      (runContext as RuntimeRunContext | undefined)?.history ?? [],
+    );
 
     if (!giftSession?.giftId || !giftSession?.sessionId) {
       throw new Error('Gift session metadata is not configured.');
@@ -158,6 +232,7 @@ export const completeGiftIntakeTool = tool({
       sessionId: giftSession.sessionId,
       intakeSummary: input.intake ?? null,
       handoffSummary: input.summary,
+      conversationLog: conversationLog ?? null,
     };
 
     if (input.additional_notes) {
@@ -246,12 +321,16 @@ async function handleRecommendationSubmission(
           notes: alt.notes ?? undefined,
         }))
       : undefined,
+    preferenceMap: parsed.preference_map ?? undefined,
   };
 
   ctx.session.currentSake = offer.sake;
   ctx.callbacks.onSakeProfile?.(offer.sake);
   ctx.callbacks.onShopsUpdated?.(shops);
   ctx.callbacks.onOfferReady?.(offer);
+  if (parsed.preference_map) {
+    ctx.callbacks.onPreferenceMap?.(parsed.preference_map as PreferenceMap);
+  }
 
   return {
     status: 'submitted',
@@ -517,6 +596,9 @@ export const recommendSakeTool = tool({
   strict: true,
   async execute(input, runContext): Promise<string> {
     const ctx = getRuntimeContext(runContext as RuntimeRunContext);
+    const conversationLog = buildConversationLog(
+      (runContext as RuntimeRunContext | undefined)?.history ?? [],
+    );
 
     const emitProgress = (
       event: Omit<TextWorkerProgressEvent, 'timestamp'> & { timestamp?: string },
@@ -548,6 +630,7 @@ export const recommendSakeTool = tool({
     const focus =
       toCleanString(input.focus) ?? toCleanString(metadata?.focus);
     const conversationContext =
+      conversationLog ??
       toCleanString(input.conversation_context) ??
       toCleanString(metadata?.conversation_context);
     const notes = toCleanString(metadata?.notes);
@@ -624,6 +707,9 @@ export const recommendSakeTool = tool({
       }
       if (conversationContext) {
         metadataPayload.conversation_context = conversationContext;
+      }
+      if (conversationLog) {
+        metadataPayload.conversation_log = conversationLog;
       }
       if (currentSakePayload) {
         metadataPayload.current_sake = currentSakePayload;

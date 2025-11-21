@@ -1,4 +1,5 @@
 import type { PurchaseOffer } from '@/domain/sake/types';
+import type { PreferenceMap } from './preferences';
 
 export type GiftStatus =
   | 'DRAFT'
@@ -97,6 +98,10 @@ export interface IntakeSummary {
   drinking_frequency?: string;
   region_preference?: string[];
   notes?: string;
+  /**
+   * Flexible taste map assembled by the text agent.
+   */
+  preference_map?: PreferenceMap | null;
 }
 
 export interface GiftDashboardItem {

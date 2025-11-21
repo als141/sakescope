@@ -224,6 +224,7 @@ export default function Home() {
                 setRecommendedSake(null);
                 setPurchaseOffer(null);
               }}
+              showPreferenceMap
             />
           )}
         </AnimatePresence>

@@ -20,6 +20,8 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import CreateGiftModal from '@/components/CreateGiftModal';
 import type { GiftStatus, IntakeSummary, GiftDashboardItem } from '@/types/gift';
+import { PreferenceRadar } from '@/components/PreferenceRadar';
+import { summarizeIntake } from '@/lib/giftIntake';
 
 const currencyFormatter = new Intl.NumberFormat('ja-JP');
 const dateTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
@@ -74,32 +76,7 @@ function formatDateTime(value: string | null | undefined) {
   }
 }
 
-function buildIntakeSummary(summary: IntakeSummary | null) {
-  if (!summary) return [];
-  const lines: string[] = [];
-  if (summary.sweetness_dryness) {
-    lines.push(`味わい: ${summary.sweetness_dryness}`);
-  }
-  if (summary.aroma?.length) {
-    lines.push(`香り: ${summary.aroma.join(' / ')}`);
-  }
-  if (summary.temperature_preference?.length) {
-    lines.push(`温度: ${summary.temperature_preference.join(' / ')}`);
-  }
-  if (summary.food_pairing?.length) {
-    lines.push(`料理: ${summary.food_pairing.join(' / ')}`);
-  }
-  if (summary.drinking_frequency) {
-    lines.push(`頻度: ${summary.drinking_frequency}`);
-  }
-  if (summary.region_preference?.length) {
-    lines.push(`地域: ${summary.region_preference.join(' / ')}`);
-  }
-  if (summary.notes) {
-    lines.push(summary.notes);
-  }
-  return lines;
-}
+const buildIntakeSummary = (summary: IntakeSummary | null) => summarizeIntake(summary);
 
 const progressMessages: Partial<Record<GiftStatus, string>> = {
   LINK_CREATED: 'まだリンクは開封されていません。贈る相手にシェアしましょう。',
@@ -349,6 +326,21 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             </p>
                           </div>
                         )}
+                        {gift.intakeSummary?.preference_map?.axes?.length ? (
+                          <div className="rounded-2xl border border-border/50 bg-muted/15 p-3 sm:p-4">
+                            <PreferenceRadar
+                              axes={gift.intakeSummary.preference_map.axes}
+                              size={220}
+                              className="text-primary"
+                              title="嗜好マップ"
+                            />
+                            {gift.intakeSummary.preference_map.summary && (
+                              <p className="mt-2 text-xs text-muted-foreground leading-relaxed text-center">
+                                {gift.intakeSummary.preference_map.summary}
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                           <div className="flex flex-wrap gap-2 text-[11px] sm:text-xs text-muted-foreground">
                             <Badge variant="outline" className="whitespace-nowrap">
                               予算 {formatBudget(gift.budgetMin, gift.budgetMax)}

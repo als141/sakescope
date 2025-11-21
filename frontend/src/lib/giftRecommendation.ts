@@ -4,6 +4,7 @@ import type {
   Sake,
   ShopListing,
 } from '@/domain/sake/types';
+import type { PreferenceMap, PreferenceAxis } from '@/types/preferences';
 
 function toOptionalStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
@@ -127,6 +128,59 @@ function mapAlternativeSuggestion(record: Record<string, unknown>): AlternativeR
   };
 }
 
+const mapPreferenceMap = (value: unknown): PreferenceMap | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const axesRaw = record.axes;
+  if (!Array.isArray(axesRaw)) {
+    return null;
+  }
+  const axes: PreferenceAxis[] = axesRaw
+    .map((axis) => {
+      if (!axis || typeof axis !== 'object') {
+        return null;
+      }
+      const payload = axis as Record<string, unknown>;
+      const label = typeof payload.label === 'string' ? payload.label.trim() : null;
+      const level = typeof payload.level === 'number' ? payload.level : null;
+      if (!label || level == null || Number.isNaN(level)) {
+        return null;
+      }
+      const key =
+        typeof payload.key === 'string' && payload.key.trim()
+          ? payload.key.trim()
+          : label;
+      const evidence =
+        typeof payload.evidence === 'string' && payload.evidence.trim()
+          ? payload.evidence.trim()
+          : null;
+      return {
+        key,
+        label,
+        level: Math.max(1, Math.min(5, Math.round(level))),
+        evidence,
+      };
+    })
+    .filter((axis): axis is PreferenceAxis => Boolean(axis));
+
+  if (axes.length < 3) {
+    return null;
+  }
+
+  const title = typeof record.title === 'string' ? record.title.trim() : null;
+  const summary = typeof record.summary === 'string' ? record.summary.trim() : null;
+  const notes = typeof record.notes === 'string' ? record.notes.trim() : null;
+
+  return {
+    title,
+    axes,
+    summary,
+    notes,
+  };
+};
+
 export function mapGiftRecommendationPayload(
   payload: unknown,
   updatedAt?: string,
@@ -171,6 +225,13 @@ export function mapGiftRecommendationPayload(
 
   if (typeof record.follow_up_prompt === 'string' && record.follow_up_prompt.trim()) {
     offer.followUpPrompt = record.follow_up_prompt.trim();
+  }
+
+  if (record.preference_map) {
+    const prefMap = mapPreferenceMap(record.preference_map);
+    if (prefMap) {
+      offer.preferenceMap = prefMap;
+    }
   }
 
   return offer;

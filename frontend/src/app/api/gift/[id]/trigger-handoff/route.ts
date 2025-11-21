@@ -9,6 +9,7 @@ const handoffSchema = z.object({
   intakeSummary: z.record(z.unknown()).nullable().optional(),
   handoffSummary: z.string().min(1, 'handoffSummary must not be empty').optional(),
   additionalNotes: z.string().nullable().optional(),
+  conversationLog: z.string().nullable().optional(),
 });
 
 export async function POST(
@@ -23,6 +24,7 @@ export async function POST(
       intakeSummary,
       handoffSummary,
       additionalNotes,
+      conversationLog,
     } = handoffSchema.parse(body);
 
     const supabase = createServerSupabaseClient();
@@ -52,6 +54,9 @@ export async function POST(
     }
     if (additionalNotes) {
       normalizedIntake.__additional_notes = additionalNotes;
+    }
+    if (conversationLog) {
+      normalizedIntake.__conversation_log = conversationLog;
     }
 
     const completedAt = new Date().toISOString();
@@ -108,6 +113,7 @@ export async function POST(
       occasion: gift.occasion,
       additional_notes: additionalNotes ?? null,
       preferences: normalizedIntake,
+      conversation_log: conversationLog ?? null,
     };
 
     if (handoffSummary) {

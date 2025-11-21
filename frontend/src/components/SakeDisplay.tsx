@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles, Search } from 'lucide-react';
+import { MapPin, Thermometer, Wine, DollarSign, Utensils, ShoppingBag, ExternalLink, Sparkles, Search, Heart } from 'lucide-react';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -16,14 +16,19 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
+import { PreferenceRadar } from '@/components/PreferenceRadar';
 
 interface SakeDisplayProps {
   sake: Sake;
   offer: PurchaseOffer | null;
   onReset: () => void;
+  /**
+   * Show preference radar/section (disable in gift-mode pages that already render it elsewhere).
+   */
+  showPreferenceMap?: boolean;
 }
 
-export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) {
+export default function SakeDisplay({ sake, offer, onReset, showPreferenceMap = true }: SakeDisplayProps) {
   const [imageError, setImageError] = useState(false);
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
   const purchaseShops = offer?.shops ?? [];
@@ -31,6 +36,7 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
   const tastingNotes = sake.tastingNotes ?? [];
   const servingTemperatures = sake.servingTemperature ?? [];
   const foodPairing = sake.foodPairing ?? [];
+  const preferenceMap = showPreferenceMap ? offer?.preferenceMap ?? null : null;
   const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(sake.name)}`;
 
   return (
@@ -239,6 +245,37 @@ export default function SakeDisplay({ sake, offer, onReset }: SakeDisplayProps) 
           <CardContent className="p-6 sm:p-8 pt-4 sm:pt-6 space-y-4">
             {/* Accordion for detailed information */}
             <Accordion type="multiple" className="w-full">
+              {preferenceMap?.axes?.length ? (
+                <AccordionItem value="preferences">
+                  <AccordionTrigger className="text-base sm:text-lg font-semibold hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-5 w-5 text-primary" />
+                      <span>あなたの好み</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pt-2 space-y-3 flex flex-col items-center">
+                      <PreferenceRadar
+                        axes={preferenceMap.axes}
+                        size={260}
+                        className="text-primary"
+                        title={preferenceMap.title ?? '嗜好マップ'}
+                      />
+                      {preferenceMap.summary && (
+                        <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                          {preferenceMap.summary}
+                        </p>
+                      )}
+                      {preferenceMap.notes && (
+                        <p className="text-xs text-muted-foreground text-center leading-relaxed">
+                          {preferenceMap.notes}
+                        </p>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ) : null}
+
               {/* Flavor Profile Accordion */}
               {(flavorProfile || tastingNotes.length > 0) && (
                 <AccordionItem value="flavor">

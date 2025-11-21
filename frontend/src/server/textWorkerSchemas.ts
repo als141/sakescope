@@ -8,6 +8,22 @@ const absoluteImageUrlSchema = z
     'Direct image URL (e.g., https://example.com/image.jpg) - must be an actual image file, not a product page',
   );
 
+const preferenceAxisSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  level: z.number().min(1).max(5),
+  evidence: z.string().nullable().optional(),
+});
+
+const preferenceMapSchema = z
+  .object({
+    title: z.string().nullable().optional(),
+    axes: z.array(preferenceAxisSchema).min(3).max(6),
+    summary: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .nullable();
+
 export const shopSchema = z.object({
   retailer: z.string(),
   url: z.string().min(1, '商品リンクのURLを指定してください'),
@@ -74,6 +90,7 @@ export const recommendationSchemaInput = z.object({
   tasting_highlights: z.array(z.string()).nullable(),
   serving_suggestions: z.array(z.string()).nullable(),
   shops: z.array(shopSchema).min(1),
+  preference_map: preferenceMapSchema,
 });
 
 export const recommendationSchemaOutput = z.object({
@@ -83,6 +100,7 @@ export const recommendationSchemaOutput = z.object({
   tasting_highlights: z.array(z.string()).nullable(),
   serving_suggestions: z.array(z.string()).nullable(),
   shops: z.array(shopSchema).min(1),
+  preference_map: preferenceMapSchema,
 });
 
 export const alternativeSuggestionSchema = z.object({
@@ -140,8 +158,36 @@ export const finalPayloadJsonSchema = {
       items: { $ref: '#/$defs/alternative' },
     },
     follow_up_prompt: { type: ['string', 'null'] },
+    preference_map: { $ref: '#/$defs/preference_map' },
   },
   $defs: {
+    preference_axis: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['key', 'label', 'level'],
+      properties: {
+        key: { type: 'string' },
+        label: { type: 'string' },
+        level: { type: 'number', minimum: 1, maximum: 5 },
+        evidence: { type: ['string', 'null'] },
+      },
+    },
+    preference_map: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      properties: {
+        title: { type: ['string', 'null'] },
+        axes: {
+          type: 'array',
+          minItems: 3,
+          maxItems: 6,
+          items: { $ref: '#/$defs/preference_axis' },
+        },
+        summary: { type: ['string', 'null'] },
+        notes: { type: ['string', 'null'] },
+      },
+      required: ['axes'],
+    },
     flavor_profile: {
       type: ['object', 'null'],
       additionalProperties: false,

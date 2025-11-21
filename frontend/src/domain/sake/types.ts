@@ -73,6 +73,8 @@ export interface AlternativeRecommendation {
   notes?: string;
 }
 
+import type { PreferenceMap } from '@/types/preferences';
+
 export interface PurchaseOffer {
   sake: Sake;
   summary: string;
@@ -84,4 +86,5 @@ export interface PurchaseOffer {
   updatedAt: string;
   alternatives?: AlternativeRecommendation[];
   followUpPrompt?: string;
+  preferenceMap?: PreferenceMap | null;
 }

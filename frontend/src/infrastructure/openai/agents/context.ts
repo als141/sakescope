@@ -18,6 +18,7 @@ export interface AgentOrchestrationCallbacks {
     summary: string;
     intakeSummary: IntakeSummary | null;
   }) => void;
+  onPreferenceMap?: (map: import('@/types/preferences').PreferenceMap) => void;
 }
 
 export interface AgentUserPreferences {

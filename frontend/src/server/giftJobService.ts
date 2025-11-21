@@ -82,6 +82,12 @@ const baseInstructions = `あなたは日本酒リサーチ専任のテキスト
 - 画像URLは信頼できる商品画像を優先。見つからない場合は最も信頼度の高い商品ページURLを一時的に指定する。
 - reasoningやメモは要点を簡潔にまとめ、冗長な記述は避ける。
 
+### preference_map の作り方（必須）
+- 軸は3〜6本。味・香り・ボディ・酸味・キレ・温度帯・ペアリング適性・希少性/人気度（ユーザーが言及した場合のみ）など **具体的な嗜好軸** を選ぶ。
+- 「全体的な印象」「その他」のような抽象軸や重複軸は禁止。
+- level は1〜5の整数（1=好まない/弱い、3=中庸、5=強く好む/強い）に丸め、evidenceに会話ログからの根拠を1行で書く。
+- summary には軸を1行で要約する（例:「華やか・甘口・冷酒派」）。
+
 ### 手順
 1. 必要に応じて \`web_search\` を呼び出し、候補となる日本酒・販売ページ・価格・在庫情報を取得する。ギフトモードではギフト包装可否も確認する。
 2. 検索結果から条件に最も合う銘柄を評価し、香味・造り・ペアリング・提供温度・価格帯を整理する。
@@ -153,6 +159,18 @@ function buildGuidance({
     if (text) {
       sections.push(`嗜好メモ:\n${text}`);
     }
+  }
+  const conversationLog =
+    describeValue(
+      (metadata as { conversation_log?: unknown })?.conversation_log ??
+        (preferences as { __conversation_log?: unknown })?.__conversation_log,
+    ) ?? null;
+  if (conversationLog) {
+    const clipped =
+      conversationLog.length > 8000
+        ? `${conversationLog.slice(conversationLog.length - 8000)}`
+        : conversationLog;
+    sections.push(`会話ログ:\n${clipped}`);
   }
   if (additionalNotes) {
     sections.push(`その他の注意点:\n${additionalNotes}`);

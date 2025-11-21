@@ -15,6 +15,7 @@ import type { Gift as GiftType } from '@/types/gift';
 import SakeDisplay from '@/components/SakeDisplay';
 import type { PurchaseOffer } from '@/domain/sake/types';
 import { mapGiftRecommendationPayload } from '@/lib/giftRecommendation';
+import { PreferenceRadar } from '@/components/PreferenceRadar';
 
 const formatBudgetRange = (gift: GiftType) =>
   `¥${gift.budget_min.toLocaleString()} - ¥${gift.budget_max.toLocaleString()}`;
@@ -299,7 +300,25 @@ export default function GiftResultPage() {
             </div>
           </motion.div>
 
-          <SakeDisplay sake={offer.sake} offer={offer} onReset={() => {}} />
+          {offer.preferenceMap?.axes?.length ? (
+            <Card className="rounded-2xl sm:rounded-3xl border border-border/60">
+              <CardHeader className="pb-2 sm:pb-3">
+                <CardTitle className="text-lg sm:text-xl font-semibold">嗜好マップ</CardTitle>
+                {offer.preferenceMap.summary && (
+                  <CardDescription>{offer.preferenceMap.summary}</CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                <PreferenceRadar
+                  axes={offer.preferenceMap.axes}
+                  size={260}
+                  className="text-primary"
+                />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <SakeDisplay sake={offer.sake} offer={offer} onReset={() => {}} showPreferenceMap={false} />
         </div>
       </div>
     );

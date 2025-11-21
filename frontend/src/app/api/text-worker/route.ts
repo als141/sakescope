@@ -125,6 +125,31 @@ const validateRecommendationPayload = (
       }
     });
   }
+
+  if (payload.preference_map) {
+    if (
+      !Array.isArray(payload.preference_map.axes) ||
+      payload.preference_map.axes.length < 3 ||
+      payload.preference_map.axes.length > 6
+    ) {
+      throw new InvalidRecommendationPayloadError(
+        'preference_map.axes は 3〜6 件の配列で指定してください',
+      );
+    }
+    payload.preference_map.axes.forEach((axis, index) => {
+      assertMeaningfulText(axis.label, `preference_map.axes[${index}].label`);
+      if (
+        typeof axis.level !== 'number' ||
+        Number.isNaN(axis.level) ||
+        axis.level < 1 ||
+        axis.level > 5
+      ) {
+        throw new InvalidRecommendationPayloadError(
+          `preference_map.axes[${index}].level は 1〜5 の数値で指定してください`,
+        );
+      }
+    });
+  }
 };
 type HandoffMetadata = {
   include_alternatives?: boolean | null;
@@ -509,7 +534,6 @@ export async function POST(req: NextRequest) {
   );
   const additionalContext = pickText(
     parsed.additional_context,
-    parsed.conversation_context,
     metadataResult.notes,
   );
   const focusMeta = pickText(parsed.focus, metadataResult.focus);
@@ -517,6 +541,11 @@ export async function POST(req: NextRequest) {
     metadataResult.current_sake,
     parsed.current_sake,
   );
+  const conversationLogRaw =
+    typeof parsed.conversation_context === 'string' &&
+    parsed.conversation_context.trim().length > 0
+      ? parsed.conversation_context.trim()
+      : null;
   const includeAlternatives =
     typeof parsed.include_alternatives === 'boolean'
       ? parsed.include_alternatives
@@ -543,6 +572,7 @@ export async function POST(req: NextRequest) {
   delete metadataExtras.budget_max;
   delete metadataExtras.recipient_name;
   delete metadataExtras.occasion;
+  delete metadataExtras.conversation_log;
   const extrasNarrative = describeValue(metadataExtras);
 
   const openaiClient = new OpenAI({
@@ -607,11 +637,19 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 - 画像URLは販売ページや信頼できる資料に直接画像リンクがある場合のみ採用し、見つからない場合はもっとも信頼性の高い商品ページURLを一時的に \`image_url\` に入力する。サーバーが最終的に画像を抽出するため専用ツールを呼び出す必要はない。
 - reasoning やメモは要点を簡潔にまとめ、冗長な重複説明は避ける。
 
+### preference_map の作り方（必須）
+- 軸は3〜6本。味・香り・ボディ感・酸味・キレ・熟成感・温度帯・ペアリング適性・希少性/人気度（ユーザーが話した場合のみ）など **具体的な嗜好軸** にする。  
+- 「全体的な印象」「その他」といった抽象軸は禁止。意味が重複する軸も避ける。  
+- level は 1〜5 の整数に丸める（1=全く好まない/弱い、3=普通、5=強く好む/強い）。  
+- evidence に会話ログから拾った根拠を1行で書く。  
+- summary には軸を1行で要約（例: 「華やかで甘口、冷酒好き」）。
+
 ### 手順
 1. 必要に応じて \`web_search\` を呼び出し、候補となる日本酒・販売ページ・価格・在庫情報を取得する。${isGiftMode ? 'ギフト対応可能なショップを優先する。' : ''}
 2. 検索結果から条件に最も合う銘柄を評価し、香味・造り・ペアリング・提供温度・価格帯を整理する。可能なら味わいを 1〜5 のスコアで "flavor_profile" に入れる。
-3. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
-4. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する（各項目は名前・1行コメント・URL・価格メモのみ。詳細なテイスティング情報やショップリストは不要）。
+3. 会話ログから読み取れる嗜好傾向を 3〜6 軸で \`preference_map\` にまとめる。軸ラベルは会話に沿って柔軟に命名し、\`level\` は 1〜5 の整数、\`evidence\` に根拠を1行で記載する。
+4. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
+5. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する（各項目は名前・1行コメント・URL・価格メモのみ。詳細なテイスティング情報やショップリストは不要）。
 
 ### 厳守事項
 - \`finalize_recommendation\` を呼び出す時点で必要な販売先・価格・在庫情報は揃っている前提です。追加のヒアリングや確認質問を挟まず確定してください。
@@ -622,6 +660,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 - 最終的な回答は必ず一度だけ 'finalize_recommendation' を呼び出し、JSONを返す
 - 定量情報が取れない場合は null を指定し、根拠文に明記する
 - 'follow_up_prompt' は必ず null とし、追加の質問は絶対に含めない
+- \`preference_map\` を必ず含め、axes は 3〜6 本・level は 1〜5 の整数に丸めること
     `.trim(),
   });
 
@@ -671,6 +710,13 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
   const guidanceSections = [includeAltInstruction, ...contextSections].filter(
     (section) => section && section.trim().length > 0,
   );
+  if (conversationLogRaw) {
+    const clippedLog =
+      conversationLogRaw.length > 8000
+        ? conversationLogRaw.slice(conversationLogRaw.length - 8000)
+        : conversationLogRaw;
+    guidanceSections.push(`会話ログ（全文・直近）:\n${clippedLog}`);
+  }
 
   const guidanceBlock =
     guidanceSections.length > 0 ? guidanceSections.join('\n\n') : '';

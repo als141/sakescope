@@ -36,6 +36,7 @@ export default function EmbedPage() {
                 setRecommendedSake(null);
                 setPurchaseOffer(null);
               }}
+              showPreferenceMap
             />
           )}
 
