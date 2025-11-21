@@ -77,6 +77,36 @@ const parseMessages = (value: unknown): ChatMessage[] => {
 
 const encoder = new TextEncoder();
 
+const stringifyReasoning = (value: unknown): string | null => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'text' in item && typeof (item as { text: unknown }).text === 'string') {
+          return (item as { text: string }).text;
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    return joined || null;
+  }
+  if (typeof value === 'object') {
+    if ('text' in value && typeof (value as { text: unknown }).text === 'string') {
+      return (value as { text: string }).text;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 const streamResponse = async (messages: ChatMessage[]) => {
   if (!client) {
     return NextResponse.json(
@@ -92,6 +122,10 @@ const streamResponse = async (messages: ChatMessage[]) => {
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
       };
+      const sendTrace = (text: string, kind: 'tool' | 'trace' = 'trace') =>
+        send('trace', { text, kind });
+      const sendSearchStatus = (status: 'searching' | 'completed', query?: string) =>
+        send('search', { status, query });
 
       // Keep-alive to prevent timeout
       const keepAlive = setInterval(() => controller.enqueue(encoder.encode(':\n\n')), 15000);
@@ -160,9 +194,9 @@ const streamResponse = async (messages: ChatMessage[]) => {
                   try {
                     const args = JSON.parse(currentToolCall.arguments);
                     const query = args.query || args.search_query || 'Web検索';
-                    send('search', { status: 'completed', query });
+                    sendSearchStatus('completed', query);
                   } catch (e) {
-                    send('search', { status: 'completed', query: 'Web検索' });
+                    sendSearchStatus('completed', 'Web検索');
                   }
                   currentToolCall = null;
                 }
@@ -174,7 +208,8 @@ const streamResponse = async (messages: ChatMessage[]) => {
                     name: toolCall.function?.name || '',
                     arguments: toolCall.function?.arguments || ''
                   };
-                  send('search', { status: 'searching', query: 'Web検索中...' });
+                  sendSearchStatus('searching', 'Web検索中...');
+                  sendTrace(`ツール呼び出し開始: ${currentToolCall.name || 'web_search'}`, 'tool');
                 } else {
                   if (toolCall.function?.arguments) {
                     currentToolCall.arguments += toolCall.function.arguments;
@@ -191,9 +226,9 @@ const streamResponse = async (messages: ChatMessage[]) => {
                 try {
                   const args = JSON.parse(currentToolCall.arguments);
                   const query = args.query || args.search_query || 'Web検索';
-                  send('search', { status: 'completed', query });
+                  sendSearchStatus('completed', query);
                 } catch (e) {
-                  send('search', { status: 'completed', query: 'Web検索' });
+                  sendSearchStatus('completed', 'Web検索');
                 }
                 currentToolCall = null;
               }
@@ -207,7 +242,10 @@ const streamResponse = async (messages: ChatMessage[]) => {
             // @ts-ignore
             const reasoning = delta?.reasoning_content;
             if (reasoning) {
-              send('reasoning', { delta: reasoning });
+              const reasoningText = stringifyReasoning(reasoning);
+              if (reasoningText) {
+                send('reasoning', { delta: reasoningText });
+              }
             }
           }
 
@@ -217,9 +255,9 @@ const streamResponse = async (messages: ChatMessage[]) => {
             try {
               const args = JSON.parse(currentToolCall.arguments);
               const query = args.query || args.search_query || 'Web検索';
-              send('search', { status: 'completed', query });
+              sendSearchStatus('completed', query);
             } catch (e) {
-              send('search', { status: 'completed', query: 'Web検索' });
+              sendSearchStatus('completed', 'Web検索');
             }
           }
 
@@ -250,6 +288,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
                   const args = JSON.parse(tc.arguments);
                   const query = args.query;
                   console.log(`[grok-chat] Executing Web Search: ${query}`);
+                  sendTrace(`web_search 実行: ${query}`, 'tool');
 
                   searchResult = `[Web検索結果: ${query}]
                             1. 日本酒の最新トレンド2025: クラフトサケの人気が上昇中。
@@ -258,6 +297,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
 
                 } catch (e) {
                   console.error('Search execution failed', e);
+                  sendTrace('web_search の実行に失敗しました', 'tool');
                 }
 
                 currentMessages.push({
@@ -320,4 +360,3 @@ export async function POST(req: NextRequest) {
 
   return streamResponse(messages);
 }
-

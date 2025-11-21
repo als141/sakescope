@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Send, Loader2, Search, Brain, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Search, Sparkles, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,12 @@ type ChatMessage = {
   role: ChatRole;
   content: string;
   citations?: string[];
+};
+
+type TraceEntry = {
+  id: string;
+  text: string;
+  kind: 'trace' | 'reasoning' | 'tool';
 };
 
 const SYSTEM_PRIMER = `
@@ -36,16 +42,90 @@ const presetPrompts = [
 const createId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
+const toDisplayText = (input: unknown): string | null => {
+  if (input == null) return null;
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof input === 'number' || typeof input === 'boolean') {
+    return String(input);
+  }
+  if (Array.isArray(input)) {
+    const merged = input
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'text' in item && typeof (item as { text?: unknown }).text === 'string') {
+          return (item as { text: string }).text;
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+    return merged.length > 0 ? merged : null;
+  }
+  if (typeof input === 'object') {
+    if ('text' in input && typeof (input as { text?: unknown }).text === 'string') {
+      const value = (input as { text: string }).text.trim();
+      return value.length > 0 ? value : null;
+    }
+    try {
+      return JSON.stringify(input);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const renderMarkdown = (input: string): string => {
+  const escapeHtml = (str: string) =>
+    str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  let html = escapeHtml(input);
+
+  // Fenced code blocks
+  html = html.replace(/```([\s\S]*?)```/g, (_match, code) => {
+    const body = escapeHtml(code.trim());
+    return `<pre class="rounded-xl bg-muted px-3 py-2 text-sm overflow-auto"><code>${body}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, (_m, code) => `<code class="rounded bg-muted px-1 py-0.5 text-sm">${code}</code>`);
+
+  // Bold and italic
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Paragraphs / line breaks
+  const blocks = html.split(/\n{2,}/).map((block) => {
+    if (block.includes('<pre')) {
+      return block;
+    }
+    return `<p class="leading-relaxed">${block.replace(/\n/g, '<br />')}</p>`;
+  });
+
+  html = blocks.join('');
+
+  return html;
+};
+
 export default function TextChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reasoning, setReasoning] = useState('');
+  const [traceLog, setTraceLog] = useState<TraceEntry[]>([]);
   const [searchLog, setSearchLog] = useState<
     Array<{ id: string; status: 'searching' | 'completed'; query?: string }>
   >([]);
-  const [showDetails, setShowDetails] = useState(false);
+  const [isInterimOpen, setIsInterimOpen] = useState(false);
   const assistantIdRef = useRef<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -58,12 +138,30 @@ export default function TextChatPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, reasoning, searchLog, scrollToBottom]);
+  }, [messages, searchLog, traceLog, scrollToBottom]);
 
   const resetTrace = useCallback(() => {
     setSearchLog([]);
-    setReasoning('');
+    setTraceLog([]);
   }, []);
+
+  const addTraceEntry = useCallback((text: string, kind: TraceEntry['kind'] = 'trace') => {
+    const normalized = text.trim();
+    if (!normalized) return;
+    setTraceLog((prev) => [...prev, { id: createId('trace'), text: normalized, kind }]);
+  }, []);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      setIsInterimOpen(false);
+    }
+  }, [isStreaming]);
+
+  useEffect(() => {
+    if (isStreaming && traceLog.length > 0) {
+      setIsInterimOpen(true);
+    }
+  }, [isStreaming, traceLog.length]);
 
   const buildPayload = (userContent: string) => {
     const history = messages.map((m) => ({
@@ -120,11 +218,24 @@ export default function TextChatPage() {
             setIsStreaming(false);
           }
           break;
-        case 'reasoning':
-          if (typeof data?.delta === 'string') {
-            setReasoning((prev) => prev + data.delta);
+        case 'reasoning': {
+          const text = toDisplayText(data?.delta ?? data?.text ?? data);
+          if (text) {
+            addTraceEntry(text, 'reasoning');
+            setIsInterimOpen(true);
           }
           break;
+        }
+        case 'trace': {
+          const text = toDisplayText(data?.text ?? data?.message ?? data);
+          const kind: TraceEntry['kind'] =
+            data?.kind === 'tool' ? 'tool' : data?.kind === 'reasoning' ? 'reasoning' : 'trace';
+          if (text && kind === 'tool') {
+            addTraceEntry(text, kind);
+            setIsInterimOpen(true);
+          }
+          break;
+        }
         case 'search':
           if (data?.status === 'searching') {
             setSearchLog((prev) => [
@@ -152,12 +263,19 @@ export default function TextChatPage() {
         case 'error':
           setError(typeof data?.message === 'string' ? data.message : '予期しないエラーが発生しました');
           setIsStreaming(false);
+          if (data?.message) {
+            const text = toDisplayText(data.message);
+            if (text) {
+              addTraceEntry(`エラー: ${text}`, 'trace');
+              setIsInterimOpen(true);
+            }
+          }
           break;
         default:
           break;
       }
     },
-    [appendAssistantDelta, finalizeAssistant],
+    [addTraceEntry, appendAssistantDelta, finalizeAssistant],
   );
 
   const parseSseChunk = useCallback(
@@ -260,6 +378,12 @@ export default function TextChatPage() {
     () => (isEmpty ? '気になる条件を1文で伝えてください。最短で答えます。' : '続けて相談できます。入力後に送信してください。'),
     [isEmpty],
   );
+  const isSearching = useMemo(
+    () => searchLog.some((log) => log.status === 'searching'),
+    [searchLog],
+  );
+  const hasInterimDetails = traceLog.length > 0;
+  const statusLabel = isSearching ? '検索中です…' : '考え中です…';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/90">
@@ -298,12 +422,19 @@ export default function TextChatPage() {
                     <div
                       className={cn(
                         'rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-[92%] sm:max-w-[82%]',
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted/60 text-foreground border border-border/60',
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted/60 text-foreground border border-border/60',
                       )}
                     >
-                      {message.content}
+                      {message.role === 'assistant' ? (
+                        <div
+                          className="space-y-2 leading-relaxed text-sm sm:text-base"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
+                        />
+                      ) : (
+                        message.content
+                      )}
                       {message.citations && message.citations.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {message.citations.map((url, index) => (
@@ -322,9 +453,50 @@ export default function TextChatPage() {
                   </div>
                 )}
                 {isStreaming && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-                    考え中です...
+                  <div className="flex items-start">
+                    <div className="w-full max-w-[92%] sm:max-w-[82%] rounded-2xl bg-muted/40 border border-border/60 px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          {isSearching ? (
+                            <Search className="h-4 w-4 animate-pulse" />
+                          ) : (
+                            <Sparkles className="h-4 w-4 animate-pulse" />
+                          )}
+                          <span>{statusLabel}</span>
+                        </div>
+                        {hasInterimDetails && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setIsInterimOpen((v) => !v)}
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'h-4 w-4 transition-transform',
+                                isInterimOpen && 'rotate-180',
+                              )}
+                            />
+                          </Button>
+                        )}
+                      </div>
+                      {hasInterimDetails && isInterimOpen && (
+                        <div className="border-t border-border/50 pt-2 space-y-2">
+                          {traceLog.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className="flex items-start gap-2 rounded-lg bg-background/80 px-3 py-2 border border-border/30"
+                            >
+                              <Badge variant="outline" className="text-[11px]">
+                                {entry.kind === 'tool' ? 'Tool' : 'Thought'}
+                              </Badge>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{entry.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -366,56 +538,6 @@ export default function TextChatPage() {
                 >
                   {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
-              </div>
-
-              <div className="pt-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDetails((v) => !v)}
-                  className="flex items-center gap-2 text-muted-foreground px-0"
-                >
-                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  推論過程を表示
-                </Button>
-                {showDetails && (
-                  <div className="mt-3 space-y-3 rounded-xl border border-border/60 bg-muted/30 p-3 text-sm">
-                    {searchLog.length > 0 && (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-                          <Search className="h-4 w-4" />
-                          Web検索ログ
-                        </div>
-                        <div className="space-y-1">
-                          {searchLog.map((log) => (
-                            <div
-                              key={log.id}
-                              className="flex items-center justify-between rounded-lg bg-background/70 px-3 py-2 border border-border/50"
-                            >
-                              <span className="truncate">{log.query || '検索キーワード取得中'}</span>
-                              <Badge variant="outline" className="text-[11px]">
-                                {log.status === 'searching' ? '検索中' : '完了'}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {reasoning && (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-                          <Brain className="h-4 w-4" />
-                          推論メモ
-                        </div>
-                        <p className="whitespace-pre-wrap leading-relaxed">{reasoning.trim()}</p>
-                      </div>
-                    )}
-                    {!reasoning && searchLog.length === 0 && (
-                      <p className="text-xs text-muted-foreground">推論過程はまだありません。</p>
-                    )}
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
