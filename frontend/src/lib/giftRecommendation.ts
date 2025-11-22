@@ -137,33 +137,32 @@ const mapPreferenceMap = (value: unknown): PreferenceMap | null => {
   if (!Array.isArray(axesRaw)) {
     return null;
   }
-  const axes: PreferenceAxis[] = axesRaw
-    .map((axis) => {
-      if (!axis || typeof axis !== 'object') {
-        return null;
-      }
-      const payload = axis as Record<string, unknown>;
-      const label = typeof payload.label === 'string' ? payload.label.trim() : null;
-      const level = typeof payload.level === 'number' ? payload.level : null;
-      if (!label || level == null || Number.isNaN(level)) {
-        return null;
-      }
-      const key =
-        typeof payload.key === 'string' && payload.key.trim()
-          ? payload.key.trim()
-          : label;
-      const evidence =
-        typeof payload.evidence === 'string' && payload.evidence.trim()
-          ? payload.evidence.trim()
-          : null;
-      return {
-        key,
-        label,
-        level: Math.max(1, Math.min(5, Math.round(level))),
-        evidence,
-      };
-    })
-    .filter((axis): axis is PreferenceAxis => Boolean(axis));
+  const axes: PreferenceAxis[] = [];
+  for (const axis of axesRaw) {
+    if (!axis || typeof axis !== 'object') {
+      continue;
+    }
+    const payload = axis as Record<string, unknown>;
+    const label = typeof payload.label === 'string' ? payload.label.trim() : null;
+    const level = typeof payload.level === 'number' ? payload.level : null;
+    if (!label || level == null || Number.isNaN(level)) {
+      continue;
+    }
+    const key =
+      typeof payload.key === 'string' && payload.key.trim()
+        ? payload.key.trim()
+        : label;
+    const evidence =
+      typeof payload.evidence === 'string' && payload.evidence.trim()
+        ? payload.evidence.trim()
+        : null;
+    axes.push({
+      key,
+      label,
+      level: Math.max(1, Math.min(5, Math.round(level))),
+      evidence,
+    });
+  }
 
   if (axes.length < 3) {
     return null;

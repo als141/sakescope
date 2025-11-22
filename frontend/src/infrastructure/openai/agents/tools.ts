@@ -234,7 +234,10 @@ export const completeGiftIntakeTool = tool({
     const giftSession = ctx.session.gift;
     const conversationLog =
       buildTranscriptLogString(ctx) ??
-      buildConversationLog((runContext as RuntimeRunContext | undefined)?.history ?? []);
+      buildConversationLog(
+        ((runContext as RuntimeRunContext | undefined)?.context as { history?: unknown[] } | undefined)
+          ?.history ?? [],
+      );
 
     if (!giftSession?.giftId || !giftSession?.sessionId) {
       throw new Error('Gift session metadata is not configured.');
@@ -609,7 +612,8 @@ export const recommendSakeTool = tool({
   async execute(input, runContext): Promise<string> {
     const ctx = getRuntimeContext(runContext as RuntimeRunContext);
     const conversationLog = buildConversationLog(
-      (runContext as RuntimeRunContext | undefined)?.history ?? [],
+      ((runContext as RuntimeRunContext | undefined)?.context as { history?: unknown[] } | undefined)
+        ?.history ?? [],
     );
 
     const emitProgress = (

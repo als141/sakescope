@@ -22,33 +22,32 @@ const parsePreferenceMap = (value: unknown): PreferenceMap | undefined => {
   if (!Array.isArray(axesRaw)) {
     return undefined;
   }
-  const axes: PreferenceAxis[] = axesRaw
-    .map((axis) => {
-      if (!axis || typeof axis !== 'object') {
-        return null;
-      }
-      const record = axis as Record<string, unknown>;
-      const label = toCleanString(record.label ?? record.name ?? record.key);
-      const level =
-        typeof record.level === 'number'
-          ? record.level
-          : typeof record.score === 'number'
-            ? record.score
-            : null;
-      if (!label || level == null || Number.isNaN(level)) {
-        return null;
-      }
-      const clamped = Math.max(1, Math.min(5, Math.round(level)));
-      const key = toCleanString(record.key ?? label) ?? label;
-      const evidence = toCleanString(record.evidence ?? record.reason ?? record.note) ?? null;
-      return {
-        key,
-        label,
-        level: clamped,
-        evidence,
-      };
-    })
-    .filter((axis): axis is PreferenceAxis => Boolean(axis));
+  const axes: PreferenceAxis[] = [];
+  for (const axis of axesRaw) {
+    if (!axis || typeof axis !== 'object') {
+      continue;
+    }
+    const record = axis as Record<string, unknown>;
+    const label = toCleanString(record.label ?? record.name ?? record.key);
+    const levelRaw =
+      typeof record.level === 'number'
+        ? record.level
+        : typeof record.score === 'number'
+          ? record.score
+          : null;
+    if (!label || levelRaw == null || Number.isNaN(levelRaw)) {
+      continue;
+    }
+    const clamped = Math.max(1, Math.min(5, Math.round(levelRaw)));
+    const key = toCleanString(record.key ?? label) ?? label;
+    const evidence = toCleanString(record.evidence ?? record.reason ?? record.note) ?? null;
+    axes.push({
+      key,
+      label,
+      level: clamped,
+      evidence,
+    });
+  }
 
   if (axes.length < 3) {
     return undefined;

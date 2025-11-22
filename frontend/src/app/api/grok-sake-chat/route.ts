@@ -15,9 +15,25 @@ const client = OPENAI_API_KEY
 type ChatMessage = {
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string | null;
-  tool_calls?: any[];
+  tool_calls?: ChatCompletionMessageToolCallLike[];
   tool_call_id?: string;
   name?: string;
+};
+
+type ToolCall = {
+  id: string;
+  index: number;
+  name: string;
+  arguments: string;
+};
+
+type ChatCompletionMessageToolCallLike = {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
 };
 
 const parseMessages = (value: unknown): ChatMessage[] => {
@@ -76,6 +92,21 @@ const parseMessages = (value: unknown): ChatMessage[] => {
 
 const encoder = new TextEncoder();
 
+const stringifyReasoning = (input: unknown): string => {
+  if (typeof input === 'string') return input;
+  if (Array.isArray(input)) {
+    return input
+      .map(item => stringifyReasoning(item))
+      .filter(Boolean)
+      .join('\n');
+  }
+  if (input && typeof input === 'object' && 'text' in (input as Record<string, unknown>)) {
+    const text = (input as { text?: unknown }).text;
+    if (typeof text === 'string') return text;
+  }
+  return '';
+};
+
 const streamResponse = async (messages: ChatMessage[]) => {
   if (!client) {
     return NextResponse.json(
@@ -100,14 +131,14 @@ const streamResponse = async (messages: ChatMessage[]) => {
       const keepAlive = setInterval(() => controller.enqueue(encoder.encode(':\n\n')), 15000);
 
       let finalText = '';
-      let finalCitations: string[] = [];
+      const finalCitations: string[] = [];
       let sentDone = false;
 
       try {
         console.log('[grok-chat] Stream started');
 
         // We need to track the conversation state to handle tool round-trips
-        let currentMessages = [...messages];
+        const currentMessages = [...messages];
         let shouldContinue = true;
         let turnCount = 0;
         const MAX_TURNS = 20; // Allow a few tool→answer loops
@@ -118,9 +149,8 @@ const streamResponse = async (messages: ChatMessage[]) => {
 
           const completionStream = await client.chat.completions.create({
             model: 'grok-4-1-fast-reasoning',
-            messages: currentMessages as any, // Cast to any to satisfy OpenAI types for tool_calls
+            messages: currentMessages as OpenAI.ChatCompletionMessageParam[],
             stream: true,
-            // @ts-ignore - xAI specific tool definition not in OpenAI types
             tools: [
               {
                 type: 'function',
@@ -136,11 +166,12 @@ const streamResponse = async (messages: ChatMessage[]) => {
                   },
                 },
               },
-            ] as any,
+            ],
+            tool_choice: 'auto',
           });
 
-          let toolCalls: any[] = [];
-          let currentToolCall: { index: number; id: string; name: string; arguments: string } | null = null;
+          const toolCalls: ToolCall[] = [];
+          let currentToolCall: ToolCall | null = null;
           let turnFinishReason: string | null = null;
           let turnText = '';
 
@@ -164,7 +195,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
                     const args = JSON.parse(currentToolCall.arguments);
                     const query = args.query || args.search_query || 'Web検索';
                     sendSearchStatus('completed', query);
-                  } catch (e) {
+                  } catch {
                     sendSearchStatus('completed', 'Web検索');
                   }
                   currentToolCall = null;
@@ -172,7 +203,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
 
                 if (!currentToolCall) {
                   currentToolCall = {
-                    index: toolCall.index,
+                    index: toolCall.index ?? 0,
                     id: toolCall.id || '',
                     name: toolCall.function?.name || '',
                     arguments: toolCall.function?.arguments || ''
@@ -196,7 +227,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
                   const args = JSON.parse(currentToolCall.arguments);
                   const query = args.query || args.search_query || 'Web検索';
                   sendSearchStatus('completed', query);
-                } catch (e) {
+                } catch {
                   sendSearchStatus('completed', 'Web検索');
                 }
                 currentToolCall = null;
@@ -208,7 +239,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
             }
 
             // 3. Handle Reasoning
-            // @ts-ignore
+            // @ts-expect-error reasoning_content is model-specific and not in current OpenAI types
             const reasoning = delta?.reasoning_content;
             if (reasoning) {
               const reasoningText = stringifyReasoning(reasoning);
@@ -225,7 +256,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
               const args = JSON.parse(currentToolCall.arguments);
               const query = args.query || args.search_query || 'Web検索';
               sendSearchStatus('completed', query);
-            } catch (e) {
+            } catch {
               sendSearchStatus('completed', 'Web検索');
             }
           }
@@ -238,15 +269,14 @@ const streamResponse = async (messages: ChatMessage[]) => {
             currentMessages.push({
               role: 'assistant',
               content: turnText, // Might be empty if it just called tools
-              // @ts-ignore
-              tool_calls: toolCalls.map(tc => ({
+              tool_calls: toolCalls.map<ChatCompletionMessageToolCallLike>(tc => ({
                 id: tc.id,
                 type: 'function',
                 function: {
                   name: tc.name,
-                  arguments: tc.arguments
-                }
-              }))
+                  arguments: tc.arguments,
+                },
+              })),
             });
 
             // Execute tools
@@ -276,14 +306,13 @@ const streamResponse = async (messages: ChatMessage[]) => {
 3. オンラインショップ: https://www.echigo.sake-harasho.com/`;
                   }
 
-                } catch (e) {
-                  console.error('Search execution failed', e);
+                } catch (error) {
+                  console.error('Search execution failed', error);
                   sendTrace('web_search の実行に失敗しました', 'tool');
                 }
 
                 currentMessages.push({
                   role: 'tool',
-                  // @ts-ignore
                   tool_call_id: tc.id,
                   content: searchResult
                 });
