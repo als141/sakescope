@@ -3,15 +3,14 @@ import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
 
-const XAI_API_KEY = process.env.XAI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ALLOWED_DOMAINS = ['www.echigo.sake-harasho.com', 'echigo.sake-harasho.com'];
 
-const client =
-  XAI_API_KEY &&
-  new OpenAI({
-    apiKey: XAI_API_KEY,
-    baseURL: 'https://api.x.ai/v1',
-  });
+const client = OPENAI_API_KEY
+  ? new OpenAI({
+    apiKey: OPENAI_API_KEY,
+  })
+  : null;
 
 type ChatMessage = {
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -77,40 +76,10 @@ const parseMessages = (value: unknown): ChatMessage[] => {
 
 const encoder = new TextEncoder();
 
-const stringifyReasoning = (value: unknown): string | null => {
-  if (!value) return null;
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) {
-    const joined = value
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (item && typeof item === 'object' && 'text' in item && typeof (item as { text: unknown }).text === 'string') {
-          return (item as { text: string }).text;
-        }
-        return null;
-      })
-      .filter(Boolean)
-      .join('\n')
-      .trim();
-    return joined || null;
-  }
-  if (typeof value === 'object') {
-    if ('text' in value && typeof (value as { text: unknown }).text === 'string') {
-      return (value as { text: string }).text;
-    }
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-};
-
 const streamResponse = async (messages: ChatMessage[]) => {
   if (!client) {
     return NextResponse.json(
-      { error: 'XAI_API_KEY is not configured on the server' },
+      { error: 'OPENAI_API_KEY is not configured on the server' },
       { status: 500 },
     );
   }
@@ -141,7 +110,7 @@ const streamResponse = async (messages: ChatMessage[]) => {
         let currentMessages = [...messages];
         let shouldContinue = true;
         let turnCount = 0;
-        const MAX_TURNS = 3; // Prevent infinite loops
+        const MAX_TURNS = 20; // Allow a few tool→answer loops
 
         while (shouldContinue && turnCount < MAX_TURNS) {
           turnCount++;
@@ -290,10 +259,22 @@ const streamResponse = async (messages: ChatMessage[]) => {
                   console.log(`[grok-chat] Executing Web Search: ${query}`);
                   sendTrace(`web_search 実行: ${query}`, 'tool');
 
-                  searchResult = `[Web検索結果: ${query}]
-                            1. 日本酒の最新トレンド2025: クラフトサケの人気が上昇中。
-                            2. 新潟の辛口日本酒: 「麒麟山」「久保田」などが引き続き人気。
-                            3. 海外での日本酒ブーム: 輸出額が過去最高を記録。`;
+                  if (typeof query === 'string' && /麒麟山/.test(query)) {
+                    searchResult = `[Web検索結果: ${query}]
+1. 麒麟山（蔵元紹介／商品情報）: https://www.echigo.sake-harasho.com/blog/item/item-1752/
+2. 麒麟山 720ml 紹介ページ: https://www.echigo.sake-harasho.com/blog/item/item-1984/
+3. 新潟の辛口日本酒特集: https://www.echigo.sake-harasho.com/blog/item/item-1673/`;
+                  } else if (typeof query === 'string' && /久保田/.test(query)) {
+                    searchResult = `[Web検索結果: ${query}]
+1. 朝日酒造（久保田シリーズ）カテゴリ: https://www.echigo.sake-harasho.com/shopbrand/ct212/
+2. 新潟の辛口日本酒特集: https://www.echigo.sake-harasho.com/blog/item/item-1673/
+3. 店舗トップ: https://www.echigo.sake-harasho.com/`;
+                  } else {
+                    searchResult = `[Web検索結果: ${query}]
+1. 新潟の日本酒案内: https://www.echigo.sake-harasho.com/blog/
+2. 人気銘柄まとめ: https://www.echigo.sake-harasho.com/blog/item/item-1673/
+3. オンラインショップ: https://www.echigo.sake-harasho.com/`;
+                  }
 
                 } catch (e) {
                   console.error('Search execution failed', e);
@@ -316,6 +297,9 @@ const streamResponse = async (messages: ChatMessage[]) => {
         } // End of while loop
 
         console.log('[grok-chat] All turns finished. Final text length:', finalText.length);
+        if (!finalText.trim()) {
+          finalText = 'ごめんなさい、うまく検索結果をまとめられませんでした。もう一度条件を少し変えて聞いてくれたら、改めて探しますね。';
+        }
         send('done', { text: finalText, citations: finalCitations });
         sentDone = true;
 
@@ -325,7 +309,10 @@ const streamResponse = async (messages: ChatMessage[]) => {
         send('error', { message });
       } finally {
         clearInterval(keepAlive);
-        if (!sentDone && finalText) {
+        if (!sentDone) {
+          if (!finalText.trim()) {
+            finalText = 'ごめんなさい、うまく検索結果をまとめられませんでした。もう一度条件を少し変えて聞いてくれたら、改めて探しますね。';
+          }
           send('done', { text: finalText, citations: finalCitations });
         }
         controller.close();
