@@ -1,12 +1,9 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Script from 'next/script';
-import { ArrowLeft, Sparkles } from 'lucide-react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 const CHATKIT_DOMAIN_KEY =
   process.env.NEXT_PUBLIC_TEXT_CHATKIT_DOMAIN_KEY ?? 'sakescope-text';
@@ -24,6 +21,7 @@ const presetPrompts = [
 ];
 
 function TextChatCanvas() {
+  const router = useRouter();
   const tokenRef = useRef<TokenState>({ secret: null, expiresAt: 0 });
   const [tokenError, setTokenError] = useState<string | null>(null);
 
@@ -103,6 +101,10 @@ function TextChatCanvas() {
         enabled: true,
         text: 'Sake Concierge',
       },
+      leftAction: {
+        icon: 'back-small',
+        onClick: () => router.push('/'),
+      },
     },
     history: {
       enabled: true,
@@ -133,48 +135,14 @@ function TextChatCanvas() {
         strategy="beforeInteractive"
         data-domain-key={CHATKIT_DOMAIN_KEY}
       />
-      <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/90">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild className="h-10 w-10">
-              <Link href="/">
-                <ArrowLeft className="h-5 w-5" />
-                <span className="sr-only">戻る</span>
-              </Link>
-            </Button>
-            <div>
-              <p className="text-sm text-muted-foreground">テキストで相談</p>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-semibold text-foreground">
-                  Sake Concierge
-                </h1>
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                OpenAI Agent Builder + ChatKit
-              </p>
-            </div>
+      <div className="min-h-screen bg-background">
+        {tokenError && (
+          <div className="mx-auto max-w-4xl px-4 py-3 text-sm text-destructive border border-destructive/30 bg-destructive/10 rounded-md mt-3">
+            {tokenError}
           </div>
-
-          {tokenError && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              {tokenError}
-            </div>
-          )}
-
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <p className="text-sm text-muted-foreground">
-                allowed_domains の情報だけを参照し、必ずストアページのリンク付きで提案します。
-              </p>
-            </CardHeader>
-            <CardContent className="min-h-[520px] flex flex-col gap-3">
-              <ChatKit
-                control={control}
-                className="flex-1 min-h-[420px] border border-border bg-background rounded-xl"
-              />
-            </CardContent>
-          </Card>
+        )}
+        <div className="h-[calc(100vh-0px)] w-full">
+          <ChatKit control={control} className="h-full w-full" />
         </div>
       </div>
     </>
