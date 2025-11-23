@@ -14,6 +14,8 @@ const isPublicRoute = createRouteMatcher([
   '/api/text-worker(.*)',
   '/api/client-secret(.*)',
   '/api/sake-recommendations(.*)',
+  '/text-chat(.*)', // Text chat UI is public
+  '/api/text-chatkit(.*)', // ChatKit backend for text chat is public
   '/embed(.*)',
   '/api/line/webhook(.*)',
   '/api/webhooks/clerk(.*)',
