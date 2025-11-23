@@ -113,7 +113,7 @@ function TextChatCanvas() {
     },
     startScreen: {
       greeting:
-        '条件を伝えると allowed_domains の検索結果から実在ストアページ付きで提案します。',
+        '条件を伝えると、原商株式会社「越後名門酒会」のストアから実在する商品ページ付きで提案します。',
       prompts: startScreenPrompts,
     },
     composer: {
