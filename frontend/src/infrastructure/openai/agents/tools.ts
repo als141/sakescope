@@ -129,7 +129,7 @@ const preferenceMapSchema = z
 
 const sakePayloadSchema = z.object({
   id: z.string().nullable(),
-  name: z.string(),
+  name: z.string().min(1, { message: 'sake.name は必須です' }),
   brewery: z.string().nullable(),
   region: z.string().nullable(),
   type: z.string().nullable(),

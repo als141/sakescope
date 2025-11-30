@@ -21,7 +21,6 @@ const TEXT_MODEL =
   process.env.OPENAI_TEXT_MODEL_EMBED ??
   process.env.OPENAI_TEXT_MODEL ??
   'gpt-5-mini';
-const EMBED_ALLOWED_DOMAINS = process.env.TEXT_EMBED_ALLOWED_DOMAINS;
 const MCP_URL = process.env.TEXT_EMBED_MCP_URL;
 const MCP_TOKEN = process.env.TEXT_EMBED_MCP_TOKEN;
 
@@ -346,17 +345,10 @@ export async function POST(request: NextRequest) {
       TEXT_MODEL,
     );
 
-    const allowedDomains =
-      typeof EMBED_ALLOWED_DOMAINS === 'string' && EMBED_ALLOWED_DOMAINS.trim().length > 0
-        ? EMBED_ALLOWED_DOMAINS.split(',')
-            .map((d) => d.trim())
-            .filter(Boolean)
-        : ['www.echigo.sake-harasho.com'];
-
     const tools = [
       webSearchTool({
         filters: {
-          allowedDomains: allowedDomains,
+          allowedDomains: ['www.echigo.sake-harasho.com'],
         },
         searchContextSize: 'medium',
         userLocation: {
@@ -418,6 +410,14 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 - 高品質で贈答用に適した銘柄を選ぶ
 - のし・メッセージカード対応などのギフトサービス情報も確認する
 ` : ''}
+
+### 画像URL取得方法（必須）
+- 対象ストア: https://www.echigo.sake-harasho.com/ の商品ページのみを扱う。
+- 入力として与えられた商品ページURLから、実際にページに含まれている商品画像（.jpg 等）の CDN 直リンクを取得すること。推測やプレースホルダは禁止。
+- 画像抽出は必ず hosted MCP サーバー 'harashomcp' の 'get_product_image_url' を使用して行う。web_search の結果URLをそのまま画像URLとみなさない。
+
+### 必須フィールド
+- sake.name は必ず1文字以上で埋める。取得できない場合は別候補を選ぶか、再検索してからやり直す。空欄のまま finalize_recommendation を呼び出さないこと。
 
 ### スピード重視の進め方
 - まずは必要条件を箇条書きで整理し、単一の \`web_search\` クエリで候補・販売先・最新価格をまとめて取得する。香り・価格帯・ペアリング用途・ギフト用途を1本の検索語に含めて複数候補を同時に集めること。
