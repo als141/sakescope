@@ -544,5 +544,97 @@
   </div>
 
   <a class="to-top" href="#top">TOP</a>
+
+  <!-- Sakescope Voice Widget -->
+  <div id="sakescope-widget" style="
+    position: fixed;
+    bottom: 90px;
+    right: 22px;
+    width: 400px;
+    height: 600px;
+    border: 2px solid #0a6bff;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    background: white;
+    overflow: hidden;
+    z-index: 1000;
+    display: none;
+  ">
+    <iframe
+      id="sakescope-iframe"
+      src="http://localhost:3000/embed/voice?mode=widget"
+      style="width: 100%; height: 100%; border: none;"
+      allow="microphone"
+    ></iframe>
+  </div>
+
+  <!-- Toggle Button for Widget -->
+  <button id="sakescope-toggle" style="
+    position: fixed;
+    right: 22px;
+    bottom: 82px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 24px;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    cursor: pointer;
+    z-index: 1001;
+    transition: transform 0.2s, box-shadow 0.2s;
+  " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+    🎤
+  </button>
+
+  <script>
+    // Toggle widget visibility
+    const toggleBtn = document.getElementById('sakescope-toggle');
+    const widget = document.getElementById('sakescope-widget');
+    let isOpen = false;
+
+    toggleBtn.addEventListener('click', () => {
+      isOpen = !isOpen;
+      widget.style.display = isOpen ? 'block' : 'none';
+      toggleBtn.textContent = isOpen ? '✕' : '🎤';
+    });
+
+    // Listen for messages from iframe
+    window.addEventListener('message', (event) => {
+      // セキュリティ: 本番環境では origin を確認すること
+      console.log('Message from iframe:', event.data);
+
+      if (event.data.type === 'sakescope:sakeRecommended') {
+        console.log('Sake recommended:', event.data.sake);
+        // バッジを更新してユーザーに通知
+        const cartBadge = document.querySelector('.cart-badge');
+        if (cartBadge) {
+          const currentCount = parseInt(cartBadge.textContent) || 0;
+          cartBadge.textContent = String(currentCount);
+        }
+      }
+
+      if (event.data.type === 'sakescope:shopClick') {
+        console.log('Shop clicked:', event.data.sake, event.data.shop);
+        // ここで商品をカートに追加する処理などを実装可能
+        // 例: カウンターを増やす
+        const cartBadge = document.querySelector('.cart-badge');
+        if (cartBadge) {
+          const currentCount = parseInt(cartBadge.textContent) || 0;
+          cartBadge.textContent = String(currentCount + 1);
+        }
+        // 通知を表示
+        alert(`「${event.data.sake.name}」を確認中...\n販売店: ${event.data.shop.retailer}`);
+      }
+
+      if (event.data.type === 'sakescope:connectionChange') {
+        console.log('Connection status:', event.data.connected);
+      }
+    });
+  </script>
 </body>
 </html>

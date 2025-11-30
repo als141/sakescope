@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sakescope Widget - 簡単埋め込みサンプル</title>
+  <style>
+    body {
+      font-family: "Hiragino Sans", "Noto Sans JP", sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    .info-box {
+      background: #f0f7ff;
+      border-left: 4px solid #667eea;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .code-block {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    .event-log {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .event-item {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+      font-size: 13px;
+      font-family: monospace;
+    }
+    .event-item:last-child {
+      border-bottom: none;
+    }
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #5568d3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎤 Sakescope Voice Widget - 簡単埋め込みサンプル</h1>
+
+    <div class="info-box">
+      <strong>✨ このページは、たった1行のコードでSakescopeウィジェットを埋め込んでいます！</strong>
+      <br>右下のマイクボタンをクリックして、音声で日本酒を探してみてください。
+    </div>
+
+    <h2>📝 埋め込み方法</h2>
+    <p>以下のコードを、HTMLの<code>&lt;/body&gt;</code>タグの直前に追加するだけです：</p>
+
+    <div class="code-block">
+&lt;script src="http://localhost:3000/embed-widget.js"
+        data-sakescope-host="http://localhost:3000"&gt;&lt;/script&gt;
+    </div>
+
+    <h2>🎛️ カスタマイズオプション</h2>
+    <p>以下の属性を使って、ウィジェットの表示をカスタマイズできます：</p>
+    <ul>
+      <li><code>data-position</code>: ボタンの位置 (bottom-right, bottom-left)</li>
+      <li><code>data-theme</code>: ボタンのテーマ (gradient, solid)</li>
+    </ul>
+
+    <div class="code-block">
+&lt;script src="http://localhost:3000/embed-widget.js"
+        data-sakescope-host="http://localhost:3000"
+        data-position="bottom-left"
+        data-theme="solid"&gt;&lt;/script&gt;
+    </div>
+
+    <h2>🔧 JavaScript API</h2>
+    <p>JavaScriptから以下のAPIを使用できます：</p>
+
+    <button class="btn" onclick="window.Sakescope.open()">ウィジェットを開く</button>
+    <button class="btn" onclick="window.Sakescope.close()">ウィジェットを閉じる</button>
+    <button class="btn" onclick="window.Sakescope.toggle()">トグル</button>
+
+    <div class="code-block">
+// ウィジェットを開く
+window.Sakescope.open();
+
+// ウィジェットを閉じる
+window.Sakescope.close();
+
+// トグル
+window.Sakescope.toggle();
+
+// 状態を確認
+console.log(window.Sakescope.isOpen());
+    </div>
+
+    <h2>📡 イベントリスニング</h2>
+    <p>ウィジェットからのイベントを受け取ることができます：</p>
+
+    <div class="code-block">
+// 日本酒がレコメンドされた時
+window.addEventListener('sakescope:sakeRecommended', (e) => {
+  console.log('おすすめされた日本酒:', e.detail.sake);
+});
+
+// ショップリンクがクリックされた時
+window.addEventListener('sakescope:shopClick', (e) => {
+  console.log('クリックされた:', e.detail.sake, e.detail.shop);
+  // ここでカートに追加する処理など
+});
+    </div>
+
+    <h2>📋 イベントログ (リアルタイム)</h2>
+    <div class="event-log" id="event-log">
+      <div class="event-item">イベント待機中...</div>
+    </div>
+  </div>
+
+  <!-- Sakescope Widget -->
+  <script src="http://localhost:3000/embed-widget.js"
+          data-sakescope-host="http://localhost:3000"></script>
+
+  <script>
+    // Event logging
+    const eventLog = document.getElementById('event-log');
+
+    function logEvent(eventName, data) {
+      const timestamp = new Date().toLocaleTimeString('ja-JP');
+      const item = document.createElement('div');
+      item.className = 'event-item';
+      item.innerHTML = `<strong>[${timestamp}]</strong> ${eventName}: ${JSON.stringify(data, null, 2)}`;
+      eventLog.insertBefore(item, eventLog.firstChild);
+
+      // Keep only last 10 events
+      while (eventLog.children.length > 10) {
+        eventLog.removeChild(eventLog.lastChild);
+      }
+    }
+
+    // Listen to all Sakescope events
+    window.addEventListener('sakescope:sakeRecommended', (e) => {
+      logEvent('sakescope:sakeRecommended', {
+        name: e.detail.sake?.name,
+        brewery: e.detail.sake?.brewery
+      });
+    });
+
+    window.addEventListener('sakescope:shopClick', (e) => {
+      logEvent('sakescope:shopClick', {
+        sake: e.detail.sake?.name,
+        shop: e.detail.shop?.retailer,
+        price: e.detail.shop?.price
+      });
+    });
+
+    window.addEventListener('sakescope:connectionChange', (e) => {
+      logEvent('sakescope:connectionChange', {
+        connected: e.detail.connected
+      });
+    });
+
+    console.log('Sakescope API:', window.Sakescope);
+  </script>
+</body>
+</html>

@@ -39,6 +39,17 @@ export default function SakeDisplay({ sake, offer, onReset, showPreferenceMap = 
   const preferenceMap = showPreferenceMap ? offer?.preferenceMap ?? null : null;
   const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(sake.name)}`;
 
+  // Handle shop link click (notify parent if in iframe)
+  const handleShopClick = (shop: typeof purchaseShops[0]) => {
+    if (typeof window !== 'undefined' && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'sakescope:shopClick',
+        sake,
+        shop
+      }, '*');
+    }
+  };
+
   return (
     <motion.div
       className="w-full min-h-screen flex flex-col px-0 sm:px-6 lg:px-12 pt-20 sm:pt-24 lg:pt-28 pb-16 sm:pb-20 gap-6"
@@ -208,6 +219,7 @@ export default function SakeDisplay({ sake, offer, onReset, showPreferenceMap = 
                             target="_blank"
                             rel="noreferrer"
                             className="block"
+                            onClick={() => handleShopClick(shop)}
                           >
                             <Card className="h-full hover:border-primary/50 hover:bg-accent/50 transition-all cursor-pointer">
                               <CardContent className="p-3">
