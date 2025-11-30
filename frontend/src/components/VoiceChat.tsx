@@ -26,6 +26,7 @@ import {
 import type {
   AgentRuntimeContext,
   AgentUserPreferences,
+  AgentOrchestrationCallbacks,
 } from '@/infrastructure/openai/agents/context';
 import type { TextWorkerProgressEvent } from '@/types/textWorker';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,8 @@ interface VoiceChatProps {
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   fullscreenMobile?: boolean;
+  clientSecretPath?: string;
+  createSessionBundle?: (callbacks: AgentOrchestrationCallbacks) => VoiceAgentBundle;
 }
 
 type InteractionMode = 'voice' | 'chat';
@@ -124,6 +127,8 @@ export default function VoiceChat({
   isMinimized = false,
   onToggleMinimize,
   fullscreenMobile = false,
+  clientSecretPath = '/api/client-secret',
+  createSessionBundle,
 }: VoiceChatProps) {
   const realtimeModel =
     process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
@@ -386,7 +391,8 @@ export default function VoiceChat({
       onSakeRecommendedRef.current(merged);
     };
 
-    const bundle = createRealtimeVoiceBundle({
+    const bundleFactory = createSessionBundle ?? createRealtimeVoiceBundle;
+    const bundle = bundleFactory({
       onSakeProfile: (sake) => {
         pushSakeUpdate(sake);
       },
@@ -624,6 +630,7 @@ export default function VoiceChat({
     scheduleAvatarMouthClose,
     handleTextWorkerProgress,
     pushTranscript,
+    createSessionBundle,
   ]);
 
   const connectToSession = useCallback(
@@ -636,7 +643,7 @@ export default function VoiceChat({
       setIsDelegating(false);
 
       try {
-        const response = await fetch('/api/client-secret', {
+        const response = await fetch(clientSecretPath, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -703,7 +710,7 @@ export default function VoiceChat({
         setIsLoading(false);
       }
     },
-    [onConnectionChange, realtimeModel, setIsRecording],
+    [onConnectionChange, realtimeModel, setIsRecording, clientSecretPath],
   );
 
   const disconnectFromSession = () => {

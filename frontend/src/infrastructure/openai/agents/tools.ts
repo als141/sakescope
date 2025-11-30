@@ -584,7 +584,18 @@ function buildProfileHint(
 
   return formatPreferenceHint(payload);
 }
-export const recommendSakeTool = tool({
+
+const DEFAULT_TEXT_WORKER_PATH = '/api/text-worker';
+const DEFAULT_TEXT_PROGRESS_PATH = '/api/text-worker/progress';
+
+export function makeRecommendSakeTool(options?: {
+  workerPath?: string;
+  progressPath?: string;
+}) {
+  const workerPath = options?.workerPath ?? DEFAULT_TEXT_WORKER_PATH;
+  const progressPath = options?.progressPath ?? DEFAULT_TEXT_PROGRESS_PATH;
+
+  return tool({
   name: 'recommend_sake',
   description:
     '雑談で引き出した要望をまとめてテキストエージェントに渡し、日本酒の推薦JSONを取得します。購入や在庫の確認もこのツールを使ってください。',
@@ -773,7 +784,7 @@ export const recommendSakeTool = tool({
 
       if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
         try {
-          const progressUrl = `/api/text-worker/progress?run=${encodeURIComponent(runId)}`;
+          const progressUrl = `${progressPath}?run=${encodeURIComponent(runId)}`;
           eventSource = new EventSource(progressUrl);
           eventSource.onmessage = (event) => {
             try {
@@ -795,7 +806,7 @@ export const recommendSakeTool = tool({
         }
       }
 
-      const response = await fetch('/api/text-worker', {
+      const response = await fetch(workerPath, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -843,4 +854,11 @@ export const recommendSakeTool = tool({
       }
     }
   },
+  });
+}
+
+export const recommendSakeTool = makeRecommendSakeTool();
+export const embedRecommendSakeTool = makeRecommendSakeTool({
+  workerPath: '/api/embed-text-worker',
+  progressPath: '/api/embed-text-worker/progress',
 });
