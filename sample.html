@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>越後銘門酒会 風トップページ（モック）</title>
+  <style>
+    /* ----------------------------------------
+       Base
+    ---------------------------------------- */
+    :root {
+      --brand-red: #c4000a;
+      --accent-blue: #0a6bff;
+      --light-gray: #e8e8e8;
+      --border: #dcdcdc;
+      --text: #1e1e1e;
+      --muted: #757575;
+      --badge: #ff9300;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+      background: #fff;
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 13px;
+    }
+    a { color: var(--text); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul { list-style: none; }
+    img { max-width: 100%; display: block; }
+    .container { width: 1200px; margin: 0 auto; }
+    .placeholder {
+      background: #f1f1f1;
+      color: #888;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    /* ----------------------------------------
+       Header
+    ---------------------------------------- */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .logo-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-mark {
+      width: 70px;
+      height: 70px;
+      background: var(--brand-red);
+      color: #fff;
+      font-weight: 900;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 2px;
+    }
+    .logo-text {
+      font-size: 13px;
+      line-height: 1.4;
+      color: #444;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+    .icon-btn {
+      position: relative;
+      width: 28px;
+      height: 28px;
+      border: 1px solid #b5b5b5;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #444;
+      font-weight: 700;
+      background: #fff;
+    }
+    .cart-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #e60012;
+      color: #fff;
+      font-size: 10px;
+      border-radius: 10px;
+      padding: 2px 6px;
+      line-height: 1;
+      font-weight: 900;
+    }
+    /* ----------------------------------------
+       Layout: Sidebar + Main
+    ---------------------------------------- */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 20px;
+      width: 1200px;
+      margin: 18px auto 60px;
+      align-items: start;
+    }
+    .side-search {
+      border: 1px solid var(--border);
+      padding: 16px;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    }
+    .side-search h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .form-block { margin-bottom: 12px; }
+    .label {
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: #444;
+      display: block;
+    }
+    .input, .select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .budget-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .search-btn {
+      width: 100%;
+      background: var(--accent-blue);
+      color: #fff;
+      border: none;
+      padding: 10px 0;
+      border-radius: 4px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .hot-words {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hot-words-title { font-size: 12px; color: #666; }
+    .hot-words a { font-size: 12px; color: var(--accent-blue); }
+    .brand-nav {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+    .brand-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .brand-list li {
+      border-bottom: 1px solid #f2f2f2;
+    }
+    .brand-list a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 4px;
+      font-size: 12px;
+    }
+    .chevron { color: #9a9a9a; }
+    /* Hero */
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 320px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: linear-gradient(120deg, #cfe4e8, #f7f3eb);
+    }
+    .hero img { width: 100%; height: 100%; object-fit: cover; }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.35), rgba(0,0,0,0.05));
+      text-shadow: 0 3px 8px rgba(0,0,0,0.35);
+    }
+    .hero-subtext {
+      position: absolute;
+      bottom: 18px;
+      left: 22px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.9);
+      color: #444;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 900;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .arrow.left { left: 12px; }
+    .arrow.right { right: 12px; }
+    /* ----------------------------------------
+       Wide search bar
+    ---------------------------------------- */
+    .main-panel { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+    .wide-search { margin: 0; }
+    .wide-card {
+      border: 1px solid var(--border);
+      padding: 14px;
+      background: #fff;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.03);
+    }
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .field-row label {
+      min-width: 110px;
+      font-size: 12px;
+      color: #555;
+    }
+    .field-row .input {
+      flex: 1;
+    }
+    .budget-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+    .wide-btn {
+      display: block;
+      width: 100%;
+      background: var(--accent-blue);
+      color: #fff;
+      text-align: center;
+      border: none;
+      padding: 12px 0;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 14px;
+      margin-top: 4px;
+      cursor: pointer;
+    }
+    .hot-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: #666;
+      flex-wrap: wrap;
+    }
+    .hot-links a { color: var(--accent-blue); }
+    /* ----------------------------------------
+       Main content
+    ---------------------------------------- */
+    .content-main { flex: 1; }
+    /* News */
+    .section-title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    .news-list {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 4px;
+      margin-bottom: 26px;
+    }
+    .news-item {
+      display: flex;
+      gap: 12px;
+      padding: 10px 6px;
+      border-bottom: 1px solid #f3f3f3;
+      align-items: baseline;
+      font-size: 13px;
+    }
+    .news-item:last-child { border-bottom: none; }
+    .news-date { font-weight: 800; min-width: 82px; color: #222; }
+    .news-text a { color: var(--text); }
+    /* Items row */
+    .items-row {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .item-card {
+      width: 210px;
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 10px;
+      position: relative;
+      text-align: left;
+    }
+    .item-img {
+      width: 100%;
+      height: 200px;
+      background: #f5f5f5;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .badge-new {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--badge);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .item-name {
+      font-size: 13px;
+      margin-bottom: 6px;
+      min-height: 42px;
+      line-height: 1.4;
+    }
+    .item-price {
+      font-weight: 800;
+      color: #222;
+      margin-bottom: 4px;
+    }
+    .item-price span {
+      font-size: 12px;
+      color: #666;
+      margin-left: 4px;
+    }
+    /* Floating top button */
+    .to-top {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: #35b6ff;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body id="top">
+  <header>
+    <div class="container header-inner">
+      <div class="logo-box">
+        <div class="logo-mark">銘門</div>
+        <div class="logo-text">
+          新潟の地酒とグルメ<br>
+          越後銘門酒会（イメージ）
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="icon-btn" aria-label="Instagram">IG</span>
+        <span class="icon-btn" aria-label="検索">🔍</span>
+        <span>ログイン</span>
+        <span class="icon-btn cart" aria-label="カート">
+          🛒
+          <span class="cart-badge">0</span>
+        </span>
+        <span>メニュー</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="side-search">
+      <h3>商品検索</h3>
+      <div class="form-block">
+        <label class="label" for="kw-side">キーワードで探す</label>
+        <input id="kw-side" class="input" type="text" placeholder="銘柄名、商品名など">
+      </div>
+      <div class="form-block">
+        <label class="label">予算で探す</label>
+        <div class="budget-row">
+          <input class="input" type="text" placeholder="下限">
+          <span style="color:#999;">～</span>
+          <input class="input" type="text" placeholder="上限">
+        </div>
+      </div>
+      <button class="search-btn">検索する</button>
+      <div class="hot-words">
+        <div class="hot-words-title">注目検索ワード</div>
+        <a href="#">飲み比べ</a>
+        <a href="#">プレゼント</a>
+        <a href="#">お歳暮</a>
+      </div>
+      <div class="brand-nav">
+        <div class="brand-title">ブランドで探す</div>
+        <ul class="brand-list">
+          <li><a href="#">マスカガミ<span class="chevron">›</span></a></li>
+          <li><a href="#">八海山<span class="chevron">›</span></a></li>
+          <li><a href="#">〆張鶴<span class="chevron">›</span></a></li>
+          <li><a href="#">朝日山<span class="chevron">›</span></a></li>
+          <li><a href="#">麒麟山<span class="chevron">›</span></a></li>
+          <li><a href="#">越乃景虎<span class="chevron">›</span></a></li>
+          <li><a href="#">鶴齢<span class="chevron">›</span></a></li>
+          <li><a href="#">緑川<span class="chevron">›</span></a></li>
+          <li><a href="#">北雪<span class="chevron">›</span></a></li>
+          <li><a href="#">鶴の友<span class="chevron">›</span></a></li>
+          <li><a href="#">越乃寒梅<span class="chevron">›</span></a></li>
+          <li><a href="#">久保田<span class="chevron">›</span></a></li>
+          <li><a href="#">N_1934<span class="chevron">›</span></a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <div class="main-panel">
+      <section class="hero">
+        <div class="hero-overlay">SAKE BLOG</div>
+        <div class="hero-subtext">新潟の酒ニュースを発信中</div>
+        <div class="arrow left">‹</div>
+        <div class="arrow right">›</div>
+        <div class="placeholder" aria-hidden="true" style="position:absolute; inset:0; opacity:0.2;">IMAGE PLACEHOLDER</div>
+      </section>
+
+      <div class="wide-search">
+        <div class="wide-card">
+          <div class="field-row">
+            <label for="kw-main">キーワードで探す</label>
+            <input id="kw-main" class="input" type="text" placeholder="銘柄名、商品名など">
+          </div>
+          <div class="field-row">
+            <label>予算で探す</label>
+            <div class="budget-inline">
+              <input class="input" type="text" placeholder="下限">
+              <span style="color:#999;">～</span>
+              <input class="input" type="text" placeholder="上限">
+              <span style="color:#999;">円</span>
+            </div>
+          </div>
+          <button class="wide-btn">検索する</button>
+          <div class="hot-links">
+            <span>注目検索ワード</span>
+            <a href="#">飲み比べ</a>
+            <span style="color:#ccc;">｜</span>
+            <a href="#">プレゼント</a>
+            <span style="color:#ccc;">｜</span>
+            <a href="#">お歳暮</a>
+          </div>
+        </div>
+      </div>
+
+      <section class="content-main">
+        <div class="section-title">新着情報</div>
+        <div class="news-list">
+          <div class="news-item">
+            <div class="news-date">2025/11/17</div>
+            <div class="news-text"><a href="#">マスカガミ 純麗 再入荷！</a></div>
+          </div>
+          <div class="news-item">
+            <div class="news-date">2025/10/31</div>
+            <div class="news-text"><a href="#">中川酒造 飲み比べセット続々登場！</a></div>
+          </div>
+          <div class="news-item">
+            <div class="news-date">2025/10/02</div>
+            <div class="news-text"><a href="#">越乃景虎 夏の吟醸ブレンド 発売</a></div>
+          </div>
+        </div>
+
+        <div class="section-title">新着アイテム</div>
+        <div class="items-row">
+          <div class="item-card">
+            <div class="item-img placeholder">
+              <span class="badge-new">NEW</span>
+            </div>
+            <div class="item-name">限定品 新潟 純米吟醸ブレンド F 1800ml</div>
+            <div class="item-price">¥3,960 <span>(税込)</span></div>
+          </div>
+          <div class="item-card">
+            <div class="item-img placeholder">
+              <span class="badge-new">NEW</span>
+            </div>
+            <div class="item-name">限定品 新潟 純米吟醸ブレンド F 720ml</div>
+            <div class="item-price">¥1,980 <span>(税込)</span></div>
+          </div>
+          <div class="item-card">
+            <div class="item-img placeholder">
+              <span class="badge-new">NEW</span>
+            </div>
+            <div class="item-name">秋限定 菊水 ひやおろし 720ml</div>
+            <div class="item-price">¥3,300 <span>(税込)</span></div>
+          </div>
+          <div class="item-card">
+            <div class="item-img placeholder">
+              <span class="badge-new">NEW</span>
+            </div>
+            <div class="item-name">秋限定 菊水 ひやおろし 720ml (飲み比べ)</div>
+            <div class="item-price">¥1,980 <span>(税込)</span></div>
+          </div>
+          <div class="item-card">
+            <div class="item-img placeholder">
+              <span class="badge-new">NEW</span>
+            </div>
+            <div class="item-name">秋限定 たかの井 ひやおろし 720ml</div>
+            <div class="item-price">¥1,760 <span>(税込)</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <a class="to-top" href="#top">TOP</a>
+</body>
+</html>
