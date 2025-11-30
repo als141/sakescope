@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/gift/:id/trigger-handoff',
   '/api/gift/:id/recommendation',
   '/api/text-worker(.*)',
+  '/api/embed-text-worker(.*)',
   '/api/client-secret(.*)',
   '/api/sake-recommendations(.*)',
   '/text-chat(.*)', // Text chat UI is public

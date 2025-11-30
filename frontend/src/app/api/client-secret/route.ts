@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createVoiceAgent } from '@/infrastructure/openai/agents/voiceAgentFactory';
+import { createEmbedVoiceAgent } from '@/infrastructure/openai/agents/embedVoiceAgentFactory';
 import type { FunctionTool } from '@openai/agents-core';
 
 export const dynamic = 'force-dynamic';
@@ -16,8 +17,8 @@ type ToolManifest = {
   strict?: boolean;
 };
 
-function buildToolManifest(): ToolManifest[] {
-  const agent = createVoiceAgent();
+function buildToolManifest(useEmbed: boolean): ToolManifest[] {
+  const agent = useEmbed ? createEmbedVoiceAgent() : createVoiceAgent();
   const tools = agent.tools ?? [];
   return tools
     .filter((tool): tool is FunctionTool => tool.type === 'function')
@@ -33,14 +34,14 @@ function buildToolManifest(): ToolManifest[] {
     }));
 }
 
-function buildInstructions(): string {
-  const agent = createVoiceAgent();
+function buildInstructions(useEmbed: boolean): string {
+  const agent = useEmbed ? createEmbedVoiceAgent() : createVoiceAgent();
   return typeof agent.instructions === 'string'
     ? agent.instructions
     : 'You are a helpful sake sommelier.';
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
       { error: 'OpenAI API key not configured' },
@@ -48,16 +49,20 @@ export async function POST() {
     );
   }
 
+  const searchParams = req.nextUrl.searchParams;
+  const variant = (searchParams.get('variant') ?? searchParams.get('agent') ?? '').toLowerCase();
+  const useEmbedAgent = variant === 'embed';
+
   try {
     const sessionConfig = {
       session: {
         type: 'realtime',
         model: REALTIME_MODEL,
-        instructions: buildInstructions(),
+        instructions: buildInstructions(useEmbedAgent),
         audio: {
           output: { voice: 'alloy' },
         },
-        tools: buildToolManifest(),
+        tools: buildToolManifest(useEmbedAgent),
         tool_choice: 'auto',
       },
     };

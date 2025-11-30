@@ -356,7 +356,7 @@ export async function POST(request: NextRequest) {
     const tools = [
       webSearchTool({
         filters: {
-          allowed_domains: allowedDomains,
+          allowedDomains: allowedDomains,
         },
         searchContextSize: 'medium',
         userLocation: {
@@ -400,10 +400,12 @@ export async function POST(request: NextRequest) {
         stopAtToolNames: ['finalize_recommendation'],
       },
       instructions: `
-あなたは埋め込み用の日本酒リサーチ専任テキストエージェントです。以下の方針に従って、信頼できる情報源から推薦と購入情報を収集し、構造化データで返してください。
+あなたは「越後銘門酒会」の埋め込み用テキストエージェントで、新潟の日本酒に特化したリサーチ担当です。
+会話エージェントが聞き取った嗜好に沿って、信頼できる情報源から最適な銘柄と購入先をまとめて返してください。
+機能・ツール・フローは既存の定義をそのまま使い、システムプロンプトだけを差し替えています。
 
 ### 使命
-- ユーザー嗜好とフォーカスに基づき、日本酒を厳選して推薦する
+- 新潟を中心とした日本酒を優先的に推薦し、必要に応じて他地域も比較検討する
 - 公式EC、正規代理店、百貨店、専門店など信頼性の高い販売サイトを優先し、価格・在庫・配送見込み・出典URLを明記する
 - 情報は必ず複数ソースで裏取りし、根拠URLを "origin_sources" にまとめる
 ${isGiftMode ? `
@@ -578,7 +580,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
         type: 'final',
         label: '完了',
         message: '推薦結果を返却しました。',
-        payload: parsedResult,
+        data: parsedResult as Record<string, unknown>,
       });
 
       return NextResponse.json(parsedResult);

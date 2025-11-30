@@ -9,6 +9,7 @@ import SakeDisplay from '@/components/SakeDisplay';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import WatercolorBackground from '@/components/WatercolorBackground';
 import { Button } from '@/components/ui/button';
+import { createRealtimeEmbedVoiceBundle } from '@/infrastructure/openai/realtime/embedSessionFactory';
 
 export default function VoiceOnlyEmbedPage() {
   const [isRecording, setIsRecording] = useState(false);
@@ -117,6 +118,8 @@ export default function VoiceOnlyEmbedPage() {
                 setPurchaseOffer(offer);
               }}
               fullscreenMobile={isVoiceSessionMobile}
+              clientSecretPath="/api/client-secret?variant=embed"
+              createSessionBundle={createRealtimeEmbedVoiceBundle}
             />
           </div>
         </div>
