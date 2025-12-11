@@ -417,7 +417,21 @@ $(function () {
 
 <!-- Sakescope フローティングウィジェット（右下ランチャー） -->
 <div class="sakescope-floating" aria-live="polite">
-  <button id="sakescope-launcher" class="sakescope-launcher" type="button" aria-label="Sakescopeを開く" aria-expanded="false">🎙️</button>
+  <button id="sakescope-launcher" class="sakescope-launcher" type="button" aria-label="Sakescopeを開く" aria-expanded="false">
+    <span class="sakescope-launcher-icon sakescope-launcher-icon--open" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+        <path d="M8 10h8"></path>
+        <path d="M8 14h5"></path>
+      </svg>
+    </span>
+    <span class="sakescope-launcher-icon sakescope-launcher-icon--close" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M18 6L6 18"></path>
+        <path d="M6 6l12 12"></path>
+      </svg>
+    </span>
+  </button>
   <div id="sakescope-floating-panel" class="sakescope-floating-panel" role="dialog" aria-modal="false" aria-label="Sakescope音声チャット">
     <div class="sakescope-floating-header">
       <span>AIソムリエ</span>
@@ -463,8 +477,9 @@ $(function () {
       function setOpen(open) {
         isOpen = open;
         panel.classList.toggle('is-open', open);
+        launcher.classList.toggle('is-open', open);
         launcher.setAttribute('aria-expanded', open ? 'true' : 'false');
-        launcher.textContent = open ? '×' : '🎙️';
+        launcher.setAttribute('aria-label', open ? 'Sakescopeを閉じる' : 'Sakescopeを開く');
       }
 
       launcher.addEventListener('click', function () { setOpen(!isOpen); });
