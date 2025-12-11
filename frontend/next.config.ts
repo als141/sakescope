@@ -7,6 +7,9 @@ const EMBED_PARENT_SITES = [
   'https://capable-panda-53.accounts.dev',
   'https://portfolio.atoriba.jp',
   'https://www.echigo.sake-harasho.com',
+  'https://echigo.sake-harasho.com',
+  'https://gigaplus.makeshop.jp',
+  'https://sakescope.atoriba.jp',
 ];
 
 const nextConfig: NextConfig = {
