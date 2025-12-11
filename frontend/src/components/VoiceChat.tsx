@@ -53,6 +53,11 @@ interface VoiceChatProps {
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   fullscreenMobile?: boolean;
+  /**
+   * When true, render a minimal start-only UI for embed contexts.
+   * Once connected, the normal full/compact UI is used.
+   */
+  embedMinimal?: boolean;
   clientSecretPath?: string;
   createSessionBundle?: (callbacks: AgentOrchestrationCallbacks) => VoiceAgentBundle;
 }
@@ -127,6 +132,7 @@ export default function VoiceChat({
   isMinimized = false,
   onToggleMinimize,
   fullscreenMobile = false,
+  embedMinimal = false,
   clientSecretPath = '/api/client-secret',
   createSessionBundle,
 }: VoiceChatProps) {
@@ -883,6 +889,45 @@ export default function VoiceChat({
       sessionRef.current?.close();
     } catch {}
   }, []);
+
+  // Minimal embed start screen (only microphone button)
+  if (embedMinimal && !isConnected) {
+    return (
+      <div className="w-full flex flex-col items-center justify-center py-10">
+        <Button
+          onClick={handleStartConversation}
+          disabled={isLoading}
+          size="xl"
+          className={cn(
+            'relative h-20 w-20 sm:h-24 sm:w-24 lg:h-28 lg:w-28 rounded-full p-0',
+            'bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600',
+            'shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]',
+            'hover:scale-105 active:scale-100',
+            'transition-all duration-300',
+            'border-4 border-primary-200/20',
+            'disabled:opacity-70',
+          )}
+        >
+          <motion.div
+            animate={isLoading ? { rotate: 360 } : {}}
+            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          >
+            {isLoading ? (
+              <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+            ) : (
+              <Mic className="h-10 w-10 sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+            )}
+          </motion.div>
+          <span className="sr-only">音声で相談を開始</span>
+        </Button>
+        {error && (
+          <p className="mt-4 text-sm text-destructive font-medium">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const conversationWidthClass = isConnected
     ? isFullscreenActive

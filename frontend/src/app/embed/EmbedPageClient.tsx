@@ -194,6 +194,8 @@ export default function EmbedPageClient() {
   });
 
   const isTextMode = mode === 'text';
+  const shouldCenterVoiceStart =
+    mode === 'voice' && !isVoiceConnected && !recommendedSake;
 
   return (
     <>
@@ -269,7 +271,13 @@ export default function EmbedPageClient() {
               }
             >
               {mode === 'voice' ? (
-                <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
+                <div
+                  className={
+                    shouldCenterVoiceStart
+                      ? 'flex flex-col flex-1 items-center justify-center overflow-hidden'
+                      : 'flex flex-col gap-4 flex-1 overflow-y-auto'
+                  }
+                >
                   {recommendedSake && (
                     <SakeDisplay
                       sake={recommendedSake}
@@ -286,6 +294,7 @@ export default function EmbedPageClient() {
                     variant="full"
                     isRecording={isRecording}
                     setIsRecording={setIsRecording}
+                    embedMinimal
                     onSakeRecommended={(sake) => {
                       setRecommendedSake(sake);
                     }}
