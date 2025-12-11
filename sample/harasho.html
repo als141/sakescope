@@ -63,6 +63,12 @@
 </ul>
 </section>
 
+<!-- Sakescope インライン埋め込み（検索欄の直下に常時表示） -->
+<section class="sakescope-inline-section" aria-label="音声ソムリエ（インライン表示）">
+  <div class="sakescope-inline-head">🎤 Sakescope AIソムリエ <small>話しかけて日本酒を探す</small></div>
+  <div id="sakescope-inline" class="sakescope-inline-container" aria-live="polite"></div>
+</section>
+
  
   <{if $latest_news.has_item}>
             <section class="contents-section contents-section-news">
@@ -408,6 +414,67 @@ $(function () {
   <span class="arrow-up"></span>
   TOPに戻る
 </a>
+
+<!-- Sakescope フローティングウィジェット（右下ランチャー） -->
+<div class="sakescope-floating" aria-live="polite">
+  <button id="sakescope-launcher" class="sakescope-launcher" type="button" aria-label="Sakescopeを開く" aria-expanded="false">🎙️</button>
+  <div id="sakescope-floating-panel" class="sakescope-floating-panel" role="dialog" aria-modal="false" aria-label="Sakescope音声チャット">
+    <div class="sakescope-floating-header">
+      <span>AIソムリエ</span>
+      <button id="sakescope-floating-close" class="sakescope-floating-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <div id="sakescope-floating-body" class="sakescope-floating-body"></div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var host = (window.SAKESCOPE_EMBED_HOST || 'https://sakescope.atoriba.jp').replace(/\/$/, '');
+
+    function createIframe(title, path) {
+      var iframe = document.createElement('iframe');
+      iframe.src = host + path;
+      iframe.title = title;
+      iframe.allow = 'microphone; autoplay';
+      iframe.loading = 'lazy';
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      iframe.setAttribute('aria-label', title);
+      return iframe;
+    }
+
+    // インライン埋め込み（検索直下）
+    var inline = document.getElementById('sakescope-inline');
+    if (inline && !inline.querySelector('iframe')) {
+      // テキストチャットをデフォルト表示
+      inline.appendChild(createIframe('Sakescope AIソムリエ（インライン）', '/embed?mode=text'));
+    }
+
+    // フローティングウィジェット
+    var launcher = document.getElementById('sakescope-launcher');
+    var panel = document.getElementById('sakescope-floating-panel');
+    var body = document.getElementById('sakescope-floating-body');
+    var closeBtn = document.getElementById('sakescope-floating-close');
+
+    if (launcher && panel && body && !body.querySelector('iframe')) {
+      // フローティングはデフォルトをテキストモードに変更
+      body.appendChild(createIframe('Sakescope AIソムリエ（フローティング）', '/embed?mode=text'));
+
+      var isOpen = false;
+      function setOpen(open) {
+        isOpen = open;
+        panel.classList.toggle('is-open', open);
+        launcher.setAttribute('aria-expanded', open ? 'true' : 'false');
+        launcher.textContent = open ? '×' : '🎙️';
+      }
+
+      launcher.addEventListener('click', function () { setOpen(!isOpen); });
+      closeBtn.addEventListener('click', function () { setOpen(false); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && isOpen) setOpen(false);
+      });
+    }
+  })();
+</script>
 
 </body>
 </html>

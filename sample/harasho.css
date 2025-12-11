@@ -662,4 +662,133 @@
     .sns-icons a{ font-size:18px; }
     .sns-icons .sns-x svg{ width:18px; height:18px; }
   }
+
+  /* Sakescope: インライン埋め込み（検索直下に常時表示） */
+  .sakescope-inline-section {
+    margin: 24px 0 36px;
+  }
+  .sakescope-inline-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .sakescope-inline-head small {
+    font-weight: 500;
+    color: #6b7280;
+  }
+  .sakescope-inline-container {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    background: #fff;
+  }
+  .sakescope-inline-container iframe {
+    width: 100%;
+    height: clamp(500px, 72vh, 640px);
+    min-height: 460px;
+    border: none;
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .sakescope-inline-section { margin: 16px 0 26px; }
+    .sakescope-inline-container iframe {
+      height: min(560px, 78vh);
+      min-height: 420px;
+    }
+  }
+
+  /* Sakescope: フローティングランチャー */
+  .sakescope-floating {
+    position: fixed;
+    bottom: 18px;
+    right: 16px;
+    z-index: 2147483647;
+  }
+  .sakescope-launcher {
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    font-weight: 800;
+    font-size: 22px;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 10px 26px rgba(102, 126, 234, 0.35);
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, background .25s;
+  }
+  .sakescope-launcher:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 14px 30px rgba(102, 126, 234, 0.42);
+  }
+  .sakescope-launcher:active {
+    transform: translateY(0) scale(.98);
+  }
+  .sakescope-floating-panel {
+    position: fixed;
+    bottom: 90px;
+    right: 16px;
+    width: min(400px, 94vw);
+    height: min(620px, 82vh);
+    border: 1px solid rgba(102, 126, 234, 0.38);
+    border-radius: 16px;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+    background: #fff;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px) scale(.99);
+    transition: opacity .24s ease, transform .24s ease;
+  }
+  .sakescope-floating-panel.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+  .sakescope-floating-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 700;
+    color: #374151;
+  }
+  .sakescope-floating-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #4b5563;
+    padding: 6px;
+  }
+  .sakescope-floating-body {
+    width: 100%;
+    height: calc(100% - 46px);
+  }
+  .sakescope-floating-body iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .sakescope-floating { right: 12px; bottom: 14px; }
+    .sakescope-floating-panel {
+      right: 10px;
+      left: 10px;
+      bottom: 82px;
+      width: auto;
+      height: min(92vh, 640px);
+    }
+  }
   
