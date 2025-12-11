@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ja" prefix="og: http://ogp.me/ns# fb: http://ogp.me/ns/fb#">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title><{$page.title}></title>
+<meta name="description" content="<{$page.description}>">
+<link rel="canonical" href="<{$page.canonical_url}>">
+<meta property="og:type" content="website">
+<meta property="og:title" content="<{$page.title}>">
+<meta property="og:description" content="<{$page.description}>">
+<meta property="og:site_name" content="<{$shop.name}>">
+<meta name="twitter:card" content="Summary with Large Image">
+<link rel="shortcut icon" type="image/ico" href="<{$shop.favicon_url}>">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.13.0/css/all.css" crossorigin="anonymous">
+<link rel="stylesheet" href="<{$page.css}>">
+<{$makeshop.head}>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-1063805165">
+</script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-1063805165');
+</script>    
+</head>
+
+<body>
+<{$makeshop.body_top}>
+<{$module.header}>
+ 
+<div class="contents-wrapper">
+<{$module.side_nav}>
+    <main>
+<div class="top-page-mv-wrapper">
+    <{if $shop.mainvisual}>
+        <div id="top-page-mv" class="top-page-mv"><{$shop.mainvisual}></div>
+    <{/if}>
+</div>        
+  
+<section class="search">
+    <ul class="search-area">
+        <li>
+            <label>キーワードで探す</label>
+            <input type="text" data-id="<{$search_form.keyword_id}>" value="<{$search.keyword}>" class="side-search-keyword search-keyword" placeholder="銘柄名、酒蔵名など">
+        </li>
+        <li>
+            <label>予算で探す</label>
+            <input type="text" data-id="<{$search_form.price_low_id}>" value="<{$search.price_low}>" class="search-price" placeholder="下限" style="width:40%;">
+            ～
+            <input type="text" data-id="<{$search_form.price_high_id}>" value="<{$search.price_high}>" class="search-price" placeholder="上限" style="width:40%;"> 円
+        </li>
+          </ul>
+    <a href="<{$search_form.search_url}>" class="search-btn search-url">検索する</a>
+<div class="side-midashi">注目検索ワード</div>
+<ul class="search-word-list">
+<li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%B0%FB%A4%DF%C8%E6%A4%D9">飲み比べ</a></li>
+<li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%A5%D7%A5%EC%A5%BC%A5%F3%A5%C8">プレゼント</a></li>
+<li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%A4%AA%BA%D0%CA%EB">お歳暮</a></li>
+</ul>
+</section>
+
+ 
+  <{if $latest_news.has_item}>
+            <section class="contents-section contents-section-news">
+                <h2 class="contents-section-title">新着情報</h2>
+                <ul class="contents-news-list">
+                <{section name=i loop=$latest_news.list max=3}>
+                    <li>
+                        <span class="contents-news-date">
+                            <time datetime="<{$latest_news.list[i].date.year}>-<{$latest_news.list[i].date.month}>-<{$latest_news.list[i].date.day}>"><{$latest_news.list[i].date.year}>/<{$latest_news.list[i].date.month}>/<{$latest_news.list[i].date.day}></time>
+                        </span>
+                        <span class="contents-news-title">
+                            <a href="<{$latest_news.list[i].url}>"><{$latest_news.list[i].title}></a>
+                        </span>
+                    </li>
+                <{/section}>
+                </ul>
+                 </section>
+        <{/if}>
+        
+        <{if $new_item.has_item}>
+            <section class="contents-section">
+                <h2 class="contents-section-title">新着アイテム</h2>
+                <ul class="contents-item-list contents-new-item-list">
+                <{section name=i loop=$new_item.list}>
+                    <li>
+                        <a href="<{$new_item.list[i].url}>">
+                            <div class="contents-item-img">
+                                <img src="<{$new_item.list[i].image_L}>" alt="<{$new_item.list[i].name}>">
+                            </div>
+                            <div class="contents-item-info">
+                                <span class="contents-item-name"><{$new_item.list[i].name}></span>
+                                <{if $new_item.list[i].is_sale}>
+                                    <p class="original-price">￥<{$new_item.list[i].original_price|number_format}><span>（税込）</span></p>
+                                    <p class="item-sale-price contents-item-price"><{$new_item.list[i].price|number_format}><span class="tax">（税込）</span>
+                                    <span class="sale-discount-rate">[<{$new_item.list[i].sale_rate}>%OFF]</span></p>
+                                <{else}>
+                                    <span class="contents-item-price"><{$new_item.list[i].price|number_format}>（税込）</span>
+                                <{/if}>
+                            </div>
+                        </a>
+                    </li>
+                <{/section}>
+                </ul>
+            </section>
+        <{/if}>
+        <{if $recommend_item.has_item}>
+            <section class="contents-section">
+                <h2 class="contents-section-title">当店の人気おすすめ商品</h2>
+                <ul class="contents-item-list">
+                <{section name=i loop=$recommend_item.list}>
+                    <li>
+                        <a href="<{$recommend_item.list[i].url}>">
+                            <div class="contents-item-img">
+                                <img src="<{$recommend_item.list[i].image_L}>" alt="<{$recommend_item.list[i].name}>">
+                            </div>
+                            <div class="contents-item-info">
+                                <span class="contents-item-name"><{$recommend_item.list[i].name}></span>
+                                <{if $recommend_item.list[i].is_sale}>
+                                    <p class="original-price">￥<{$recommend_item.list[i].original_price|number_format}><span>（税込）</span></p>
+                                    <p class="item-sale-price contents-item-price"><{$recommend_item.list[i].price|number_format}><span class="tax">（税込）</span>
+                                    <span class="sale-discount-rate">[<{$recommend_item.list[i].sale_rate}>%OFF]</span></p>
+                                <{else}>
+                                    <span class="contents-item-price"><{$recommend_item.list[i].price|number_format}>（税込）</span>
+                                <{/if}>
+                            </div>
+                        </a>
+                    </li>
+                <{/section}>
+                </ul>
+            </section>
+        <{/if}>
+        <{if $special_item.has_item}>
+            <section class="contents-section">
+                <h2 class="contents-section-title">絶品！新潟グルメ</h2>
+                <ul class="contents-item-list">
+                <{section name=i loop=$special_item.list}>
+                    <li>
+                        <a href="<{$special_item.list[i].url}>">
+                            <div class="contents-item-img">
+                                <img src="<{$special_item.list[i].image_L}>" alt="<{$special_item.list[i].name}>">
+                            </div>
+                            <div class="contents-item-info">
+                                <span class="contents-item-name"><{$special_item.list[i].name}></span>
+                                <{if $special_item.list[i].is_sale}>
+                                    <p class="original-price">￥<{$special_item.list[i].original_price|number_format}><span>（税込）</span></p>
+                                    <p class="item-sale-price contents-item-price"><{$special_item.list[i].price|number_format}><span class="tax">（税込）</span>
+                                    <span class="sale-discount-rate">[<{$special_item.list[i].sale_rate}>%OFF]</span></p>
+                                <{else}>
+                                    <span class="contents-item-price"><{$special_item.list[i].price|number_format}>（税込）</span>
+                                <{/if}>
+                            </div>
+                        </a>
+                    </li>
+                <{/section}>
+                </ul>
+            </section>
+        <{/if}>
+        <{if $ranking_item.has_item}>
+            <section class="contents-section">
+                <h2 class="contents-section-title">当店人気ランキング</h2>
+                <ul class="contents-item-list contents-ranking-item-list">
+                <{section name=i loop=$ranking_item.list}>
+                    <li>
+                        <a href="<{$ranking_item.list[i].url}>">
+                            <div class="contents-item-img">
+                                <img src="<{$ranking_item.list[i].image_L}>" alt="<{$ranking_item.list[i].name}>">
+                            </div>
+                            <div class="contents-item-info">
+                                <div>
+                                    <span class="contents-item-name"><{$ranking_item.list[i].name}></span>
+                                    <{if $ranking_item.list[i].is_sale}>
+                                        <p class="original-price">￥<{$ranking_item.list[i].original_price|number_format}><span>（税込）</span></p>
+                                        <p class="item-sale-price contents-item-price"><{$ranking_item.list[i].price|number_format}><span class="tax">（税込）</span>
+                                        <span class="sale-discount-rate">[<{$ranking_item.list[i].sale_rate}>%OFF]</span></p>
+                                    <{else}>
+                                        <span class="contents-item-price"><{$ranking_item.list[i].price|number_format}>（税込）</span>
+                                    <{/if}>
+                                </div>
+                            </div>
+                        </a>
+                    </li>
+                <{/section}>
+                </ul>
+            </section>
+        <{/if}>
+        <{$module.recently_item}>
+        <{if $shop.banner.has_item}>
+            <ul class="contents-banner-list">
+            <{section name=i loop=$shop.banner.list}>
+                <li>
+                    <a href="<{$shop.banner.list[i].url}>" target="<{$shop.banner.list[i].target}>">
+                        <img src="<{$shop.banner.list[i].image_url}>">
+                    </a>
+                </li>
+            <{/section}>
+            </ul>
+        <{/if}>
+      
+        <{if $review_item.has_item}>
+            <section class="contents-section contents-section-review other-item other-item-top">
+                <h2 class="contents-section-title">新着レビュー</h2>
+                <ul class="index-review-list">
+                <{section name=i loop=$review_item.list max=5}>
+                    <li class="review-list-unit">
+                        <div class="index-review-image">
+                            <a href="<{$review_item.list[i].url}>"><img src="<{$review_item.list[i].image_S}>" alt="<{$review_item.list[i].name}>"></a>
+                        </div>
+                        <div class="review-list-content-wrap">
+                            <div class="review-list-info-wrap">
+                                <div class="review-info">
+                                    <p class="review-list-category"><a href="<{$review_item.list[i].base_category.url}>"><{$review_item.list[i].base_category.name}></a></p>
+                                    <p class="review-list-name"><a href="<{$review_item.list[i].url}>"><{$review_item.list[i].name}></a></p>
+                                    <div class="review-index-score">
+                                        <p class="review-list-name"><span><{$review_item.list[i].reviewer_name}></span>さん</p>
+                                        <div class="review-star"><{$review_item.list[i].star_html}></div>
+                                        <p class="review-score"><{$review_item.list[i].score}></p>
+                                        <time datetime="<{$review_item.list[i].date.year}>-<{$review_item.list[i].date.month}>-<{$review_item.list[i].date.day}> <{$review_item.list[i].date.hour}>:<{$review_item.list[i].date.minute}>" class="review-list-date"><{$review_item.list[i].date.year}>/<{$review_item.list[i].date.month}>/<{$review_item.list[i].date.day}> <{$review_item.list[i].date.hour}>:<{$review_item.list[i].date.minute}></time>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="review-list-content"><{$review_item.list[i].content}></div>
+                        </div>
+                    </li>
+                <{/section}>
+                </ul>
+            </section>
+        <{/if}>
+  
+
+<div class="list brand"> <h2>銘柄で選ぶ<br/><span>CHOOSE FROM BRANDS</span></h2><div class="animated content-wrap">
+<ul class="clearfix content-inner"> <li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct177/"><img alt="石本酒造 越乃寒梅" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kanbai.jpg"/><br/>石本酒造<br/>越乃寒梅</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct200/"><img alt="八海醸造 八海山" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hakkaisan.jpg"/><br/>八海醸造<br/>八海山</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct212/"><img alt="朝日酒造 久保田" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kubota.jpg"/><br/>朝日酒造<br/>久保田</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct209/"><img alt="吉乃川 吉乃川" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/yosinogawa.jpg"/><br/>吉乃川<br/>吉乃川</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct145/"><img alt="菊水酒造 菊水" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kikusui.jpg"/><br/>菊水酒造<br/>菊水</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct153/"><img alt="北雪酒造 北雪" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hokusetu.jpg"/><br/>北雪酒造<br/>北雪</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct199/"><img alt="青木酒造 鶴齢" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kakurei.jpg"/><br/>青木酒造<br/>鶴齢</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct208/"><img alt="諸橋酒造 越乃景虎" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kagetora.jpg"/><br/>諸橋酒造<br/>越乃景虎</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct139/"><img alt="近藤酒造 越乃鹿六" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/karoku.jpg"/><br/>近藤酒造<br/>越乃鹿六</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct140/"><img alt="ふじの井酒造 純" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hujinoi.jpg"/><br/>ふじの井酒造<br/>純</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct141/"><img alt="越つかの酒蔵 代々泉" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/yoyoizumi.jpg"/><br/>越つかの酒蔵<br/>代々泉</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct142/"><img alt="越後桜酒造 越後桜" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/etigozakura.jpg"/><br/>越後桜酒造<br/>越後桜</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct143/"><img alt="弥彦酒造 こしのはくせつ" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hakusetu.jpg"/><br/>弥彦酒造<br/>こしのはくせつ</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct146/"><img alt="金鵄盃酒蔵 越後杜氏" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kinsihai.jpg"/><br/>金鵄盃酒蔵<br/>越後杜氏</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct147/"><img alt="市島酒造 王紋" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/oumon.jpg"/><br/>市島酒造<br/>王紋</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct148/"><img alt="逸見酒造 至" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/itaru.jpg"/><br/>逸見酒造<br/>至</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct150/"><img alt="大洋酒造 大洋盛" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/taiyousakari.jpg"/><br/>大洋酒造<br/>大洋盛</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct151/"><img alt="天領盃酒造 天領盃" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/tenryohai.jpg"/><br/>天領盃酒造<br/>天領盃</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct152/"><img alt="白龍酒造 白龍" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hakuryu.jpg"/><br/>白龍酒造<br/>白龍</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct154/"><img alt="下越酒造 誉麒麟" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kirin.jpg"/><br/>下越酒造<br/>誉麒麟</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct158/"><img alt="武蔵野酒造 スキー正宗" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/suki-masamune.jpg"/><br/>武蔵野酒造<br/>スキー正宗</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct159/"><img alt="よしかわ杜氏の里" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/yosikawa.jpg"/><br/>よしかわ杜氏の里</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct160/"><img alt="田原酒造 雪鶴" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/yukituru.jpg"/><br/>田原酒造<br/>雪鶴</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct161/"><img alt="上越酒造 越後美人" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/etigobijin.jpg"/><br/>上越酒造<br/>越後美人</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct162/"><img alt="加賀の井酒造 加賀の井" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kaganoi.jpg"/><br/>加賀の井酒造<br/>加賀の井</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct163/"><img alt="竹田酒造店 潟舟" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/katahune.jpg"/><br/>竹田酒造店<br/>潟舟</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct174/"><img alt="越後鶴亀 越後鶴亀" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/turukame.jpg"/><br/>越後鶴亀<br/>越後鶴亀</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct164/"><img alt="池田屋酒造 謙信" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kensin.jpg"/><br/>池田屋酒造<br/>謙信</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct165/"><img alt="田中酒造 能鷹" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/noutaka.jpg"/><br/>田中酒造<br/>能鷹</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct166/"><img alt="妙高酒造 妙高山" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/myoukousan.jpg"/><br/>妙高酒造<br/>妙高山</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct176/"><img alt="塩川酒蔵 カウボーイ" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/cowboy.jpg"/><br/>塩川酒蔵<br/>カウボーイ</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct178/"><img alt="DHC酒造 越の梅里" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/bairi.jpg"/><br/>DHC酒造<br/>越の梅里</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct179/"><img alt="高野酒造 越路吹雪" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kosijihubuki.jpg"/><br/>高野酒造<br/>越路吹雪</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct180/"><img alt="今代司酒造 今代司" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/imayotukasa.jpg"/><br/>今代司酒造<br/>今代司</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct181/"><img alt="笹祝酒造 笹祝" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/sasaiwai.jpg"/><br/>笹祝酒造<br/>笹祝</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct182/"><img alt="越後伝衛門" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/denemon.jpg"/><br/>越後伝衛門</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct183/"><img alt="峰の白梅" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hakubai.jpg"/><br/>峰の白梅</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct192/"><img alt="玉川酒造 玉風味" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/tamahuumi.jpg"/><br/>玉川酒造<br/>玉風味</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct193/"><img alt="松乃井酒造 松乃井" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/matunoi.jpg"/><br/>松乃井酒造<br/>松乃井</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct194/"><img alt="白瀧酒造 上善如水" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/jouzen.jpg"/><br/>白瀧酒造<br/>上善如水</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct191/"><img alt="原酒造 越の誉" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/homare.jpg"/><br/>原酒造<br/>越の誉</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct201/"><img alt="石塚酒造 姫の井" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/himenoi.jpg"/><br/>石塚酒造<br/>姫の井</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct196/"><img alt="高の井酒造 初梅" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hatuume.jpg"/><br/>高の井酒造<br/>初梅</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct197/"><img alt="雪椿酒造 雪椿" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/yukitubaki.jpg"/><br/>雪椿酒造<br/>雪椿</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct198/"><img alt="新潟銘醸 長者盛" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/tyouja.jpg"/><br/>新潟銘醸<br/>長者盛</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct202/"><img alt="福顔酒造 五十嵐川" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hukugao.jpg"/><br/>福顔酒造<br/>五十嵐川</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct203/"><img alt="津南醸造 名水の恵" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kirinotou.jpg"/><br/>津南醸造<br/>名水の恵</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct204/"><img alt="マスカガミ 萬寿鏡" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/masukagami.jpg"/><br/>マスカガミ<br/>萬寿鏡</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct206/"><img alt="お福酒造 お福正宗" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/ohuku.jpg"/><br/>お福酒造<br/>お福正宗</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct207/"><img alt="越銘醸 越の鶴" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/kosinoturu.jpg"/><br/>越銘醸<br/>越の鶴</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct210/"><img alt="中川酒蔵 越乃白雁" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hakugan.jpg"/><br/>中川酒蔵<br/>越乃白雁</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct211/"><img alt="長谷川酒造 雪紅梅" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/sekkoubai.jpg"/><br/>長谷川酒造<br/>雪紅梅</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct213/"><img alt="高橋酒造 長陵" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/tyouryou.jpg"/><br/>高橋酒造<br/>長陵</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct215/"><img alt="恩田酒造 舞鶴" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hakuro.jpg"/><br/>恩田酒造<br/>舞鶴</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct216/"><img alt="河忠酒蔵 福扇" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/hukusen.jpg"/><br/>河忠酒蔵<br/>福扇</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct217/"><img alt="池浦酒造 和楽互尊" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/goson.jpg"/><br/>池浦酒造<br/>和楽互尊</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct327/"><img alt="朝妻酒造 雪の幻" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/asaduma.png"/><br/>朝妻酒造<br/>雪の幻</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct324/"><img alt="魚沼酒造 天神囃子" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/tenjinbayasi.png"/><br/>魚沼酒造<br/>天神囃子</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct322/"><img alt="宝山酒蔵 宝山" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/takarayama.png"/><br/>宝山酒蔵<br/>宝山</a></li><li class="list-item"><a href="https://echigo.sake-harasho.com/shopbrand/ct323/"><img alt="苗場酒造 苗場山" src="https://gigaplus.makeshop.jp/niigatasyoku/itiran/naebasan.png"/><br/>苗場酒造<br/>苗場山</a></li></ul><!--<div class="more-btn-b">
+			<p class="open">表示を増やす&nbsp;▼</p>
+		</div>--> </div>
+
+  <section class="contents-section banner-grid-section">
+  <div class="banner-grid">
+        <a href="https://www.echigo.sake-harasho.com/view/page/coupon" class="banner-item"><img src="https://gigaplus.makeshop.jp/niigatasyoku/item/coupon/coupon100en.jpg"></a>
+  </div>
+</section>
+
+<!-- レビューウィジェット（レスポンシブ） -->
+<div class="review-widget" role="region" aria-label="お客様レビュー">
+  <div class="review-head">
+    <img id="rev_head"
+         src="https://www.rakuten.ne.jp/gold/echigo/goqsystem_review/img/rev.gif"
+         alt="レビュー見出し" />
+  </div>
+
+  <div class="review-body">
+    <div class="iframe-box">
+      <div class="iframe-ratio">
+        <iframe
+          id="rev_main"
+          name="iframe"
+          src="https://www.rakuten.ne.jp/gold/echigo/goqsystem_review/goqsystem_review_gold_wide.html"
+          scrolling="yes"
+          title="レビュー一覧"
+          style="border:none; display:block; width:100%; height:100%;"></iframe>
+      </div>
+    </div>
+    <div class="review-foot">
+      <img id="rev_foot"
+           src="https://www.rakuten.ne.jp/gold/echigo/goqsystem_review/img/powered_by_banner.gif"
+           alt="powered by" />
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ベース */
+  .review-widget { 
+    max-width: 730px; 
+    margin: 0 auto; 
+    background: #fff; 
+    box-sizing: border-box;
+  }
+  .review-head { 
+    background: #ccc; 
+  }
+  .review-head img, .review-foot img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* 本体枠（左右・下だけ元デザインの枠線を再現） */
+  .review-body {
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+    background: #fff;
+  }
+
+  /* iframe 比率ボックス：728x446 ≒ 61.26% */
+  .iframe-box { padding: 0; }
+  .iframe-ratio {
+    position: relative;
+    width: 100%;
+    /* 446 / 728 * 100% ≒ 61.263736% */
+    padding-top: 61.263736%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #fff;
+  }
+  .iframe-ratio iframe {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* フッターの右寄せを保ちつつ、画像は可変 */
+  .review-foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 2px;
+    background: #fff;
+  }
+  .review-foot img {
+    max-width: 125px;   /* 元の125pxを上限に、画面が狭い時は縮む */
+    height: auto;
+  }
+
+  /* 小さめ端末の微調整（任意） */
+  @media (max-width: 480px) {
+    .review-foot { padding: 4px; }
+  }
+</style>
+
+<script>
+  // キャッシュバスター（IDを実在する要素に修正）
+  (function () {
+    var dat = new Date().getTime();
+    var head = document.getElementById('rev_head');
+    var main = document.getElementById('rev_main');
+    var foot = document.getElementById('rev_foot');
+
+    if (head) head.src = "https://www.rakuten.ne.jp/gold/echigo/goqsystem_review/img/rev.gif?time=" + dat;
+    if (main) main.src = "https://www.rakuten.ne.jp/gold/echigo/goqsystem_review/goqsystem_review_gold_wide.html?time=" + dat;
+    if (foot) foot.src = "https://www.rakuten.ne.jp/gold/echigo/goqsystem_review/img/powered_by_banner.gif?time=" + dat;
+  })();
+</script>
+
+        
+  <section class="contents-section sns-banner-section">
+  <h2 class="contents-section-title">公式SNSをフォローしよう</h2>
+  <div class="banner-grid">
+    <a href="https://www.instagram.com/echigo.rakuten" target="_blank" rel="noopener" class="banner-item">
+      <img src="https://gigaplus.makeshop.jp/niigatasyoku/top/SNS/instagram.jpg" alt="Instagram">
+    </a>
+    <a href="https://line.me/R/ti/p/@698dilmx" target="_blank" rel="noopener" class="banner-item">
+      <img src="https://gigaplus.makeshop.jp/niigatasyoku/top/SNS/LINE.jpg" alt="LINE">
+    </a>
+    <a href="https://x.com/echigo_meimon" target="_blank" rel="noopener" class="banner-item">
+      <img src="https://gigaplus.makeshop.jp/niigatasyoku/top/SNS/x.jpg" alt="X（旧Twitter）">
+    </a>
+    <a href="https://www.echigo.sake-harasho.com/blog/" target="_blank" rel="noopener" class="banner-item">
+      <img src="https://gigaplus.makeshop.jp/niigatasyoku/top/SNS/media.jpg" alt="YouTube">
+    </a>
+ <a href="https://www.makeshop.jp/ssl/popup_mailmagazine.html?db=niigatasyoku" target="_blank" rel="noopener" class="banner-item">
+      <img src="https://gigaplus.makeshop.jp/niigatasyoku/top/SNS/mail.jpg" alt="YouTube">
+    </a>
+ <a href="https://www.rakuten.ne.jp/gold/echigo/" target="_blank" rel="noopener" class="banner-item">
+      <img src="https://gigaplus.makeshop.jp/niigatasyoku/top/SNS/rakuten.jpg" alt="YouTube">
+    </a>
+  </div>
+</section>
+
+    </main>
+</div>
+    
+
+<{$module.footer}>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="<{$page.javascript}>"></script>
+<{$makeshop.body_bottom}>
+
+<script>
+$(function () {
+  // 「ログイン」リンクを探す（hrefに/member/loginを含むaタグ）
+  var $login = $('a[href*="/member/login"]');
+  if (!$login.length) return;
+
+  // SNSアイコン塊（FA5：Instagram／XはSVGで対応）
+  var snsHtml = $(
+    '<div class="sns-icons" aria-label="SNSリンク">'+
+      '<a class="sns-ig" href="https://www.instagram.com/echigo.rakuten" target="_blank" rel="noopener" aria-label="Instagram">'+
+        '<i class="fab fa-instagram" aria-hidden="true"></i>'+
+      '</a>'+
+      '<a class="sns-x" href="https://x.com/echigo_meimon" target="_blank" rel="noopener" aria-label="X">'+
+        // XロゴはFA5になので安全にSVGで出す
+        '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" style="display:block">'+
+          '<path d="M18.244 2H21l-6.79 7.752L22 22h-6.73l-4.74-5.77L4.77 22H2l7.28-8.32L2 2h6.73l4.31 5.25L18.244 2zm-2.35 18h2.02L8.17 4H6.15l9.743 16z" fill="currentColor"/>'+
+        '</svg>'+
+      '</a>'+
+    '</div>'
+  );
+
+  // 「ログイン」の“直前”に挿入 → これでユーティリティ行の左側に出る
+  $login.before(snsHtml);
+});
+</script>
+
+<a href="#" class="back-to-top">
+  <span class="arrow-up"></span>
+  TOPに戻る
+</a>
+
+</body>
+</html>
