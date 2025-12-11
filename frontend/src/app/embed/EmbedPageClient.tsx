@@ -113,7 +113,7 @@ export default function EmbedPageClient() {
     },
     startScreen: {
       greeting:
-        '条件を伝えると、原商「越後名門酒会」のストアから実在する商品ページ付きで提案します。',
+        'どんな相談でも受け付けます。',
       prompts: startScreenPrompts,
     },
     composer: {
@@ -135,9 +135,9 @@ export default function EmbedPageClient() {
         strategy="beforeInteractive"
         data-domain-key={CHATKIT_DOMAIN_KEY}
       />
-      <div className="min-h-screen bg-background/95 text-foreground flex items-center justify-center px-4 py-6">
-        <div className="w-full max-w-4xl rounded-3xl border border-border/40 bg-card/80 backdrop-blur-xl shadow-[0_25px_120px_rgba(0,0,0,0.35)] overflow-hidden">
-          <div className="flex flex-col gap-4 p-4 sm:p-6">
+      <div className="h-screen bg-background text-foreground flex flex-col">
+        <div className="flex-1 w-full overflow-hidden">
+          <div className="flex flex-col gap-4 h-full p-3 sm:p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.45em] text-muted-foreground">
@@ -166,13 +166,13 @@ export default function EmbedPageClient() {
                   }`}
                   onClick={() => setMode('text')}
                 >
-                  テキスト
+                  チャットではこちら
                 </button>
               </div>
             </div>
 
             {mode === 'voice' ? (
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
                 <div className="text-xs text-muted-foreground flex items-center justify-between">
                   <span>{isVoiceConnected ? 'Session active' : 'マイクを許可してスタート'}</span>
                   <span className="font-mono tracking-wide text-primary">
@@ -207,7 +207,7 @@ export default function EmbedPageClient() {
                 />
               </div>
             ) : (
-              <div className="relative h-[560px] w-full">
+              <div className="relative flex-1 w-full flex flex-col">
                 {tokenError && (
                   <div className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     {tokenError}
@@ -215,7 +215,7 @@ export default function EmbedPageClient() {
                 )}
                 <ChatKit
                   control={control}
-                  className="h-full w-full rounded-2xl border border-border/50 shadow-inner"
+                  className="flex-1 w-full rounded-lg border border-border/50"
                 />
               </div>
             )}
