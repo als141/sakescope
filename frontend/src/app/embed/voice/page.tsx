@@ -99,7 +99,7 @@ function VoiceOnlyEmbedPageInner() {
                 size="icon-lg"
                 className="h-11 w-11 sm:h-12 sm:w-12 border border-border/40 bg-background/60 hover:bg-background/90 shadow-sm"
               >
-                <Link href="/text-chat" aria-label="テキスト相談へ移動">
+                <Link href="/text-chat" aria-label="チャットへ移動">
                   <MessageSquare className="h-5 w-5" />
                 </Link>
               </Button>

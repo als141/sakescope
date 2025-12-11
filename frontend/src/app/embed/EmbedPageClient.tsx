@@ -136,9 +136,10 @@ export default function EmbedPageClient() {
         data-domain-key={CHATKIT_DOMAIN_KEY}
       />
       <div className="h-screen bg-background text-foreground flex flex-col">
-        <div className="flex-1 w-full overflow-hidden">
-          <div className="flex flex-col gap-4 h-full p-3 sm:p-4">
-            <div className="flex items-center justify-between gap-3">
+        {/* Header - 上部固定 */}
+        <div className="flex-shrink-0 border-b border-border/40">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between gap-3 p-3 sm:p-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.45em] text-muted-foreground">
                   Sakescope
@@ -166,20 +167,26 @@ export default function EmbedPageClient() {
                   }`}
                   onClick={() => setMode('text')}
                 >
-                  チャットではこちら
+                  チャット
                 </button>
               </div>
             </div>
+            {mode === 'voice' && (
+              <div className="text-xs text-muted-foreground flex items-center justify-between px-3 sm:px-4 pb-3">
+                <span>{isVoiceConnected ? 'Session active' : 'マイクを許可してスタート'}</span>
+                <span className="font-mono tracking-wide text-primary">
+                  {recommendedSake?.name ?? 'Realtime'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
 
+        {/* Main Content - 中央配置 */}
+        <div className="flex-1 flex items-center justify-center overflow-auto">
+          <div className="w-full max-w-6xl p-3 sm:p-4">
             {mode === 'voice' ? (
               <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
-                <div className="text-xs text-muted-foreground flex items-center justify-between">
-                  <span>{isVoiceConnected ? 'Session active' : 'マイクを許可してスタート'}</span>
-                  <span className="font-mono tracking-wide text-primary">
-                    {recommendedSake?.name ?? 'Realtime'}
-                  </span>
-                </div>
-
                 {recommendedSake && (
                   <SakeDisplay
                     sake={recommendedSake}

@@ -952,12 +952,12 @@ export default function VoiceChat({
               >
                 <Link href="/text-chat" className="flex items-center">
                   <MessageSquare className="h-5 w-5 mr-2" />
-                  テキスト相談
+                  チャット
                 </Link>
               </Button>
             </div>
             <p className="text-xs text-muted-foreground text-center max-w-sm">
-              会話を開始すると字幕の下にテキスト入力欄が表示され、補足を送信できます。
+              マイクボタンでは音声が出ますのでご注意ください。チャットボタンからテキストチャットでの会話もできます。
             </p>
           </motion.div>
 
