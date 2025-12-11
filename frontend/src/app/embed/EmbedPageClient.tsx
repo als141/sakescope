@@ -48,7 +48,7 @@ function ModeSelectScreen({
             type="button"
             variant="outline"
             size="xl"
-            className="h-auto w-full px-6 py-5 flex flex-col items-start gap-2 text-left bg-background/80"
+            className="h-auto w-full px-4 sm:px-6 py-4 sm:py-5 flex flex-col items-start gap-2 text-left bg-background/80 whitespace-normal"
             onClick={() => onSelect('voice')}
           >
             <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ function ModeSelectScreen({
             type="button"
             variant="outline"
             size="xl"
-            className="h-auto w-full px-6 py-5 flex flex-col items-start gap-2 text-left bg-background/80"
+            className="h-auto w-full px-4 sm:px-6 py-4 sm:py-5 flex flex-col items-start gap-2 text-left bg-background/80 whitespace-normal"
             onClick={() => onSelect('text')}
           >
             <div className="flex items-center gap-3">
