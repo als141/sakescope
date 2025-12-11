@@ -20,7 +20,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL =
   process.env.OPENAI_TEXT_MODEL_EMBED ??
   process.env.OPENAI_TEXT_MODEL ??
-  'gpt-5-mini';
+  'gpt-5.2';
 const MCP_URL = process.env.TEXT_EMBED_MCP_URL;
 const MCP_TOKEN = process.env.TEXT_EMBED_MCP_TOKEN;
 
@@ -88,6 +88,28 @@ const TEXT_AGENT_VERBOSITY: VerbosityLevel = normalizeEnvEnum(
   VERBOSITY_LEVELS,
   'low',
 );
+
+async function isMcpReachable(url: string, token: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal: controller.signal,
+    });
+    if (res.status === 401 || res.status === 403) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function describeValue(
   value: unknown,
@@ -345,7 +367,18 @@ export async function POST(request: NextRequest) {
       TEXT_MODEL,
     );
 
-    const tools = [
+    const buildMcpTool = () =>
+      hostedMcpTool({
+        serverLabel: 'harashomcp',
+        allowedTools: ['get_product_image_url'],
+        headers: {
+          Authorization: `Bearer ${MCP_TOKEN}`,
+        },
+        requireApproval: 'never',
+        serverUrl: MCP_URL!,
+      });
+
+    const buildRestrictedSearchTool = () =>
       webSearchTool({
         filters: {
           allowedDomains: ['www.echigo.sake-harasho.com'],
@@ -356,22 +389,31 @@ export async function POST(request: NextRequest) {
           country: 'JP',
           timezone: 'Asia/Tokyo',
         },
-      }),
-      finalizeRecommendationTool,
-    ];
+      });
 
+    const buildUnrestrictedSearchTool = () =>
+      webSearchTool({
+        searchContextSize: 'medium',
+        userLocation: {
+          type: 'approximate',
+          country: 'JP',
+          timezone: 'Asia/Tokyo',
+        },
+      });
+
+    const tools = [buildRestrictedSearchTool(), finalizeRecommendationTool];
+
+    let mcpEnabled = false;
     if (MCP_URL && MCP_TOKEN) {
-      tools.unshift(
-        hostedMcpTool({
-          serverLabel: 'harashomcp',
-          allowedTools: ['get_product_image_url'],
-          headers: {
-            Authorization: `Bearer ${MCP_TOKEN}`,
-          },
-          requireApproval: 'never',
-          serverUrl: MCP_URL,
-        }),
-      );
+      const reachable = await isMcpReachable(MCP_URL, MCP_TOKEN);
+      if (reachable) {
+        mcpEnabled = true;
+        tools.unshift(buildMcpTool());
+      } else {
+        console.warn(
+          '[EmbedTextWorker] MCP server unreachable or unauthorized; falling back to web_search only.',
+        );
+      }
     }
 
     const agent = new Agent({
@@ -566,7 +608,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
       }
       finalOutput = streamResult.finalOutput;
 
-      const parsedResult = finalPayloadOutputSchema.parse(finalOutput);
+      let parsedResult = finalPayloadOutputSchema.parse(finalOutput);
 
       publishProgress(runId, {
         type: 'reasoning',
@@ -574,7 +616,58 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
         message: 'テキストエージェントの結果を検証しています…',
       });
 
-      validateRecommendationPayload(parsedResult);
+      try {
+        validateRecommendationPayload(parsedResult);
+      } catch (validationError) {
+        const needsRetry =
+          validationError instanceof InvalidRecommendationPayloadError &&
+          validationError.message.includes('sake.name');
+
+        if (!needsRetry) {
+          throw validationError;
+        }
+
+        publishProgress(runId, {
+          type: 'status',
+          label: '再検索',
+          message:
+            'ストア内で銘柄が特定できなかったため、情報源を広げて再検索しています…',
+        });
+
+        const fallbackTools = [
+          ...(mcpEnabled ? [buildMcpTool()] : []),
+          buildUnrestrictedSearchTool(),
+          finalizeRecommendationTool,
+        ];
+
+        const fallbackAgent = new Agent({
+          name: 'Sake Purchase Research Worker (Embed Fallback)',
+          model,
+          modelSettings: {
+            reasoning: {
+              effort: TEXT_AGENT_REASONING_EFFORT,
+              summary: TEXT_AGENT_REASONING_SUMMARY,
+            },
+            text: {
+              verbosity: TEXT_AGENT_VERBOSITY,
+            },
+          },
+          outputType: finalPayloadInputSchema,
+          tools: fallbackTools,
+          toolUseBehavior: {
+            stopAtToolNames: ['finalize_recommendation'],
+          },
+          instructions: `${agent.instructions}\n\n【重要】前回の出力で sake.name が空欄でした。銘柄名と販売ページを必ず特定し、sake.name と shops を埋めて finalize_recommendation を呼び出してください。ドメイン制限は気にせず、信頼できる販売サイトから情報を取得して構いません。`,
+        });
+
+        const retryInput = `${runnerInput}\n\n【修正依頼】sake.name が空欄でした。必須フィールドを埋めて再出力してください。`;
+        const retryResult = await runner.run(fallbackAgent, retryInput, {
+          stream: false,
+          maxTurns: 4,
+        });
+        parsedResult = finalPayloadOutputSchema.parse(retryResult.finalOutput);
+        validateRecommendationPayload(parsedResult);
+      }
 
       publishProgress(runId, {
         type: 'final',

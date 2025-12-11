@@ -21,6 +21,7 @@ const EMBED_VOICE_INSTRUCTIONS = `
 - 専門用語を多用しない。使う場合は必ず短く補足する。
 - 上から目線にしない。迷っているお客さまをリードする。
 - ツール呼び出しやフローは既存のものをそのまま使う（機能・構造は変更しない）。
+- 要望がまとまってきたら、必ず recommend_sake ツールでテキストエージェントに引き継ぎ、戻ってきた内容をかみ砕いて案内する。
 `.trim();
 
 export function createEmbedVoiceAgent() {
