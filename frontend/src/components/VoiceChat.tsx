@@ -929,6 +929,58 @@ export default function VoiceChat({
     );
   }
 
+  // Minimal embed connected screen (subtitles + mute/disconnect only)
+  if (embedMinimal && isConnected) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-between gap-4 px-4 py-6 overflow-hidden">
+        <div className="w-full flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-2xl border border-border/60 bg-muted/10 shadow-sm overflow-hidden">
+            <Image
+              src={avatarImageSrc}
+              alt="Sakescope ソムリエのアバター"
+              fill
+              sizes="(max-width: 640px) 176px, 208px"
+              className="object-contain"
+              priority
+            />
+          </div>
+
+          <div className="w-full max-w-md rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner overflow-y-auto max-h-[34vh]">
+            <p className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed text-foreground">
+              {baseSubtitle}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-4 pb-2">
+          <Button
+            onClick={handleToggleMute}
+            variant={isMuted ? 'secondary' : 'default'}
+            size="icon-lg"
+            className={cn(
+              'h-14 w-14 rounded-full shadow-lg',
+              !isMuted &&
+                'bg-gradient-to-br from-emerald-500 via-emerald-600 to-emerald-700 hover:from-emerald-400 hover:via-emerald-500 hover:to-emerald-600',
+            )}
+          >
+            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            <span className="sr-only">{isMuted ? 'ミュート解除' : 'ミュート'}</span>
+          </Button>
+
+          <Button
+            onClick={handleStopConversation}
+            variant="destructive"
+            size="icon-lg"
+            className="h-14 w-14 rounded-full shadow-lg"
+          >
+            <PhoneOff className="h-5 w-5" />
+            <span className="sr-only">終了</span>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const conversationWidthClass = isConnected
     ? isFullscreenActive
       ? 'max-w-full sm:max-w-4xl lg:max-w-5xl'

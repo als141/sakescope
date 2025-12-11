@@ -197,6 +197,8 @@ export default function EmbedPageClient() {
   const isTextMode = mode === 'text';
   const shouldCenterVoiceStart =
     mode === 'voice' && !isVoiceConnected && !recommendedSake;
+  const isVoiceMinimalActive =
+    mode === 'voice' && isVoiceConnected && !recommendedSake;
 
   return (
     <>
@@ -263,10 +265,16 @@ export default function EmbedPageClient() {
           </div>
 
           {/* Main Content */}
-          <div className={isTextMode ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto flex justify-center'}>
+          <div
+            className={
+              isTextMode || isVoiceMinimalActive
+                ? 'flex-1 overflow-hidden'
+                : 'flex-1 overflow-auto flex justify-center'
+            }
+          >
             <div
               className={
-                isTextMode
+                isTextMode || isVoiceMinimalActive
                   ? 'w-full h-full flex flex-col'
                   : 'w-full max-w-6xl p-3 sm:p-4 min-h-full flex flex-col'
               }
@@ -276,7 +284,9 @@ export default function EmbedPageClient() {
                   className={
                     shouldCenterVoiceStart
                       ? 'flex flex-col flex-1 items-center justify-center overflow-hidden'
-                      : 'flex flex-col gap-4 flex-1 overflow-y-auto'
+                      : isVoiceMinimalActive
+                        ? 'flex flex-col flex-1 overflow-hidden'
+                        : 'flex flex-col gap-4 flex-1 overflow-y-auto'
                   }
                 >
                   {recommendedSake && (
