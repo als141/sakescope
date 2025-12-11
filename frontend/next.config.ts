@@ -6,6 +6,7 @@ const EMBED_PARENT_SITES = [
   'http://localhost:3000',
   'https://capable-panda-53.accounts.dev',
   'https://portfolio.atoriba.jp',
+  'https://www.echigo.sake-harasho.com',
 ];
 
 const nextConfig: NextConfig = {
