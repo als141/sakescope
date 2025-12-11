@@ -9,6 +9,7 @@ import VoiceChat from '@/components/VoiceChat';
 import SakeDisplay from '@/components/SakeDisplay';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
+import { createRealtimeEmbedVoiceBundle } from '@/infrastructure/openai/realtime/embedSessionFactory';
 
 type TokenState = {
   secret: string | null;
@@ -295,6 +296,8 @@ export default function EmbedPageClient() {
                     isRecording={isRecording}
                     setIsRecording={setIsRecording}
                     embedMinimal
+                    clientSecretPath="/api/client-secret?variant=embed"
+                    createSessionBundle={createRealtimeEmbedVoiceBundle}
                     onSakeRecommended={(sake) => {
                       setRecommendedSake(sake);
                     }}
