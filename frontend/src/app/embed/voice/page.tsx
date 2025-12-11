@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MessageSquare } from 'lucide-react';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { createRealtimeEmbedVoiceBundle } from '@/infrastructure/openai/realtime/embedSessionFactory';
 import { useSearchParams } from 'next/navigation';
 
-export default function VoiceOnlyEmbedPage() {
+function VoiceOnlyEmbedPageInner() {
   const searchParams = useSearchParams();
   const isWidgetMode = searchParams.get('mode') === 'widget';
 
@@ -179,5 +179,14 @@ export default function VoiceOnlyEmbedPage() {
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+export default function VoiceOnlyEmbedPage() {
+  // Next.js 15 では useSearchParams を含むツリーを Suspense でラップする必要がある
+  return (
+    <Suspense fallback={null}>
+      <VoiceOnlyEmbedPageInner />
+    </Suspense>
   );
 }
