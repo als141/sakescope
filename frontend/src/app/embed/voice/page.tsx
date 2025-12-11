@@ -168,6 +168,7 @@ function VoiceOnlyEmbedPageInner() {
               <SakeDisplay
                 sake={recommendedSake}
                 offer={purchaseOffer}
+                variant="embed"
                 onReset={() => {
                   setRecommendedSake(null);
                   setPurchaseOffer(null);

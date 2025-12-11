@@ -26,9 +26,19 @@ interface SakeDisplayProps {
    * Show preference radar/section (disable in gift-mode pages that already render it elsewhere).
    */
   showPreferenceMap?: boolean;
+  /**
+   * Display variant. "embed" is a compact card for iframe embedding.
+   */
+  variant?: 'full' | 'embed';
 }
 
-export default function SakeDisplay({ sake, offer, onReset, showPreferenceMap = true }: SakeDisplayProps) {
+export default function SakeDisplay({
+  sake,
+  offer,
+  onReset,
+  showPreferenceMap = true,
+  variant = 'full',
+}: SakeDisplayProps) {
   const [imageError, setImageError] = useState(false);
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
   const purchaseShops = offer?.shops ?? [];
@@ -49,6 +59,155 @@ export default function SakeDisplay({ sake, offer, onReset, showPreferenceMap = 
       }, '*');
     }
   };
+
+  if (variant === 'embed') {
+    const primaryShop = purchaseShops[0];
+
+    return (
+      <motion.div
+        className="w-full"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+      >
+        <Card className="border-border/50 shadow-sm rounded-2xl overflow-hidden bg-background">
+          <CardHeader className="p-4 pb-3">
+            <div className="flex gap-4">
+              <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-muted/30 border border-border/60">
+                {sake.imageUrl && !imageError ? (
+                  <Image
+                    src={sake.imageUrl}
+                    alt={`${sake.name}のイメージ`}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Wine className="h-10 w-10 text-primary/70" />
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-lg font-semibold leading-snug truncate">
+                    {sake.name}
+                  </h2>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0"
+                  >
+                    <a
+                      href={googleSearchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${sake.name} をGoogleで検索`}
+                    >
+                      <Search className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  {sake.region && (
+                    <Badge variant="secondary" size="sm">
+                      {sake.region}
+                    </Badge>
+                  )}
+                  {sake.type && (
+                    <Badge variant="secondary" size="sm">
+                      {sake.type}
+                    </Badge>
+                  )}
+                  {sake.priceRange && (
+                    <Badge variant="outline" size="sm">
+                      {sake.priceRange}
+                    </Badge>
+                  )}
+                </div>
+
+                {offer?.summary && (
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                    {offer.summary}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-4 pt-0 space-y-3">
+            {tastingNotes.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {tastingNotes.slice(0, 6).map((note, index) => (
+                  <Badge key={index} variant="outline" size="sm">
+                    {note}
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {purchaseShops.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2">
+                {purchaseShops.slice(0, 2).map((shop) => (
+                  <a
+                    key={`${shop.retailer}-${shop.url}`}
+                    href={shop.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                    onClick={() => handleShopClick(shop)}
+                  >
+                    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/10 px-3 py-2 hover:border-primary/50 hover:bg-accent/40 transition-colors">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {shop.retailer}
+                        </p>
+                        <p className="text-sm font-bold text-primary">
+                          {shop.price ? formatPrice(shop.price) : shop.priceText ?? '価格を確認'}
+                        </p>
+                      </div>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                購入先の情報を確認中です。
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              {primaryShop && (
+                <Button asChild size="default" className="w-full sm:w-auto flex-1">
+                  <a
+                    href={primaryShop.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => handleShopClick(primaryShop)}
+                  >
+                    商品ページを見る
+                  </a>
+                </Button>
+              )}
+              <Button
+                onClick={onReset}
+                variant="outline"
+                size="default"
+                className="w-full sm:w-auto flex-1"
+              >
+                他の日本酒も見る
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

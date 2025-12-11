@@ -293,6 +293,7 @@ export default function EmbedPageClient() {
                     <SakeDisplay
                       sake={recommendedSake}
                       offer={purchaseOffer}
+                      variant="embed"
                       onReset={() => {
                         setRecommendedSake(null);
                         setPurchaseOffer(null);
