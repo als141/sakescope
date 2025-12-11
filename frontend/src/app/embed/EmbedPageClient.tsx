@@ -193,6 +193,8 @@ export default function EmbedPageClient() {
     },
   });
 
+  const isTextMode = mode === 'text';
+
   return (
     <>
       <Script
@@ -258,8 +260,14 @@ export default function EmbedPageClient() {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 overflow-auto flex justify-center">
-            <div className="w-full max-w-6xl p-3 sm:p-4 min-h-full flex flex-col">
+          <div className={isTextMode ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto flex justify-center'}>
+            <div
+              className={
+                isTextMode
+                  ? 'w-full h-full flex flex-col'
+                  : 'w-full max-w-6xl p-3 sm:p-4 min-h-full flex flex-col'
+              }
+            >
               {mode === 'voice' ? (
                 <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
                   {recommendedSake && (
@@ -291,13 +299,13 @@ export default function EmbedPageClient() {
               ) : (
                 <div className="relative flex-1 w-full flex flex-col min-h-0">
                   {tokenError && (
-                    <div className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive m-2">
                       {tokenError}
                     </div>
                   )}
                   <ChatKit
                     control={control}
-                    className="flex-1 w-full h-full rounded-lg border border-border/50"
+                    className="flex-1 w-full h-full rounded-none border-0"
                   />
                 </div>
               )}
