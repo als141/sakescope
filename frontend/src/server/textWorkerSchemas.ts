@@ -288,3 +288,37 @@ export const finalPayloadJsonSchema = {
 };
 
 export type FinalPayloadJsonSchema = typeof finalPayloadJsonSchema;
+
+// ---------------------------------------------
+// v2 Seed schema for strict Structured Outputs.
+// LLM returns a minimal payload; server enriches to v1 output.
+// ---------------------------------------------
+
+const factSchemaV2 = z.object({
+  k: z.string().min(1),
+  v: z.string().min(1),
+  source_url: z.string().nullable(),
+});
+
+const offerSeedSchemaV2 = z.object({
+  url: z.string().min(1),
+  price_text: z.string().nullable(),
+  stock: z
+    .enum(['in_stock', 'out_of_stock', 'unknown']),
+  eta: z.string().nullable(),
+});
+
+export const finalPayloadSeedInputSchemaV2 = z.object({
+  summary: z.string().min(1),
+  reasons: z.array(z.string()).min(1).max(4),
+  sake: z.object({
+    name: z.string().min(1),
+    product_url: z.string().nullable(),
+    image_url: z.string().nullable(),
+    facts: z.array(factSchemaV2),
+  }),
+  offers: z.array(offerSeedSchemaV2).min(1).max(3),
+  sources: z.array(z.string()).max(3),
+});
+
+export type FinalPayloadSeedInputV2 = z.infer<typeof finalPayloadSeedInputSchemaV2>;

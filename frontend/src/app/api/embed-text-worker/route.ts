@@ -9,18 +9,17 @@ import {
   publishProgress,
 } from '@/server/textWorkerProgress';
 import {
-  finalPayloadInputSchema,
   finalPayloadOutputSchema,
+  finalPayloadSeedInputSchemaV2,
 } from '@/server/textWorkerSchemas';
+import { extractPrimaryImageUrl } from '@/server/extractPrimaryImageUrl';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const TEXT_MODEL =
-  process.env.OPENAI_TEXT_MODEL_EMBED ??
-  process.env.OPENAI_TEXT_MODEL ??
-  'gpt-5.2';
+  process.env.OPENAI_TEXT_MODEL_EMBED ?? 'gpt-5-mini';
 const MCP_URL = process.env.TEXT_EMBED_MCP_URL;
 const MCP_TOKEN = process.env.TEXT_EMBED_MCP_TOKEN;
 
@@ -32,6 +31,19 @@ const VERBOSITY_LEVELS = ['low', 'medium', 'high'] as const;
 type VerbosityLevel = (typeof VERBOSITY_LEVELS)[number];
 
 const HTTP_URL_PATTERN = /^https?:\/\/\S+/i;
+
+const EMBED_MAX_TURNS_RAW = Number.parseInt(
+  process.env.TEXT_AGENT_MAX_TURNS_EMBED ?? '4',
+  10,
+);
+const TEXT_AGENT_MAX_TURNS_EMBED = Number.isFinite(EMBED_MAX_TURNS_RAW)
+  ? Math.min(Math.max(EMBED_MAX_TURNS_RAW, 2), 6)
+  : 4;
+const SEARCH_CONTEXT_SIZE_EMBED = (process.env
+  .TEXT_AGENT_SEARCH_CONTEXT_SIZE_EMBED ?? 'low') as
+  | 'low'
+  | 'medium'
+  | 'high';
 
 class InvalidRecommendationPayloadError extends Error {
   constructor(message: string) {
@@ -228,6 +240,354 @@ const validateRecommendationPayload = (
     });
   }
 };
+
+// -------------------------------------------------------------
+// v2 seed -> v1 payload enrichment (embed mode only)
+// -------------------------------------------------------------
+
+const DEFAULT_IMAGE_URL =
+  'https://dummyimage.com/480x640/1f2937/ffffff&text=Sake';
+
+const imageExtractionCache = new Map<string, string | null>();
+const offerHtmlCache = new Map<string, string | null>();
+
+const toTrimmed = (value: unknown): string | null =>
+  typeof value === 'string' ? value.trim() || null : null;
+
+const isLikelyImageUrl = (url: string): boolean => {
+  if (/\.(jpg|jpeg|png|webp|gif|svg|bmp|ico)(\?.*)?$/i.test(url)) {
+    return true;
+  }
+  if (/\.(html?|php|asp|jsp)(\?.*)?$/i.test(url)) {
+    return false;
+  }
+  if (
+    /\/cdn\/|cloudinary|imgix|cloudflare|amazonaws\.com\/.*\/(images?|photos?)/i.test(
+      url,
+    )
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const uniqueStrings = (values: unknown[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const trimmed = toTrimmed(value);
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      result.push(trimmed);
+    }
+  }
+  return result;
+};
+
+const collectBaseUrls = (entry: Record<string, unknown>): string[] => {
+  const candidates: unknown[] = [];
+  const shopsRaw = (entry as { shops?: unknown }).shops;
+  const shops = Array.isArray(shopsRaw) ? shopsRaw : [];
+  for (const shop of shops) {
+    if (shop && typeof shop === 'object') {
+      const candidate = toTrimmed((shop as { url?: unknown }).url);
+      if (candidate) {
+        candidates.push(candidate);
+      }
+    }
+  }
+  const sakeRaw = (entry as { sake?: unknown }).sake;
+  const originSources = Array.isArray(
+    (sakeRaw as { origin_sources?: unknown })?.origin_sources,
+  )
+    ? ((sakeRaw as { origin_sources?: unknown[] })?.origin_sources as unknown[])
+    : [];
+  candidates.push(...originSources);
+  return uniqueStrings(candidates);
+};
+
+const resolveImageFromPage = async (
+  pageUrl: string,
+): Promise<string | null> => {
+  if (!pageUrl || !HTTP_URL_PATTERN.test(pageUrl)) {
+    return null;
+  }
+  if (imageExtractionCache.has(pageUrl)) {
+    return imageExtractionCache.get(pageUrl) ?? null;
+  }
+  const result = await extractPrimaryImageUrl(pageUrl);
+  imageExtractionCache.set(pageUrl, result);
+  return result;
+};
+
+const ensureRecommendationImage = async (
+  entry: Record<string, unknown>,
+): Promise<void> => {
+  const sakeRaw = (entry as { sake?: unknown }).sake;
+  const sake =
+    sakeRaw && typeof sakeRaw === 'object'
+      ? (sakeRaw as Record<string, unknown>)
+      : null;
+  if (!sake) {
+    return;
+  }
+
+  const baseCandidates = collectBaseUrls(entry);
+  const rawImageUrl = toTrimmed(sake.image_url);
+
+  if (
+    rawImageUrl &&
+    isLikelyImageUrl(rawImageUrl) &&
+    HTTP_URL_PATTERN.test(rawImageUrl)
+  ) {
+    sake.image_url = rawImageUrl;
+    return;
+  }
+
+  for (const base of baseCandidates) {
+    const resolved = await resolveImageFromPage(base);
+    if (resolved) {
+      sake.image_url = resolved;
+      return;
+    }
+  }
+
+  sake.image_url = DEFAULT_IMAGE_URL;
+};
+
+const ensurePayloadImages = async (payload: unknown): Promise<void> => {
+  if (!payload || typeof payload !== 'object') {
+    return;
+  }
+  await ensureRecommendationImage(payload as Record<string, unknown>);
+};
+
+type FinalPayloadSeedInputV2 = z.infer<typeof finalPayloadSeedInputSchemaV2>;
+type OfferSeedV2 = FinalPayloadSeedInputV2['offers'][number];
+type FactV2 = FinalPayloadSeedInputV2['sake']['facts'][number];
+
+const inferRetailerFromUrl = (urlText: string): string => {
+  try {
+    const { hostname } = new URL(urlText);
+    return hostname.replace(/^www\./, '');
+  } catch {
+    return 'shop';
+  }
+};
+
+const PRICE_PATTERNS: RegExp[] = [
+  /(?:¥|￥)\s?([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})/g,
+  /([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})\s?円/g,
+];
+const MIN_PRICE_YEN = 500;
+const MAX_PRICE_YEN = 200000;
+
+const extractYenPrices = (html: string): number[] => {
+  const prices: number[] = [];
+  for (const basePattern of PRICE_PATTERNS) {
+    const pattern = new RegExp(basePattern.source, basePattern.flags);
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(html)) !== null) {
+      const raw = match[1] ?? '';
+      const num = Number.parseInt(raw.replace(/,/g, ''), 10);
+      if (
+        Number.isFinite(num) &&
+        num >= MIN_PRICE_YEN &&
+        num <= MAX_PRICE_YEN
+      ) {
+        prices.push(num);
+      }
+    }
+  }
+  return prices;
+};
+
+const detectStockFromHtml = (
+  html: string,
+): OfferSeedV2['stock'] => {
+  if (/在庫切れ|品切れ|sold out|売り切れ/i.test(html)) {
+    return 'out_of_stock';
+  }
+  if (/在庫あり|在庫有り|in stock|販売中/i.test(html)) {
+    return 'in_stock';
+  }
+  return 'unknown';
+};
+
+const fetchOfferHtml = async (urlText: string): Promise<string | null> => {
+  if (!urlText || !HTTP_URL_PATTERN.test(urlText)) {
+    return null;
+  }
+  if (offerHtmlCache.has(urlText)) {
+    return offerHtmlCache.get(urlText) ?? null;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+  try {
+    const res = await fetch(urlText, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+      },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      offerHtmlCache.set(urlText, null);
+      return null;
+    }
+    const contentType = res.headers.get('content-type');
+    if (contentType && !contentType.includes('text/html')) {
+      offerHtmlCache.set(urlText, null);
+      return null;
+    }
+    const html = await res.text();
+    offerHtmlCache.set(urlText, html);
+    return html;
+  } catch {
+    offerHtmlCache.set(urlText, null);
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const enrichOfferSeed = async (
+  offer: OfferSeedV2,
+): Promise<{
+  price: number | null;
+  priceText: string | null;
+  availability: string | null;
+  eta: string | null;
+  stock: OfferSeedV2['stock'];
+}> => {
+  let priceText = toTrimmed(offer.price_text);
+  let price: number | null = null;
+  let stock = offer.stock;
+  const eta = toTrimmed(offer.eta);
+
+  if (!priceText) {
+    const html = await fetchOfferHtml(offer.url);
+    if (html) {
+      const candidates = extractYenPrices(html);
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => a - b);
+        price = candidates[0];
+        priceText = `¥${candidates[0].toLocaleString()}`;
+      }
+      if (stock === 'unknown') {
+        stock = detectStockFromHtml(html);
+      }
+    }
+  }
+
+  const availability =
+    stock === 'in_stock'
+      ? '在庫あり'
+      : stock === 'out_of_stock'
+        ? '在庫切れ'
+        : null;
+
+  if (!priceText) {
+    priceText = '価格は商品ページをご確認ください';
+  }
+
+  return { price, priceText, availability, eta, stock };
+};
+
+const pickFactValue = (
+  facts: FactV2[],
+  matcher: RegExp,
+): string | null => {
+  for (const fact of facts) {
+    if (matcher.test(fact.k)) {
+      const trimmed = fact.v.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return null;
+};
+
+const enrichSeedToFinalPayload = async (
+  seed: FinalPayloadSeedInputV2,
+): Promise<Record<string, unknown>> => {
+  const facts = Array.isArray(seed.sake.facts) ? seed.sake.facts : [];
+
+  const brewery = pickFactValue(facts, /蔵元|酒蔵|brewery/i);
+  const region = pickFactValue(facts, /地域|産地|県|region/i);
+  const type = pickFactValue(facts, /種類|タイプ|特定名称|type/i);
+  const priceRange = pickFactValue(facts, /価格帯|price/i);
+
+  const sourceCandidates: unknown[] = [
+    seed.sake.product_url,
+    ...seed.sources,
+    ...facts.map((fact) => fact.source_url),
+  ];
+  const originSources = uniqueStrings(sourceCandidates);
+
+  const imageCandidate =
+    toTrimmed(seed.sake.image_url) ??
+    toTrimmed(seed.sake.product_url) ??
+    toTrimmed(seed.offers[0]?.url) ??
+    DEFAULT_IMAGE_URL;
+
+  const shops = (
+    await Promise.all(
+      seed.offers.map(async (offer) => {
+        const enriched = await enrichOfferSeed(offer);
+        return {
+          retailer: inferRetailerFromUrl(offer.url),
+          url: offer.url,
+          price: enriched.price,
+          price_text: enriched.priceText,
+          currency: null,
+          availability: enriched.availability,
+          delivery_estimate: enriched.eta,
+          source: null,
+          notes:
+            enriched.stock === 'unknown'
+              ? null
+              : `在庫ステータス: ${enriched.stock}`,
+        };
+      }),
+    )
+  ).filter((shop) => shop && typeof shop.url === 'string');
+
+  return {
+    sake: {
+      id: null,
+      name: seed.sake.name,
+      brewery: brewery ?? null,
+      region: region ?? null,
+      type: type ?? null,
+      alcohol: null,
+      sake_value: null,
+      acidity: null,
+      description: null,
+      tasting_notes: null,
+      food_pairing: null,
+      serving_temperature: null,
+      image_url: imageCandidate,
+      origin_sources: originSources.length > 0 ? originSources : null,
+      price_range: priceRange ?? null,
+      flavor_profile: null,
+    },
+    summary: seed.summary,
+    reasoning: seed.reasons.join('\n'),
+    tasting_highlights: null,
+    serving_suggestions: null,
+    shops: shops.length > 0 ? shops : [],
+    preference_map: null,
+    alternatives: null,
+    follow_up_prompt: null,
+  };
+};
 const handoffRequestMetadataSchema = z
   .object({
     include_alternatives: z.boolean().nullable().optional(),
@@ -266,18 +626,16 @@ const handoffRequestSchema = z.object({
   gift_id: z.string().optional(),
 });
 
-const handoffResponseSchema = finalPayloadOutputSchema;
+const handoffSeedSchema = finalPayloadSeedInputSchemaV2;
 
 const finalizeRecommendationTool = tool({
   name: 'finalize_recommendation',
   description:
-    '候補を1本に絞り、詳細情報と購入リンクを構造化して返します。代替案がある場合は alternatives に2件まで追加してください。',
-  parameters: handoffResponseSchema,
+    '候補を1本に絞り、推薦の要点と購入リンクを最小限のJSONとして確定します。価格・在庫・画像などはサーバー側で補完します。',
+  parameters: handoffSeedSchema,
   strict: true,
   async execute(input) {
-    const parsed = handoffResponseSchema.parse(input);
-    validateRecommendationPayload(parsed);
-    return JSON.stringify(parsed);
+    return handoffSeedSchema.parse(input);
   },
 });
 
@@ -303,12 +661,7 @@ export async function POST(request: NextRequest) {
     const currentSake = parsed.current_sake ?? metadata?.current_sake ?? null;
     const preferenceNote = parsed.preference_note ?? metadata?.preference_note ?? null;
     const focus = parsed.focus ?? metadata?.focus ?? null;
-    const includeAlternatives =
-      typeof parsed.include_alternatives === 'boolean'
-        ? parsed.include_alternatives
-        : typeof metadata?.include_alternatives === 'boolean'
-          ? metadata.include_alternatives
-          : true;
+    const includeAlternatives = false;
 
     const metadataResult = metadata ?? {};
     const isGiftMode = metadataResult.gift_mode === true || parsed.mode === 'gift';
@@ -383,7 +736,7 @@ export async function POST(request: NextRequest) {
         filters: {
           allowedDomains: ['www.echigo.sake-harasho.com'],
         },
-        searchContextSize: 'medium',
+        searchContextSize: SEARCH_CONTEXT_SIZE_EMBED,
         userLocation: {
           type: 'approximate',
           country: 'JP',
@@ -393,7 +746,7 @@ export async function POST(request: NextRequest) {
 
     const buildUnrestrictedSearchTool = () =>
       webSearchTool({
-        searchContextSize: 'medium',
+        searchContextSize: SEARCH_CONTEXT_SIZE_EMBED,
         userLocation: {
           type: 'approximate',
           country: 'JP',
@@ -428,69 +781,38 @@ export async function POST(request: NextRequest) {
           verbosity: TEXT_AGENT_VERBOSITY,
         },
       },
-      outputType: finalPayloadInputSchema,
+      outputType: handoffSeedSchema,
       tools,
       toolUseBehavior: {
         stopAtToolNames: ['finalize_recommendation'],
       },
       instructions: `
-あなたは「越後銘門酒会」の埋め込み用テキストエージェントで、新潟の日本酒に特化したリサーチ担当です。
-会話エージェントが聞き取った嗜好に沿って、信頼できる情報源から最適な銘柄と購入先をまとめて返してください。
-機能・ツール・フローは既存の定義をそのまま使い、システムプロンプトだけを差し替えています。
+あなたは「越後銘門酒会」の埋め込み用テキストリサーチ担当です。会話エージェントが聞き取った嗜好に沿って、新潟の日本酒を中心に最適な1本と購入ページを特定し、最小限の推薦seedを返してください。
 
 ### 使命
-- 新潟を中心とした日本酒を優先的に推薦し、必要に応じて他地域も比較検討する
-- 公式EC、正規代理店、百貨店、専門店など信頼性の高い販売サイトを優先し、価格・在庫・配送見込み・出典URLを明記する
-- 情報は必ず複数ソースで裏取りし、根拠URLを "origin_sources" にまとめる
+- 新潟を中心とした日本酒を優先し、必要なら他地域も比較して最適を選ぶ
+- 信頼できる販売サイト（越後銘門酒会の公式ECなど）で購入できる商品URLを必ず特定する
+- 根拠となるURLは "sources" に最大3件までまとめる
 ${isGiftMode ? `
 ### ギフトモード特別指示
-このリクエストはギフト推薦です。以下の点に特に注意してください：
+このリクエストはギフト推薦です。以下の点に注意してください：
 - 予算範囲: ${giftBudgetMin ? `${giftBudgetMin}円〜${giftBudgetMax}円` : '指定なし'}
 ${occasion ? `- 用途: ${occasion}` : ''}
 ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 - ギフト包装が可能な販売店を優先する
-- 高品質で贈答用に適した銘柄を選ぶ
-- のし・メッセージカード対応などのギフトサービス情報も確認する
 ` : ''}
 
-### 画像URL取得方法（必須）
-- 対象ストア: https://www.echigo.sake-harasho.com/ の商品ページのみを扱う。
-- 入力として与えられた商品ページURLから、実際にページに含まれている商品画像（.jpg 等）の CDN 直リンクを取得すること。推測やプレースホルダは禁止。
-- 画像抽出は必ず hosted MCP サーバー 'harashomcp' の 'get_product_image_url' を使用して行う。web_search の結果URLをそのまま画像URLとみなさない。
+### スピード重視
+- web_search はまず1回でまとめて調査し、必要なら追加1回まで
+- 価格・在庫・配送・画像は不明なら null / unknown で構いません（サーバー側で補完します）
+- sake.name と offers[].url は必須。空欄のまま finalize_recommendation を呼び出さないこと
 
-### 必須フィールド
-- sake.name は必ず1文字以上で埋める。取得できない場合は別候補を選ぶか、再検索してからやり直す。空欄のまま finalize_recommendation を呼び出さないこと。
-
-### スピード重視の進め方
-- まずは必要条件を箇条書きで整理し、単一の \`web_search\` クエリで候補・販売先・最新価格をまとめて取得する。香り・価格帯・ペアリング用途・ギフト用途を1本の検索語に含めて複数候補を同時に集めること。
-- 追加の \`web_search\` は情報が欠落している場合のみ最大1回まで行う（例: 最適候補の在庫が不明／価格が取得できない場合など）。無目的な再検索は禁止。
-- 画像URLは販売ページや信頼できる資料に直接画像リンクがある場合のみ採用し、見つからない場合はもっとも信頼性の高い商品ページURLを一時的に \`image_url\` に入力する。サーバーが最終的に画像を抽出するため専用ツールを呼び出す必要はない。
-- reasoning やメモは要点を簡潔にまとめ、冗長な重複説明は避ける。
-
-### preference_map の作り方（必須）
-- 軸は3〜6本。味・香り・ボディ感・酸味・キレ・熟成感・温度帯・ペアリング適性・希少性/人気度（ユーザーが話した場合のみ）など **具体的な嗜好軸** にする。  
-- 「全体的な印象」「その他」といった抽象軸は禁止。意味が重複する軸も避ける。  
-- level は 1〜5 の整数に丸める（1=全く好まない/弱い、3=普通、5=強く好む/強い）。  
-- evidence に会話ログから拾った根拠を1行で書く。  
-- summary には軸を1行で要約（例: 「華やかで甘口、冷酒好き」）。
-
-### 手順
-1. 必要に応じて \`web_search\` を呼び出し、候補となる日本酒・販売ページ・価格・在庫情報を取得する。${isGiftMode ? 'ギフト対応可能なショップを優先する。' : ''}
-2. 検索結果から条件に最も合う銘柄を評価し、香味・造り・ペアリング・提供温度・価格帯を整理する。可能なら味わいを 1〜5 のスコアで "flavor_profile" に入れる。
-3. 会話ログから読み取れる嗜好傾向を 3〜6 軸で \`preference_map\` にまとめる。軸ラベルは会話に沿って柔軟に命名し、\`level\` は 1〜5 の整数、\`evidence\` に根拠を1行で記載する。
-4. 最低1件の販売先を確保（可能なら2件以上）。価格が数値化できない場合は "price_text" に表記し、在庫・配送目安を明示する。
-5. 代替案が求められている場合は "alternatives" に2件まで優先度順で記載する（各項目は名前・1行コメント・URL・価格メモのみ。詳細なテイスティング情報やショップリストは不要）。
-
-### 厳守事項
-- \`finalize_recommendation\` を呼び出す時点で必要な販売先・価格・在庫情報は揃っている前提です。追加のヒアリングや確認質問を挟まず確定してください。
-- \`follow_up_prompt\` は常に null。ユーザーへの追質問や再確認メッセージは書かないこと。
-- フィールドを空文字やダミーURLで埋めるのは禁止です。取得できない値は null を使い、その理由を summary / reasoning に明記してください。
+### facts の書き方
+- 確実に分かったスペックや特徴だけを facts に追加する（例: 蔵元, 地域, 酒米, 精米歩合, 味わいメモ）
+- 分からない項目は入れない。facts は空配列でもOK
 
 ### 出力
-- 最終的な回答は必ず一度だけ 'finalize_recommendation' を呼び出し、JSONを返す
-- 定量情報が取れない場合は null を指定し、根拠文に明記する
-- 'follow_up_prompt' は必ず null とし、追加の質問は絶対に含めない
-- \`preference_map\` を必ず含め、axes は 3〜6 本・level は 1〜5 の整数に丸めること
+- 最終回答は必ず一度だけ finalize_recommendation を呼び出し、v2 seed JSON を返す
     `.trim(),
     });
 
@@ -532,11 +854,10 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
       contextSections.push(`追加共有事項:\n${extrasNarrative}`);
     }
 
-    const includeAltInstruction = includeAlternatives
-      ? '代替案: 主要な推薦に加え、最大2件まで名前＋ワンライナー＋URLで軽量に紹介してください。'
-      : '代替案: 今回は主要な1本に集中し、代替候補は提示しないでください。';
-
-    const guidanceSections = [includeAltInstruction, ...contextSections].filter(
+    const guidanceSections = [
+      '代替案: 今回は主要な1本に集中し、代替候補は提示しないでください。',
+      ...contextSections,
+    ].filter(
       (section) => section && section.trim().length > 0,
     );
     if (conversationLogRaw) {
@@ -594,7 +915,7 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
 
       const streamResult = await runner.run(agent, runnerInput, {
         stream: true,
-        maxTurns: 6,
+        maxTurns: TEXT_AGENT_MAX_TURNS_EMBED,
       });
 
       // Consume stream to completion; progressイベントは現状省略
@@ -608,13 +929,22 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
       }
       finalOutput = streamResult.finalOutput;
 
-      let parsedResult = finalPayloadOutputSchema.parse(finalOutput);
-
       publishProgress(runId, {
         type: 'reasoning',
         label: '結果受信',
-        message: 'テキストエージェントの結果を検証しています…',
+        message: 'テキストエージェントのseedを受信しました。補完処理を行います…',
       });
+
+      const buildFinalPayloadFromSeed = async (
+        seed: FinalPayloadSeedInputV2,
+      ): Promise<FinalRecommendationPayload> => {
+        const enriched = await enrichSeedToFinalPayload(seed);
+        await ensurePayloadImages(enriched);
+        return finalPayloadOutputSchema.parse(enriched);
+      };
+
+      let seedResult = handoffSeedSchema.parse(finalOutput);
+      let parsedResult = await buildFinalPayloadFromSeed(seedResult);
 
       try {
         validateRecommendationPayload(parsedResult);
@@ -652,20 +982,21 @@ ${recipientName ? `- 贈る相手: ${recipientName}` : ''}
               verbosity: TEXT_AGENT_VERBOSITY,
             },
           },
-          outputType: finalPayloadInputSchema,
+          outputType: handoffSeedSchema,
           tools: fallbackTools,
           toolUseBehavior: {
             stopAtToolNames: ['finalize_recommendation'],
           },
-          instructions: `${agent.instructions}\n\n【重要】前回の出力で sake.name が空欄でした。銘柄名と販売ページを必ず特定し、sake.name と shops を埋めて finalize_recommendation を呼び出してください。ドメイン制限は気にせず、信頼できる販売サイトから情報を取得して構いません。`,
+          instructions: `${agent.instructions}\n\n【重要】前回の出力で sake.name が空欄でした。銘柄名と購入ページを必ず特定し、sake.name と offers[].url を埋めて finalize_recommendation を呼び出してください。ドメイン制限は気にせず、信頼できる販売サイトから情報を取得して構いません。`,
         });
 
         const retryInput = `${runnerInput}\n\n【修正依頼】sake.name が空欄でした。必須フィールドを埋めて再出力してください。`;
         const retryResult = await runner.run(fallbackAgent, retryInput, {
           stream: false,
-          maxTurns: 4,
+          maxTurns: Math.max(2, TEXT_AGENT_MAX_TURNS_EMBED - 1),
         });
-        parsedResult = finalPayloadOutputSchema.parse(retryResult.finalOutput);
+        seedResult = handoffSeedSchema.parse(retryResult.finalOutput);
+        parsedResult = await buildFinalPayloadFromSeed(seedResult);
         validateRecommendationPayload(parsedResult);
       }
 
