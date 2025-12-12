@@ -23,6 +23,10 @@ interface SakeDisplayProps {
   offer: PurchaseOffer | null;
   onReset: () => void;
   /**
+   * Secondary CTA label (used in embed variant).
+   */
+  secondaryActionLabel?: string;
+  /**
    * Show preference radar/section (disable in gift-mode pages that already render it elsewhere).
    */
   showPreferenceMap?: boolean;
@@ -36,6 +40,7 @@ export default function SakeDisplay({
   sake,
   offer,
   onReset,
+  secondaryActionLabel,
   showPreferenceMap = true,
   variant = 'full',
 }: SakeDisplayProps) {
@@ -62,6 +67,7 @@ export default function SakeDisplay({
 
   if (variant === 'embed') {
     const primaryShop = purchaseShops[0];
+    const secondaryLabel = secondaryActionLabel ?? '他の日本酒も見る';
 
     return (
       <motion.div
@@ -200,7 +206,7 @@ export default function SakeDisplay({
                 size="default"
                 className="w-full sm:w-auto flex-1"
               >
-                他の日本酒も見る
+                {secondaryLabel}
               </Button>
             </div>
           </CardContent>

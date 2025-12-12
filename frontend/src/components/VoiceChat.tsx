@@ -58,6 +58,14 @@ interface VoiceChatProps {
    * Once connected, the normal full/compact UI is used.
    */
   embedMinimal?: boolean;
+  /**
+   * In embed contexts, keep microphone muted after delegation completes.
+   */
+  embedPreserveMuteOnDelegationEnd?: boolean;
+  /**
+   * Expose a stop/disconnect function to parent (embed UX).
+   */
+  onStopAvailable?: (stopFn: () => void) => void;
   clientSecretPath?: string;
   createSessionBundle?: (callbacks: AgentOrchestrationCallbacks) => VoiceAgentBundle;
 }
@@ -133,6 +141,8 @@ export default function VoiceChat({
   onToggleMinimize,
   fullscreenMobile = false,
   embedMinimal = false,
+  embedPreserveMuteOnDelegationEnd = false,
+  onStopAvailable,
   clientSecretPath = '/api/client-secret',
   createSessionBundle,
 }: VoiceChatProps) {
@@ -410,12 +420,14 @@ export default function VoiceChat({
         setIsDelegating(false);
         if (autoMutedRef.current && sessionRef.current) {
           autoMutedRef.current = false;
-          try {
-            sessionRef.current.mute(false);
-          } catch (err) {
-            console.error('Failed to unmute after delegation:', err);
+          if (!embedPreserveMuteOnDelegationEnd) {
+            try {
+              sessionRef.current.mute(false);
+            } catch (err) {
+              console.error('Failed to unmute after delegation:', err);
+            }
+            setIsRecordingStateRef.current(true);
           }
-          setIsRecordingStateRef.current(true);
         }
         onOfferReadyRef.current?.(offer);
       },
@@ -590,12 +602,14 @@ export default function VoiceChat({
           autoMutedRef.current = false;
           const currentSession = sessionRef.current;
           if (currentSession) {
-            try {
-              currentSession.mute(false);
-            } catch (err) {
-              console.error('Failed to auto-unmute after delegation:', err);
+            if (!embedPreserveMuteOnDelegationEnd) {
+              try {
+                currentSession.mute(false);
+              } catch (err) {
+                console.error('Failed to auto-unmute after delegation:', err);
+              }
+              setIsRecordingStateRef.current(true);
             }
-            setIsRecordingStateRef.current(true);
           }
         }
       }
@@ -637,6 +651,7 @@ export default function VoiceChat({
     handleTextWorkerProgress,
     pushTranscript,
     createSessionBundle,
+    embedPreserveMuteOnDelegationEnd,
   ]);
 
   const connectToSession = useCallback(
@@ -719,7 +734,7 @@ export default function VoiceChat({
     [onConnectionChange, realtimeModel, setIsRecording, clientSecretPath],
   );
 
-  const disconnectFromSession = () => {
+  const disconnectFromSession = useCallback(() => {
     if (sessionRef.current) {
       sessionRef.current.close();
     }
@@ -746,7 +761,11 @@ export default function VoiceChat({
     setCurrentSubtitle('');
     autoMutedRef.current = false;
     onConnectionChange?.(false);
-  };
+  }, [onConnectionChange, setIsRecording]);
+
+  useEffect(() => {
+    onStopAvailable?.(disconnectFromSession);
+  }, [onStopAvailable, disconnectFromSession]);
 
   const handleStartConversation = () => {
     if (isLoading || isConnected) return;
@@ -932,9 +951,9 @@ export default function VoiceChat({
   // Minimal embed connected screen (subtitles + mute/disconnect only)
   if (embedMinimal && isConnected) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-between gap-4 px-4 py-6 overflow-hidden">
-        <div className="w-full flex-1 flex flex-col items-center justify-center gap-4">
-          <div className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-2xl border border-border/60 bg-muted/10 shadow-sm overflow-hidden">
+      <div className="w-full h-full flex flex-col items-center gap-4 px-4 py-6 overflow-hidden">
+        <div className="w-full flex-1 min-h-0 flex flex-col items-center justify-center gap-4">
+          <div className="relative w-44 h-44 sm:w-52 sm:h-52 rounded-2xl border border-border/60 bg-muted/10 shadow-sm overflow-hidden shrink-0">
             <Image
               src={avatarImageSrc}
               alt="Sakescope ソムリエのアバター"
@@ -945,14 +964,14 @@ export default function VoiceChat({
             />
           </div>
 
-          <div className="w-full max-w-md rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner overflow-y-auto max-h-[34vh]">
+          <div className="w-full max-w-md flex-1 min-h-0 rounded-2xl border border-border/60 bg-background/80 px-5 py-4 shadow-inner overflow-y-auto">
             <p className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed text-foreground">
               {baseSubtitle}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-4 pb-2">
+        <div className="flex items-center justify-center gap-4 pb-2 shrink-0">
           <Button
             onClick={handleToggleMute}
             variant={isMuted ? 'secondary' : 'default'}

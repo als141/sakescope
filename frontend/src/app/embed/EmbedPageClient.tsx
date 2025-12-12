@@ -98,6 +98,7 @@ export default function EmbedPageClient() {
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+  const [stopConversation, setStopConversation] = useState<(() => void) | null>(null);
 
   const tokenRef = useRef<TokenState>({ secret: null, expiresAt: 0 });
   const [tokenError, setTokenError] = useState<string | null>(null);
@@ -295,29 +296,36 @@ export default function EmbedPageClient() {
                       offer={purchaseOffer}
                       variant="embed"
                       onReset={() => {
+                        stopConversation?.();
                         setRecommendedSake(null);
                         setPurchaseOffer(null);
                       }}
-                      showPreferenceMap
+                      secondaryActionLabel="会話を終了する"
                     />
                   )}
 
-                  <VoiceChat
-                    variant="full"
-                    isRecording={isRecording}
-                    setIsRecording={setIsRecording}
-                    embedMinimal
-                    clientSecretPath="/api/client-secret?variant=embed"
-                    createSessionBundle={createRealtimeEmbedVoiceBundle}
-                    onSakeRecommended={(sake) => {
-                      setRecommendedSake(sake);
-                    }}
-                    onOfferReady={(offer) => {
-                      setRecommendedSake(offer.sake);
-                      setPurchaseOffer(offer);
-                    }}
-                    onConnectionChange={setIsVoiceConnected}
-                  />
+                  <div style={purchaseOffer ? { display: 'none' } : undefined}>
+                    <VoiceChat
+                      variant="full"
+                      isRecording={isRecording}
+                      setIsRecording={setIsRecording}
+                      embedMinimal
+                      embedPreserveMuteOnDelegationEnd
+                      onStopAvailable={(stopFn) =>
+                        setStopConversation(() => stopFn)
+                      }
+                      clientSecretPath="/api/client-secret?variant=embed"
+                      createSessionBundle={createRealtimeEmbedVoiceBundle}
+                      onSakeRecommended={(sake) => {
+                        setRecommendedSake(sake);
+                      }}
+                      onOfferReady={(offer) => {
+                        setRecommendedSake(offer.sake);
+                        setPurchaseOffer(offer);
+                      }}
+                      onConnectionChange={setIsVoiceConnected}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="relative flex-1 w-full flex flex-col min-h-0">

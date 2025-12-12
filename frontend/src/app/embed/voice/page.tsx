@@ -20,6 +20,7 @@ function VoiceOnlyEmbedPageInner() {
   const [recommendedSake, setRecommendedSake] = useState<Sake | null>(null);
   const [purchaseOffer, setPurchaseOffer] = useState<PurchaseOffer | null>(null);
   const [isVoiceConnected, setIsVoiceConnected] = useState(false);
+  const [stopConversation, setStopConversation] = useState<(() => void) | null>(null);
 
   // Send messages to parent window (for iframe embedding)
   useEffect(() => {
@@ -133,11 +134,14 @@ function VoiceOnlyEmbedPageInner() {
 
         {/* 会話コンポーネントを最優先で配置 */}
         <div className={voiceChatContainerClass}>
-          <div className={voiceChatInnerClass}>
+          <div className={voiceChatInnerClass} style={purchaseOffer ? { display: 'none' } : undefined}>
             <VoiceChat
               variant={voiceChatVariant}
               isRecording={isRecording}
               setIsRecording={setIsRecording}
+              embedMinimal
+              embedPreserveMuteOnDelegationEnd
+              onStopAvailable={(stopFn) => setStopConversation(() => stopFn)}
               onConnectionChange={setIsVoiceConnected}
               onSakeRecommended={(sake) => {
                 setRecommendedSake(sake);
@@ -169,11 +173,12 @@ function VoiceOnlyEmbedPageInner() {
                 sake={recommendedSake}
                 offer={purchaseOffer}
                 variant="embed"
+                secondaryActionLabel="会話を終了する"
                 onReset={() => {
+                  stopConversation?.();
                   setRecommendedSake(null);
                   setPurchaseOffer(null);
                 }}
-                showPreferenceMap
               />
             </motion.div>
           ) : null}

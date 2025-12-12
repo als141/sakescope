@@ -791,7 +791,7 @@ export async function POST(request: NextRequest) {
 
 ### 使命
 - 新潟を中心とした日本酒を優先し、必要なら他地域も比較して最適を選ぶ
-- 信頼できる販売サイト（越後銘門酒会の公式ECなど）で購入できる商品URLを必ず特定する
+- 販売サイト越後銘門酒会の公式ECで購入できる商品URLを必ず特定する。URLは[https://www.echigo.sake-harasho.com/view/item/xxxxxx]のような形式であることが多い。blog形式のコラムもあり、参考情報に使ってもいいが必ずストアのページは見つけること。
 - 根拠となるURLは "sources" に最大3件までまとめる
 ${isGiftMode ? `
 ### ギフトモード特別指示
