@@ -41,33 +41,34 @@
     <{/if}>
 </div>        
   
-<section class="search">
-    <ul class="search-area">
-        <li>
-            <label>キーワードで探す</label>
-            <input type="text" data-id="<{$search_form.keyword_id}>" value="<{$search.keyword}>" class="side-search-keyword search-keyword" placeholder="銘柄名、酒蔵名など">
-        </li>
-        <li>
-            <label>予算で探す</label>
-            <input type="text" data-id="<{$search_form.price_low_id}>" value="<{$search.price_low}>" class="search-price" placeholder="下限" style="width:40%;">
-            ～
-            <input type="text" data-id="<{$search_form.price_high_id}>" value="<{$search.price_high}>" class="search-price" placeholder="上限" style="width:40%;"> 円
-        </li>
-          </ul>
-    <a href="<{$search_form.search_url}>" class="search-btn search-url">検索する</a>
-<div class="side-midashi">注目検索ワード</div>
-<ul class="search-word-list">
-<li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%B0%FB%A4%DF%C8%E6%A4%D9">飲み比べ</a></li>
-<li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%A5%D7%A5%EC%A5%BC%A5%F3%A5%C8">プレゼント</a></li>
-<li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%A4%AA%BA%D0%CA%EB">お歳暮</a></li>
-</ul>
-</section>
+<div class="search-sommelier-grid">
+  <section class="search">
+      <ul class="search-area">
+          <li>
+              <label>キーワードで探す</label>
+              <input type="text" data-id="<{$search_form.keyword_id}>" value="<{$search.keyword}>" class="side-search-keyword search-keyword" placeholder="銘柄名、酒蔵名など">
+          </li>
+          <li>
+              <label>予算で探す</label>
+              <input type="text" data-id="<{$search_form.price_low_id}>" value="<{$search.price_low}>" class="search-price" placeholder="下限" style="width:40%;">
+              ～
+              <input type="text" data-id="<{$search_form.price_high_id}>" value="<{$search.price_high}>" class="search-price" placeholder="上限" style="width:40%;"> 円
+          </li>
+            </ul>
+      <a href="<{$search_form.search_url}>" class="search-btn search-url">検索する</a>
+  <div class="side-midashi">注目検索ワード</div>
+  <ul class="search-word-list">
+  <li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%B0%FB%A4%DF%C8%E6%A4%D9">飲み比べ</a></li>
+  <li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%A5%D7%A5%EC%A5%BC%A5%F3%A5%C8">プレゼント</a></li>
+  <li><a href="https://www.echigo.sake-harasho.com/view/search?search_keyword=%A4%AA%BA%D0%CA%EB">お歳暮</a></li>
+  </ul>
+  </section>
 
-<!-- Sakescope インライン埋め込み（検索欄の直下に常時表示） -->
-<section class="sakescope-inline-section" aria-label="音声ソムリエ（インライン表示）">
-  <div class="sakescope-inline-head">🎤 Sakescope AIソムリエ <small>話しかけて日本酒を探す</small></div>
-  <div id="sakescope-inline" class="sakescope-inline-container" aria-live="polite"></div>
-</section>
+  <!-- Sakescope インライン埋め込み（検索欄の直下に常時表示） -->
+  <section class="sakescope-inline-section" aria-label="音声ソムリエ（インライン表示）">
+    <div id="sakescope-inline" class="sakescope-inline-container" aria-live="polite"></div>
+  </section>
+</div>
 
  
   <{if $latest_news.has_item}>
