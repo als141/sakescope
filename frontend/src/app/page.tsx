@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, ArrowLeft, Gift } from 'lucide-react';
 import Link from 'next/link';
@@ -124,23 +124,16 @@ export default function Home() {
             {/* 右側ナビゲーション */}
             <div className="flex items-center gap-2 sm:gap-4 absolute right-5 top-5 sm:static sm:ml-auto">
               <SignedOut>
-                <>
-                  <SignInButton mode="modal">
-                    <Button
-                      variant="ghost"
-                      size="default"
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      <span className="hidden sm:inline">ギフトを贈る</span>
-                    </Button>
-                  </SignInButton>
-                  <SignUpButton mode="modal">
-                    <Button className="h-10 sm:h-11 px-4 sm:px-6 shadow-none bg-foreground text-background hover:bg-foreground/90 transition-all duration-300 rounded-full">
-                      無料登録
-                    </Button>
-                  </SignUpButton>
-                </>
+                <SignInButton mode="modal">
+                  <Button
+                    variant="ghost"
+                    size="default"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Gift className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                    <span className="hidden sm:inline">ギフトを贈る</span>
+                  </Button>
+                </SignInButton>
               </SignedOut>
               <SignedIn>
                 <div className="flex items-center gap-2 sm:gap-3">

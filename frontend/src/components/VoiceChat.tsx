@@ -1033,7 +1033,7 @@ export default function VoiceChat({
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex flex-col items-center gap-3 sm:gap-4">
               <Button
                 onClick={handleStartConversation}
                 disabled={isLoading}
