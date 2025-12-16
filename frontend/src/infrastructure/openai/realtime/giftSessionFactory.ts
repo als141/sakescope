@@ -21,7 +21,7 @@ export function createGiftRealtimeBundle(
   const agent = createGiftAgent();
   const traceGroupId = createTraceGroupId();
   const realtimeModel =
-    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini-2025-12-15';
 
   const runtimeContext: AgentRuntimeContext = {
     callbacks,

@@ -147,7 +147,7 @@ export default function VoiceChat({
   createSessionBundle,
 }: VoiceChatProps) {
   const realtimeModel =
-    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini-2025-12-15';
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

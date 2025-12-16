@@ -79,7 +79,7 @@ function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string 
 
 export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatProps) {
   const realtimeModel =
-    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini';
+    process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini-2025-12-15';
   const sessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const connectedSessionRef = useRef<RealtimeSession<AgentRuntimeContext> | null>(null);
   const bundleRef = useRef<GiftAgentBundle | null>(null);

@@ -15,8 +15,7 @@ What’s Implemented
 
 Key Notes
 
-- Model: `gpt-realtime` (stable alias to avoid version drift).
+- Model: `gpt-realtime-mini-2025-12-15` (pinned to avoid version drift).
 - GA session config with `type: "realtime"`, `output_modalities: ["audio","text"]`.
 - Input transcription model: `gpt-4o-transcribe` for user transcript display.
 - The mic button toggles mute/unmute while connected; closing the tab or navigating away closes the session.
-

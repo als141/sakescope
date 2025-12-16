@@ -13,7 +13,7 @@
 ### Agent configuration
 
 - Voice agent  
-  - Model: `gpt-realtime-mini` (session established via ephemeral client secret).  
+  - Model: `gpt-realtime-mini-2025-12-15` (session established via ephemeral client secret).  
   - Tools: `recommend_sake` — the only callable function; everything else (UI submission) is handled locally after the server response.  
 
 - Text worker agent (server-side API)  
