@@ -100,8 +100,13 @@ const DELEGATION_STATUS_MESSAGES = [
   '商品ページを見ています…',
   '値段と在庫を確認しています…',
   '配送目安を見ています…',
+  '送料や条件を確認しています…',
+  '別の販売店も見ています…',
+  'ギフト対応（包装・のし等）を確認しています…',
   '候補を比較しています…',
+  '情報を整理しています…',
   'おすすめをまとめています…',
+  'まもなく結果を表示します…',
 ] as const;
 
 function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string | undefined {
