@@ -35,6 +35,10 @@ interface SakeDisplayProps {
    * Display variant. "embed" is a compact card for iframe embedding.
    */
   variant?: 'full' | 'embed';
+  /**
+   * Layout preset for spacing. Use "section" when embedding the full view inside another page.
+   */
+  layout?: 'page' | 'section';
 }
 
 export default function SakeDisplay({
@@ -44,6 +48,7 @@ export default function SakeDisplay({
   secondaryActionLabel,
   showPreferenceMap = true,
   variant = 'full',
+  layout = 'page',
 }: SakeDisplayProps) {
   const [imageError, setImageError] = useState(false);
   const formatPrice = (value: number) => `¥${value.toLocaleString()}`;
@@ -230,7 +235,12 @@ export default function SakeDisplay({
 
   return (
     <motion.div
-      className="w-full min-h-screen flex flex-col px-0 sm:px-6 lg:px-12 pt-20 sm:pt-24 lg:pt-28 pb-16 sm:pb-20 gap-6"
+      className={cn(
+        'w-full flex flex-col gap-6',
+        layout === 'page'
+          ? 'min-h-screen px-0 sm:px-6 lg:px-12 pt-20 sm:pt-24 lg:pt-28 pb-16 sm:pb-20'
+          : 'min-h-0 px-0 pt-0 pb-0',
+      )}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}

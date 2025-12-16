@@ -300,6 +300,31 @@ export default function GiftResultPage() {
             </div>
           </motion.div>
 
+          <Card className="rounded-2xl sm:rounded-3xl border border-border/60">
+            <CardHeader className="space-y-2 pb-3">
+              <CardDescription>おすすめの一本</CardDescription>
+              <CardTitle className="text-xl sm:text-2xl font-semibold">
+                {offer.sake.name}
+              </CardTitle>
+              {offer.summary && (
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {offer.summary}
+                </p>
+              )}
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {offer.sake.brewery && (
+                <Badge variant="secondary">{offer.sake.brewery}</Badge>
+              )}
+              {offer.sake.region && (
+                <Badge variant="secondary">{offer.sake.region}</Badge>
+              )}
+              {offer.sake.type && (
+                <Badge variant="outline">{offer.sake.type}</Badge>
+              )}
+            </CardContent>
+          </Card>
+
           {offer.preferenceMap?.axes?.length ? (
             <Card className="rounded-2xl sm:rounded-3xl border border-border/60">
               <CardHeader className="pb-2 sm:pb-3">
@@ -318,7 +343,13 @@ export default function GiftResultPage() {
             </Card>
           ) : null}
 
-          <SakeDisplay sake={offer.sake} offer={offer} onReset={() => {}} showPreferenceMap={false} />
+          <SakeDisplay
+            sake={offer.sake}
+            offer={offer}
+            onReset={() => {}}
+            showPreferenceMap={false}
+            layout="section"
+          />
         </div>
       </div>
     );
