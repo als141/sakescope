@@ -95,6 +95,15 @@ const describePreferenceValue = (value?: string | null): string | null => {
   return preferenceValueLabels[trimmed] ?? trimmed;
 };
 
+const DELEGATION_STATUS_MESSAGES = [
+  '候補を検索しています…',
+  '商品ページを見ています…',
+  '値段と在庫を確認しています…',
+  '配送目安を見ています…',
+  '候補を比較しています…',
+  'おすすめをまとめています…',
+] as const;
+
 function extractErrorMessage(input: unknown, seen = new Set<unknown>()): string | undefined {
   if (input == null) return undefined;
   if (typeof input === 'string') return input;
@@ -154,6 +163,7 @@ export default function VoiceChat({
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDelegating, setIsDelegating] = useState(false);
+  const [delegationStatusText, setDelegationStatusText] = useState('');
   const [isAvatarSpeaking, setIsAvatarSpeaking] = useState(false);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [isMouthOpenFrame, setIsMouthOpenFrame] = useState(false);
@@ -288,6 +298,25 @@ export default function VoiceChat({
     [translateReasoningSummary],
   );
 
+  useEffect(() => {
+    if (!isDelegating) {
+      setDelegationStatusText('');
+      return;
+    }
+
+    setDelegationStatusText(DELEGATION_STATUS_MESSAGES[0]);
+    let index = 0;
+
+    const intervalId = window.setInterval(() => {
+      index = Math.min(index + 1, DELEGATION_STATUS_MESSAGES.length - 1);
+      setDelegationStatusText(DELEGATION_STATUS_MESSAGES[index]);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isDelegating]);
+
   const upsertAiMessage = useCallback((id: string, text: string, options: { append?: boolean } = {}) => {
     if (!id || typeof text !== 'string') {
       return;
@@ -418,17 +447,14 @@ export default function VoiceChat({
       onOfferReady: (offer) => {
         pushSakeUpdate(offer.sake);
         setIsDelegating(false);
-        if (autoMutedRef.current && sessionRef.current) {
-          autoMutedRef.current = false;
-          if (!embedPreserveMuteOnDelegationEnd) {
-            try {
-              sessionRef.current.mute(false);
-            } catch (err) {
-              console.error('Failed to unmute after delegation:', err);
-            }
-            setIsRecordingStateRef.current(true);
-          }
+        const currentSession = sessionRef.current;
+        autoMutedRef.current = false;
+        try {
+          currentSession?.mute(true);
+        } catch (err) {
+          console.error('Failed to mute after offer ready:', err);
         }
+        setIsRecordingStateRef.current(false);
         onOfferReadyRef.current?.(offer);
       },
       onError: (message) => {
@@ -835,6 +861,11 @@ export default function VoiceChat({
 
   const isMuted = isConnected && !isRecording;
 
+  const delegatingText =
+    delegationStatusText && delegationStatusText.trim().length > 0
+      ? delegationStatusText.trim()
+      : '購入情報を調査中です…';
+
   const statusText = (() => {
     if (isLoading) {
       return 'AIソムリエに接続中...';
@@ -845,7 +876,7 @@ export default function VoiceChat({
         : 'マイクボタンを押して会話を始めてください';
     }
     if (isDelegating) {
-      return '購入情報を調査中です…';
+      return delegatingText;
     }
     if (isMuted) {
       return 'ミュート中（AIには聞こえていません）';
@@ -859,7 +890,9 @@ export default function VoiceChat({
       : 'AIソムリエが話すとここに字幕がリアルタイム表示されます'
     : 'まずはマイクボタンで会話を始めましょう';
 
-  const baseSubtitle = (currentSubtitle?.trim() || subtitleFallback).trim();
+  const baseSubtitle = (
+    isDelegating ? delegatingText : currentSubtitle?.trim() || subtitleFallback
+  ).trim();
   const reasoningSummaryDisplay =
     reasoningSummaryJa && reasoningSummaryJa.trim().length > 0
       ? reasoningSummaryJa.trim()
@@ -1150,7 +1183,7 @@ export default function VoiceChat({
                     className="absolute -bottom-4 flex items-center gap-2 px-4 py-2 text-xs"
                   >
                     <Activity className="h-4 w-4 animate-pulse" />
-                    購入候補を調査中
+                    {delegatingText}
                   </Badge>
                 )}
               </div>

@@ -238,6 +238,7 @@ export default function Home() {
               onOfferReady={(offer) => {
                 setRecommendedSake(offer.sake);
                 setPurchaseOffer(offer);
+                setIsVoiceChatMinimized(true);
                 // 履歴に保存
                 SakeHistoryStorage.addToHistory(offer.sake, offer);
               }}
