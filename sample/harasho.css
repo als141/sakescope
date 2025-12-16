@@ -565,24 +565,9 @@
     border-bottom: 12px solid #fff;
   }
   
-  /* PC横画面のみ：検索とAIソムリエを2列表示 */
+  /* 検索とAIソムリエは縦並び（PCでも検索欄の下に表示） */
   .search-sommelier-grid {
     display: block;
-  }
-  @media screen and (min-width: 1000px) and (orientation: landscape) {
-    .search-sommelier-grid {
-      display: grid;
-      grid-template-columns: minmax(320px, 420px) 1fr;
-      gap: 24px;
-      align-items: start;
-      margin-bottom: 36px;
-    }
-    .search-sommelier-grid .search {
-      margin-bottom: 0;
-    }
-    .search-sommelier-grid .sakescope-inline-section {
-      margin: 0;
-    }
   }
 
   /* 検索セクション全体のスタイル */
