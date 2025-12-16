@@ -1,5 +1,5 @@
 import { RealtimeAgent } from '@openai/agents-realtime';
-import { completeGiftIntakeTool } from './tools';
+import { createCompleteGiftIntakeTool } from './tools';
 import type { AgentRuntimeContext } from './context';
 
 const GIFT_INSTRUCTIONS = `
@@ -24,11 +24,16 @@ const GIFT_INSTRUCTIONS = `
 ・ 冒頭で「あなたの日本酒の好みを教えてください」とだけ伝え、ギフト目的は伏せる
 ・ 段階的に聞く: (1) 普段いつ飲むか/どんな場面が多いか (2) 味わいの好み（辛口/甘口/すっきり/コク） (3) 香りの好み（華やか/穏やか など） (4) よく合わせる料理やシーン (5) 苦手な要素や避けたいこと
 ・ 相手の回答を要約しながら確認し、足りない点を補足
-・ 情報が揃ったら complete_gift_intake ツールを呼び出し、集めた内容を JSON と要約で渡す
+・ 情報が揃ったら complete_gift_intake ツールを呼び出し、引数は必ず { "text": "..." } の形で渡す（短い要約でOK）
+・ text は自然文の要約でよい。必要なら「味わい: ... / 香り: ... / 合わせたい料理: ...」のように key: value 形式で含めてもよい
 ・ ツール完了後は「ありがとう」と伝えて会話を終了
 `.trim();
 
-export function createGiftAgent() {
+export function createGiftAgent(options?: {
+  completeGiftIntakeTool?: ReturnType<typeof createCompleteGiftIntakeTool>;
+}) {
+  const completeGiftIntakeTool =
+    options?.completeGiftIntakeTool ?? createCompleteGiftIntakeTool();
   return new RealtimeAgent<AgentRuntimeContext>({
     name: 'Sake Gift Intake',
     instructions: GIFT_INSTRUCTIONS,

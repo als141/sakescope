@@ -10,6 +10,7 @@ import SakeDisplay from '@/components/SakeDisplay';
 import type { Sake, PurchaseOffer } from '@/domain/sake/types';
 import { Button } from '@/components/ui/button';
 import { createRealtimeEmbedVoiceBundle } from '@/infrastructure/openai/realtime/embedSessionFactory';
+import { feedbackFormUrl } from '@/lib/feedback';
 
 type TokenState = {
   secret: string | null;
@@ -229,29 +230,39 @@ export default function EmbedPageClient() {
                     日本酒ソムリエ相談
                   </h1>
                 </div>
-                <div className="inline-flex items-center rounded-full border border-border/60 bg-muted/10 p-1">
-                  <button
-                    type="button"
-                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
-                      mode === 'voice'
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    onClick={() => setMode('voice')}
+                <div className="flex items-center gap-2">
+                  <a
+                    href={feedbackFormUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hidden sm:inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/10 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    音声
-                  </button>
-                  <button
-                    type="button"
-                    className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
-                      mode === 'text'
-                        ? 'bg-foreground text-background'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                    onClick={() => setMode('text')}
-                  >
-                    チャット
-                  </button>
+                    体験アンケート（任意）
+                  </a>
+                  <div className="inline-flex items-center rounded-full border border-border/60 bg-muted/10 p-1">
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                        mode === 'voice'
+                          ? 'bg-foreground text-background'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      onClick={() => setMode('voice')}
+                    >
+                      音声
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                        mode === 'text'
+                          ? 'bg-foreground text-background'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      onClick={() => setMode('text')}
+                    >
+                      チャット
+                    </button>
+                  </div>
                 </div>
               </div>
               {mode === 'voice' && (

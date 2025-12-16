@@ -419,7 +419,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
     setIsConnecting(true);
     setError(null);
     try {
-      const response = await fetch('/api/client-secret', {
+      const response = await fetch('/api/client-secret?variant=gift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -433,6 +433,7 @@ export default function GiftChat({ giftId, sessionId, onCompleted }: GiftChatPro
       }
 
       await session.connect({ apiKey: data.value, model: realtimeModel });
+      bundleRef.current?.stripToolSchemas();
       if (connectedSessionRef.current !== session) {
         setIsConnecting(false);
         try {

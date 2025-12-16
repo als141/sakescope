@@ -1,9 +1,11 @@
 import { RealtimeSession } from '@openai/agents-realtime';
 import type { AgentOrchestrationCallbacks, AgentRuntimeContext } from '../agents/context';
 import { createGiftAgent } from '../agents/giftAgentFactory';
+import { createCompleteGiftIntakeTool } from '../agents/tools';
 
 export type GiftAgentBundle = {
   session: RealtimeSession<AgentRuntimeContext>;
+  stripToolSchemas: () => void;
 };
 
 function createTraceGroupId() {
@@ -18,7 +20,8 @@ export function createGiftRealtimeBundle(
   sessionId: string,
   callbacks: AgentOrchestrationCallbacks = {},
 ): GiftAgentBundle {
-  const agent = createGiftAgent();
+  const completeGiftIntakeTool = createCompleteGiftIntakeTool();
+  const agent = createGiftAgent({ completeGiftIntakeTool });
   const traceGroupId = createTraceGroupId();
   const realtimeModel =
     process.env.NEXT_PUBLIC_OPENAI_REALTIME_MODEL ?? 'gpt-realtime-mini-2025-12-15';
@@ -65,5 +68,10 @@ export function createGiftRealtimeBundle(
 
   return {
     session,
+    stripToolSchemas: () => {
+      // Avoid hard crashes when the model emits slightly malformed JSON for tool calls.
+      // Tool parsing/validation still happens inside the tool's invoke() implementation.
+      (completeGiftIntakeTool as { parameters?: unknown }).parameters = undefined;
+    },
   };
 }

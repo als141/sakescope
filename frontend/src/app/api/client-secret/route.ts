@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createVoiceAgent } from '@/infrastructure/openai/agents/voiceAgentFactory';
 import { createEmbedVoiceAgent } from '@/infrastructure/openai/agents/embedVoiceAgentFactory';
+import { createGiftAgent } from '@/infrastructure/openai/agents/giftAgentFactory';
 import type { FunctionTool } from '@openai/agents-core';
 
 export const dynamic = 'force-dynamic';
@@ -17,8 +18,18 @@ type ToolManifest = {
   strict?: boolean;
 };
 
-function buildToolManifest(useEmbed: boolean): ToolManifest[] {
-  const agent = useEmbed ? createEmbedVoiceAgent() : createVoiceAgent();
+function getAgentForVariant(variant: string) {
+  if (variant === 'embed') {
+    return createEmbedVoiceAgent();
+  }
+  if (variant === 'gift') {
+    return createGiftAgent();
+  }
+  return createVoiceAgent();
+}
+
+function buildToolManifest(variant: string): ToolManifest[] {
+  const agent = getAgentForVariant(variant);
   const tools = agent.tools ?? [];
   return tools
     .filter((tool): tool is FunctionTool => tool.type === 'function')
@@ -34,8 +45,8 @@ function buildToolManifest(useEmbed: boolean): ToolManifest[] {
     }));
 }
 
-function buildInstructions(useEmbed: boolean): string {
-  const agent = useEmbed ? createEmbedVoiceAgent() : createVoiceAgent();
+function buildInstructions(variant: string): string {
+  const agent = getAgentForVariant(variant);
   return typeof agent.instructions === 'string'
     ? agent.instructions
     : 'You are a helpful sake sommelier.';
@@ -51,18 +62,18 @@ export async function POST(req: NextRequest) {
 
   const searchParams = req.nextUrl.searchParams;
   const variant = (searchParams.get('variant') ?? searchParams.get('agent') ?? '').toLowerCase();
-  const useEmbedAgent = variant === 'embed';
+  const resolvedVariant = variant === 'embed' || variant === 'gift' ? variant : 'default';
 
   try {
     const sessionConfig = {
       session: {
         type: 'realtime',
         model: REALTIME_MODEL,
-        instructions: buildInstructions(useEmbedAgent),
+        instructions: buildInstructions(resolvedVariant),
         audio: {
           output: { voice: 'alloy' },
         },
-        tools: buildToolManifest(useEmbedAgent),
+        tools: buildToolManifest(resolvedVariant),
         tool_choice: 'auto',
       },
     };

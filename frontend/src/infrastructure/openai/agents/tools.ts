@@ -18,6 +18,70 @@ type RuntimeRunContext = RunContext<{
   history: unknown[];
 } & AgentRuntimeContext>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function repairJsonObjectString(input: string): string {
+  try {
+    JSON.parse(input);
+    return input;
+  } catch {
+    // continue
+  }
+
+  const stack: Array<'{' | '['> = [];
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inString) {
+      if (char === '\\\\') {
+        escape = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{' || char === '[') {
+      stack.push(char);
+      continue;
+    }
+    if (char === '}' || char === ']') {
+      stack.pop();
+    }
+  }
+
+  if (stack.length === 0) {
+    return input;
+  }
+
+  const suffix = stack
+    .reverse()
+    .map((opener) => (opener === '{' ? '}' : ']'))
+    .join('');
+
+  const repaired = `${input}${suffix}`;
+
+  try {
+    JSON.parse(repaired);
+    return repaired;
+  } catch {
+    return input;
+  }
+}
+
 function getRuntimeContext(runContext?: RuntimeRunContext): AgentRuntimeContext {
   const ctx = runContext?.context;
   if (!ctx) {
@@ -48,6 +112,20 @@ const extractTextFromContent = (content: unknown[]): string | null => {
   }
   return fragments.join('\n').trim();
 };
+
+function normalizeTextValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (Array.isArray(value)) {
+    const pieces = value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => item.length > 0);
+    return pieces.length > 0 ? pieces.join('、') : null;
+  }
+  return null;
+}
 
 function buildConversationLog(history: unknown[]): string | null {
   if (!Array.isArray(history) || history.length === 0) {
@@ -202,102 +280,297 @@ const agentResponseSchema = recommendationPayloadSchema.extend({
 
 type AgentResponse = z.infer<typeof agentResponseSchema>;
 
-const giftIntakeSummarySchema = z
-  .object({
-    aroma: z.array(z.string()).nullable().optional(),
-    taste_profile: z.array(z.string()).nullable().optional(),
-    sweetness_dryness: z.string().nullable().optional(),
-    temperature_preference: z.array(z.string()).nullable().optional(),
-    food_pairing: z.array(z.string()).nullable().optional(),
-    drinking_frequency: z.string().nullable().optional(),
-    region_preference: z.array(z.string()).nullable().optional(),
-    notes: z.string().nullable().optional(),
-    preference_map: preferenceMapSchema,
-  })
-  .nullable()
-  .optional();
-
 const completeGiftIntakeSchema = z.object({
-  summary: z.string().min(1),
-  intake: giftIntakeSummarySchema,
-  additional_notes: z.string().nullable().optional(),
+  text: z.string().min(1),
 });
 
-export const completeGiftIntakeTool = tool({
-  name: 'complete_gift_intake',
-  description:
-    'ギフト用の聞き取りが完了したら、集めた情報をまとめてハンドオフします。予算は含めず、味わい・香り・温度・ペアリングなどを整理してください。',
-  parameters: completeGiftIntakeSchema,
-  strict: true,
-  async execute(input, runContext): Promise<string> {
-    const ctx = getRuntimeContext(runContext as RuntimeRunContext);
-    const giftSession = ctx.session.gift;
-    const conversationLog =
-      buildTranscriptLogString(ctx) ??
-      buildConversationLog(
-        ((runContext as RuntimeRunContext | undefined)?.context as { history?: unknown[] } | undefined)
-          ?.history ?? [],
-      );
+function buildGiftSummaryFromFields(fields: Record<string, unknown>): string | null {
+  const flavor = normalizeTextValue(fields.flavor ?? fields.sweetness_dryness);
+  const cleanliness = normalizeTextValue(fields.cleanliness);
+  const aroma = normalizeTextValue(fields.aroma);
+  const pairing = normalizeTextValue(fields.pairing ?? fields.food_pairing);
+  const scene = normalizeTextValue(fields.drinking_frequency);
+  const avoid = normalizeTextValue(fields.avoid ?? fields.notes);
 
-    if (!giftSession?.giftId || !giftSession?.sessionId) {
-      throw new Error('Gift session metadata is not configured.');
-    }
+  const parts: string[] = [];
+  if (scene) parts.push(`飲む場面: ${scene}`);
+  if (flavor) parts.push(`味わい: ${flavor}`);
+  if (cleanliness) parts.push(`後味: ${cleanliness}`);
+  if (aroma) parts.push(`香り: ${aroma}`);
+  if (pairing) parts.push(`合わせたい料理: ${pairing}`);
+  if (avoid) parts.push(`避けたいこと: ${avoid}`);
 
-    const payload: Record<string, unknown> = {
-      sessionId: giftSession.sessionId,
-      intakeSummary: input.intake ?? null,
-      handoffSummary: input.summary,
-      conversationLog: conversationLog ?? null,
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join(' / ');
+}
+
+function normalizeGiftFieldKey(rawKey: string): string | null {
+  const key = rawKey.trim().toLowerCase();
+  switch (key) {
+    case 'summary':
+    case '要約':
+      return 'summary';
+    case 'flavor':
+    case '味わい':
+      return 'flavor';
+    case 'cleanliness':
+    case '後味':
+      return 'cleanliness';
+    case 'aroma':
+    case '香り':
+      return 'aroma';
+    case 'pairing':
+    case 'ペアリング':
+    case '合わせたい料理':
+      return 'pairing';
+    case 'scene':
+    case '飲む場面':
+    case 'シーン':
+      return 'drinking_frequency';
+    case 'avoid':
+    case '避けたいこと':
+      return 'avoid';
+    case 'notes':
+    case '補足':
+      return 'notes';
+    default:
+      return null;
+  }
+}
+
+function parseGiftKeyValueText(text: string): Record<string, unknown> | null {
+  const normalized = text.replace(/\s*\/\s*/g, '\n');
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const fields: Record<string, unknown> = {};
+  for (const line of lines) {
+    const match = line.match(/^([^:：]+)[:：]\s*(.+)$/);
+    if (!match) continue;
+    const mappedKey = normalizeGiftFieldKey(match[1]);
+    if (!mappedKey) continue;
+    const value = match[2].trim();
+    if (!value) continue;
+    fields[mappedKey] = value;
+  }
+
+  return Object.keys(fields).length > 0 ? fields : null;
+}
+
+function parseGiftToolTextPayload(rawText: string): {
+  summary: string;
+  intakeSummary: Record<string, unknown> | null;
+  additionalNotes: string | null;
+} {
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    return {
+      summary: '好みの要約がありません。',
+      intakeSummary: null,
+      additionalNotes: null,
     };
+  }
 
-    if (input.additional_notes) {
-      payload.additionalNotes = input.additional_notes;
-    }
-
+  const tryParseRecord = (value: string): Record<string, unknown> | null => {
+    const repaired = repairJsonObjectString(value.trim());
     try {
-      const response = await fetch(
-        `/api/gift/${giftSession.giftId}/trigger-handoff`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        },
-      );
+      const parsed = JSON.parse(repaired);
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        const message =
-          errorText || `Gift handoff failed (${response.status})`;
-        ctx.callbacks.onError?.(message);
-        throw new Error(message);
+  let record = tryParseRecord(trimmed);
+  let depth = 0;
+  while (record && depth < 2 && typeof record.text === 'string') {
+    const next = record.text.trim();
+    const nextRecord = tryParseRecord(next);
+    if (!nextRecord) {
+      record = null;
+      break;
+    }
+    record = nextRecord;
+    depth += 1;
+  }
+
+  if (!record) {
+    const parsedFields = parseGiftKeyValueText(trimmed);
+    if (parsedFields) {
+      const summary =
+        normalizeTextValue(parsedFields.summary) ??
+        buildGiftSummaryFromFields(parsedFields) ??
+        trimmed;
+      const rest = { ...parsedFields };
+      delete rest.summary;
+      const intakeSummary = Object.keys(rest).length > 0 ? rest : null;
+      return {
+        summary,
+        intakeSummary,
+        additionalNotes: null,
+      };
+    }
+    return {
+      summary: trimmed,
+      intakeSummary: null,
+      additionalNotes: null,
+    };
+  }
+
+  const summary =
+    normalizeTextValue(record.summary) ??
+    normalizeTextValue(record.handoffSummary) ??
+    normalizeTextValue(record.handoff_summary) ??
+    buildGiftSummaryFromFields(record) ??
+    trimmed;
+
+  const additionalNotes =
+    normalizeTextValue(record.additional_notes) ??
+    normalizeTextValue(record.additionalNotes) ??
+    null;
+
+  const reservedKeys = new Set([
+    'summary',
+    'handoffSummary',
+    'handoff_summary',
+    'additional_notes',
+    'additionalNotes',
+    'text',
+  ]);
+
+  let intakeSummary: Record<string, unknown> | null = null;
+  if ('intake' in record && isRecord(record.intake)) {
+    intakeSummary = record.intake as Record<string, unknown>;
+  } else {
+    const extracted: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(record)) {
+      if (reservedKeys.has(key)) continue;
+      if (typeof value === 'undefined') continue;
+      extracted[key] = value;
+    }
+    intakeSummary = Object.keys(extracted).length > 0 ? extracted : null;
+  }
+
+  return {
+    summary,
+    intakeSummary,
+    additionalNotes,
+  };
+}
+
+export function createCompleteGiftIntakeTool() {
+  const baseTool = tool({
+    name: 'complete_gift_intake',
+    description:
+      '聞き取りが完了したら、集めた情報をまとめてハンドオフします。引数は text に要約（または JSON 文字列）を入れてください。予算は含めず、味わい・香り・温度・ペアリングなどを整理してください。',
+    parameters: completeGiftIntakeSchema,
+    strict: true,
+    async execute(input, runContext): Promise<string> {
+      const ctx = getRuntimeContext(runContext as RuntimeRunContext);
+      const giftSession = ctx.session.gift;
+      const conversationLog =
+        buildTranscriptLogString(ctx) ??
+        buildConversationLog(
+          ((runContext as RuntimeRunContext | undefined)?.context as { history?: unknown[] } | undefined)
+            ?.history ?? [],
+        );
+
+      if (!giftSession?.giftId || !giftSession?.sessionId) {
+        throw new Error('Gift session metadata is not configured.');
       }
 
-      ctx.session.gift = {
-        ...giftSession,
-        status: 'handed_off',
+      const parsed = parseGiftToolTextPayload(input.text);
+      const payload: Record<string, unknown> = {
+        sessionId: giftSession.sessionId,
+        intakeSummary: parsed.intakeSummary,
+        handoffSummary: parsed.summary,
+        conversationLog: conversationLog ?? null,
       };
 
-      ctx.callbacks.onGiftIntakeCompleted?.({
-        giftId: giftSession.giftId,
-        sessionId: giftSession.sessionId,
-        summary: input.summary,
-        intakeSummary: (input.intake ?? null) as IntakeSummary | null,
-      });
+      if (parsed.additionalNotes) {
+        payload.additionalNotes = parsed.additionalNotes;
+      }
 
-      return JSON.stringify({
-        status: 'handed_off',
-        gift_id: giftSession.giftId,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Gift handoff failed';
-      ctx.callbacks.onError?.(message);
-      throw error;
-    }
-  },
-});
+      try {
+        const response = await fetch(
+          `/api/gift/${giftSession.giftId}/trigger-handoff`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          const message =
+            errorText || `Gift handoff failed (${response.status})`;
+          ctx.callbacks.onError?.(message);
+          throw new Error(message);
+        }
+
+        ctx.session.gift = {
+          ...giftSession,
+          status: 'handed_off',
+        };
+
+        ctx.callbacks.onGiftIntakeCompleted?.({
+          giftId: giftSession.giftId,
+          sessionId: giftSession.sessionId,
+          summary: parsed.summary,
+          intakeSummary: (parsed.intakeSummary ?? null) as IntakeSummary | null,
+        });
+
+        return JSON.stringify({
+          status: 'handed_off',
+          gift_id: giftSession.giftId,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Gift handoff failed';
+        ctx.callbacks.onError?.(message);
+        throw error;
+      }
+    },
+  });
+
+  const originalInvoke = baseTool.invoke;
+  type OriginalInvoke = typeof originalInvoke;
+
+  return {
+    ...baseTool,
+    invoke: async (
+      runContext: Parameters<OriginalInvoke>[0],
+      input: Parameters<OriginalInvoke>[1],
+      details?: Parameters<OriginalInvoke>[2],
+    ) => {
+      if (typeof input !== 'string') {
+        return originalInvoke(runContext, input, details);
+      }
+
+      const repaired = repairJsonObjectString(input);
+      try {
+        const parsed = JSON.parse(repaired);
+        if (isRecord(parsed) && typeof parsed.text === 'string') {
+          return originalInvoke(runContext, repaired, details);
+        }
+        const wrapped = JSON.stringify({ text: repaired });
+        return originalInvoke(runContext, wrapped, details);
+      } catch {
+        const wrapped = JSON.stringify({ text: input });
+        return originalInvoke(runContext, wrapped, details);
+      }
+    },
+  };
+}
+
+export const completeGiftIntakeTool = createCompleteGiftIntakeTool();
 
 async function handleRecommendationSubmission(
   parsed: AgentResponse,

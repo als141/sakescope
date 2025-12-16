@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import { PreferenceRadar } from '@/components/PreferenceRadar';
+import { feedbackFormUrl } from '@/lib/feedback';
 
 interface SakeDisplayProps {
   sake: Sake;
@@ -208,6 +209,18 @@ export default function SakeDisplay({
               >
                 {secondaryLabel}
               </Button>
+            </div>
+
+            <div className="flex justify-end">
+              <a
+                href={feedbackFormUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                体験アンケート（任意）
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
           </CardContent>
         </Card>
@@ -578,6 +591,17 @@ export default function SakeDisplay({
               >
                 他の日本酒も見る
               </Button>
+            </div>
+            <div className="flex justify-center pt-2">
+              <a
+                href={feedbackFormUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                体験アンケート（任意）
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
           </CardContent>
         </div>

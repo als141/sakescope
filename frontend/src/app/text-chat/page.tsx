@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Script from 'next/script';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
+import { feedbackFormUrl } from '@/lib/feedback';
 
 const CHATKIT_DOMAIN_KEY =
   process.env.NEXT_PUBLIC_TEXT_CHATKIT_DOMAIN_KEY ?? 'sakescope-text';
@@ -104,6 +105,12 @@ function TextChatCanvas() {
       leftAction: {
         icon: 'back-small',
         onClick: () => router.push('/'),
+      },
+      rightAction: {
+        icon: 'star',
+        onClick: () => {
+          window.open(feedbackFormUrl, '_blank', 'noopener,noreferrer');
+        },
       },
     },
     history: {
