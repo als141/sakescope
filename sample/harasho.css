@@ -687,6 +687,12 @@
     border: none;
     display: block;
   }
+  @media (min-width: 1000px) {
+    .sakescope-inline-container iframe {
+      height: clamp(470px, 66vh, 600px);
+      min-height: 430px;
+    }
+  }
   @media (max-width: 640px) {
     .sakescope-inline-section { margin: 16px 0 26px; }
     .sakescope-inline-container iframe {
