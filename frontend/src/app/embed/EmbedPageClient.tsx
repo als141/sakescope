@@ -28,12 +28,12 @@ const presetPrompts = [
 
 function ModeSelectScreen({
   onSelect,
-}: {
+  }: {
   onSelect: (mode: 'voice' | 'text') => void;
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-md text-center space-y-8">
+      <div className="w-full max-w-md sm:max-w-2xl text-center space-y-8">
         <div className="space-y-3">
           <h1 className="text-3xl sm:text-4xl font-bold gradient-text tracking-tight">
             Sakescope
@@ -43,7 +43,7 @@ function ModeSelectScreen({
           </p>
         </div>
 
-        <div className="grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Button
             type="button"
             variant="outline"
