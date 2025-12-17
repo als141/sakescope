@@ -114,9 +114,10 @@ function PresentBox({ phase }: { phase: Phase }) {
           >
             {/* Top highlight */}
             <div
-              className="absolute top-0 left-0 right-0 h-1/3"
+              className="absolute top-0 left-0 right-0 h-1/4"
               style={{
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%)',
+                background:
+                  'linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 40%, transparent 70%)',
               }}
             />
           </div>
@@ -141,13 +142,14 @@ function PresentBox({ phase }: { phase: Phase }) {
           <AnimatePresence>
             {isOpened && (
               <motion.div
-                className="absolute inset-x-4 top-0 h-6 rounded-t"
+                className="absolute inset-x-4 top-0 h-5 rounded-t"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 style={{
-                  background: 'linear-gradient(180deg, var(--primary-100) 0%, var(--primary-200) 50%, transparent 100%)',
+                  background:
+                    'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.08) 55%, transparent 100%)',
                 }}
               />
             )}
@@ -170,20 +172,13 @@ function PresentBox({ phase }: { phase: Phase }) {
         >
           {/* Lid surface */}
           <div
-            className="absolute inset-0 rounded-lg"
+            className="absolute inset-0"
             style={{
-              background: 'linear-gradient(180deg, var(--primary-300) 0%, var(--primary-400) 50%, var(--primary-500) 100%)',
+              background:
+                'linear-gradient(180deg, var(--primary-300) 0%, var(--primary-400) 30%, var(--primary-500) 100%)',
               boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
             }}
-          >
-            {/* Shine */}
-            <div
-              className="absolute top-0 left-0 right-0 h-1/2 rounded-t-lg"
-              style={{
-                background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%)',
-              }}
-            />
-          </div>
+          />
 
           {/* Lid ribbon (vertical) */}
           <div
