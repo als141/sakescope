@@ -189,26 +189,198 @@ function PresentBox({ phase }: { phase: Phase }) {
           />
 
           {/* Ribbon bow on lid */}
-          <div className="absolute left-1/2 -translate-x-1/2 -top-5">
-            <svg width="36" height="24" viewBox="0 0 36 24" fill="none">
-              {/* Left loop */}
-              <ellipse cx="9" cy="10" rx="8" ry="6" fill="url(#bowGradient)" />
-              {/* Right loop */}
-              <ellipse cx="27" cy="10" rx="8" ry="6" fill="url(#bowGradient)" />
-              {/* Center knot */}
-              <circle cx="18" cy="11" r="5" fill="url(#knotGradient)" />
-              {/* Tails */}
-              <path d="M15 16 L12 23 L18 19 L24 23 L21 16" fill="url(#bowGradient)" />
+          <div className="absolute left-1/2 -translate-x-1/2 -top-8 -z-10">
+            <svg width="72" height="44" viewBox="0 0 72 44" fill="none">
               <defs>
-                <linearGradient id="bowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                {/* Main ribbon gradient - silk-like sheen */}
+                <linearGradient id="ribbonMain" x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor="var(--primary-200)" />
-                  <stop offset="100%" stopColor="var(--primary-400)" />
+                  <stop offset="35%" stopColor="var(--primary-300)" />
+                  <stop offset="65%" stopColor="var(--primary-400)" />
+                  <stop offset="100%" stopColor="var(--primary-300)" />
                 </linearGradient>
-                <linearGradient id="knotGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="var(--primary-300)" />
+                {/* Shadow side of ribbon */}
+                <linearGradient id="ribbonShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="var(--primary-400)" />
                   <stop offset="100%" stopColor="var(--primary-500)" />
                 </linearGradient>
+                {/* Highlight for ribbon folds */}
+                <linearGradient id="ribbonHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="var(--primary-100)" />
+                  <stop offset="50%" stopColor="var(--primary-200)" />
+                  <stop offset="100%" stopColor="var(--primary-100)" />
+                </linearGradient>
+                {/* Knot gradient */}
+                <radialGradient id="knotGrad" cx="30%" cy="30%" r="70%">
+                  <stop offset="0%" stopColor="var(--primary-200)" />
+                  <stop offset="50%" stopColor="var(--primary-400)" />
+                  <stop offset="100%" stopColor="var(--primary-500)" />
+                </radialGradient>
+                {/* Tail gradients */}
+                <linearGradient id="tailLeftGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="var(--primary-300)" />
+                  <stop offset="40%" stopColor="var(--primary-400)" />
+                  <stop offset="70%" stopColor="var(--primary-300)" />
+                  <stop offset="100%" stopColor="var(--primary-400)" />
+                </linearGradient>
+                <linearGradient id="tailRightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="var(--primary-300)" />
+                  <stop offset="40%" stopColor="var(--primary-400)" />
+                  <stop offset="70%" stopColor="var(--primary-300)" />
+                  <stop offset="100%" stopColor="var(--primary-400)" />
+                </linearGradient>
               </defs>
+
+              {/* === Left ribbon tail === */}
+              {/* Back layer of left tail */}
+              <path
+                d="M32 22
+                   C28 24, 24 28, 18 32
+                   C14 35, 10 38, 6 42
+                   L4 40
+                   C8 36, 12 32, 16 28
+                   C20 25, 26 22, 30 20
+                   Z"
+                fill="url(#ribbonShadow)"
+              />
+              {/* Front layer of left tail with twist */}
+              <path
+                d="M34 22
+                   C30 25, 26 30, 20 34
+                   C16 37, 11 40, 8 43
+                   L6 42
+                   C10 38, 15 34, 19 30
+                   C24 26, 29 23, 32 21
+                   Z"
+                fill="url(#tailLeftGrad)"
+              />
+              {/* Left tail end - V cut */}
+              <path
+                d="M4 40 L6 42 L8 43 L5 44 L2 42 Z"
+                fill="var(--primary-400)"
+              />
+
+              {/* === Right ribbon tail === */}
+              {/* Back layer of right tail */}
+              <path
+                d="M40 22
+                   C44 24, 48 28, 54 32
+                   C58 35, 62 38, 66 42
+                   L68 40
+                   C64 36, 60 32, 56 28
+                   C52 25, 46 22, 42 20
+                   Z"
+                fill="url(#ribbonShadow)"
+              />
+              {/* Front layer of right tail with twist */}
+              <path
+                d="M38 22
+                   C42 25, 46 30, 52 34
+                   C56 37, 61 40, 64 43
+                   L66 42
+                   C62 38, 57 34, 53 30
+                   C48 26, 43 23, 40 21
+                   Z"
+                fill="url(#tailRightGrad)"
+              />
+              {/* Right tail end - V cut */}
+              <path
+                d="M68 40 L66 42 L64 43 L67 44 L70 42 Z"
+                fill="var(--primary-400)"
+              />
+
+              {/* === Left loop === */}
+              {/* Back part of left loop (darker, behind) */}
+              <path
+                d="M32 14
+                   C26 10, 16 4, 8 6
+                   C2 8, 0 14, 4 18
+                   C8 22, 18 20, 28 16
+                   L32 14"
+                fill="url(#ribbonShadow)"
+              />
+              {/* Front part of left loop (main visible surface) */}
+              <path
+                d="M34 16
+                   C28 12, 18 6, 10 8
+                   C4 10, 2 15, 6 19
+                   C10 23, 22 20, 32 17
+                   L34 16"
+                fill="url(#ribbonMain)"
+              />
+              {/* Left loop highlight edge */}
+              <path
+                d="M32 15
+                   C26 11, 18 7, 12 9
+                   C8 10, 6 13, 7 16"
+                stroke="var(--primary-100)"
+                strokeWidth="1"
+                fill="none"
+                opacity="0.6"
+              />
+
+              {/* === Right loop === */}
+              {/* Back part of right loop (darker, behind) */}
+              <path
+                d="M40 14
+                   C46 10, 56 4, 64 6
+                   C70 8, 72 14, 68 18
+                   C64 22, 54 20, 44 16
+                   L40 14"
+                fill="url(#ribbonShadow)"
+              />
+              {/* Front part of right loop (main visible surface) */}
+              <path
+                d="M38 16
+                   C44 12, 54 6, 62 8
+                   C68 10, 70 15, 66 19
+                   C62 23, 50 20, 40 17
+                   L38 16"
+                fill="url(#ribbonMain)"
+              />
+              {/* Right loop highlight edge */}
+              <path
+                d="M40 15
+                   C46 11, 54 7, 60 9
+                   C64 10, 66 13, 65 16"
+                stroke="var(--primary-100)"
+                strokeWidth="1"
+                fill="none"
+                opacity="0.6"
+              />
+
+              {/* === Center knot === */}
+              {/* Knot shadow */}
+              <ellipse cx="36" cy="18" rx="7" ry="5" fill="var(--primary-500)" opacity="0.3" />
+              {/* Main knot shape - gathered fabric look */}
+              <path
+                d="M30 14
+                   C32 12, 34 11, 36 11
+                   C38 11, 40 12, 42 14
+                   C44 16, 44 19, 42 21
+                   C40 23, 38 24, 36 24
+                   C34 24, 32 23, 30 21
+                   C28 19, 28 16, 30 14
+                   Z"
+                fill="url(#knotGrad)"
+              />
+              {/* Knot highlight */}
+              <path
+                d="M33 13 C35 12, 37 12, 39 13"
+                stroke="var(--primary-100)"
+                strokeWidth="1.5"
+                fill="none"
+                opacity="0.5"
+                strokeLinecap="round"
+              />
+              {/* Knot center fold */}
+              <path
+                d="M34 17 C36 19, 38 17"
+                stroke="var(--primary-500)"
+                strokeWidth="0.8"
+                fill="none"
+                opacity="0.4"
+              />
             </svg>
           </div>
         </motion.div>
