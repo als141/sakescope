@@ -71,6 +71,8 @@ export default function GiftResultPage() {
   const [gift, setGift] = useState<GiftType | null>(null);
   const [offer, setOffer] = useState<PurchaseOffer | null>(null);
   const hasMarkedReadRef = useRef(false);
+  const stickyTestMode =
+    process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_GIFT_REVEAL_STICKY === '1';
   const giftStatus = gift?.status;
 
   useEffect(() => {
@@ -146,6 +148,7 @@ export default function GiftResultPage() {
   }, [giftId]);
 
   useEffect(() => {
+    if (stickyTestMode) return;
     if (!giftId || !giftStatus) return;
     if (!['RECOMMEND_READY', 'NOTIFIED', 'CLOSED'].includes(giftStatus)) return;
     if (hasMarkedReadRef.current) return;
@@ -162,7 +165,7 @@ export default function GiftResultPage() {
         console.warn('Failed to mark gift recommendation notification read', error);
       }
     })();
-  }, [giftId, giftStatus]);
+  }, [giftId, giftStatus, stickyTestMode]);
 
   if (isLoading) {
     return (

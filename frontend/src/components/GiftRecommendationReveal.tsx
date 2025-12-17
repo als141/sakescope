@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,55 +21,223 @@ function withHonorific(value: string) {
   return `${name}さん`;
 }
 
-function PresentBox({ phase }: { phase: Phase }) {
-  const isOpened = phase !== 'teaser';
+// Confetti that bursts out from inside the box
+function Confetti({ index }: { index: number }) {
+  // Random spread from center, going upward
+  const xSpread = (Math.random() - 0.5) * 100;
+  const yEnd = -60 - Math.random() * 60;
+  const rotation = Math.random() * 720 - 360;
+  const delay = Math.random() * 0.15;
+  const colors = [
+    'var(--primary-200)',
+    'var(--primary-300)',
+    'var(--primary-400)',
+    'var(--accent)',
+  ];
+  const color = colors[index % colors.length];
+  const size = 4 + Math.random() * 4;
 
   return (
-    <div className="relative h-28 w-28 sm:h-32 sm:w-32">
+    <motion.div
+      className="absolute left-1/2 rounded-sm"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: color,
+        top: '20%',
+      }}
+      initial={{ opacity: 0, x: 0, y: 0, scale: 0, rotate: 0 }}
+      animate={{
+        opacity: [0, 1, 1, 0],
+        x: [0, xSpread * 0.4, xSpread],
+        y: [0, yEnd * 0.6, yEnd],
+        scale: [0, 1, 0.6],
+        rotate: [0, rotation],
+      }}
+      transition={{
+        duration: 0.8,
+        delay,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      }}
+    />
+  );
+}
+
+function PresentBox({ phase }: { phase: Phase }) {
+  const isOpened = phase !== 'teaser';
+  const isOpening = phase === 'opening';
+
+  // Generate confetti
+  const confettiCount = 14;
+
+  return (
+    <div className="relative h-36 w-36 sm:h-40 sm:w-40 flex items-center justify-center">
+      {/* Soft ambient glow */}
       <motion.div
         aria-hidden="true"
-        className="absolute inset-0 rounded-full bg-primary/20 blur-2xl opacity-0"
-        animate={isOpened ? { opacity: 1, scale: 1.1 } : { opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.45 }}
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: 'radial-gradient(circle, var(--primary-200) 0%, transparent 70%)',
+        }}
+        animate={{
+          opacity: isOpened ? 0.5 : 0.15,
+          scale: isOpened ? 1.2 : 1,
+        }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
       />
 
-      <motion.div
-        aria-hidden="true"
-        className="absolute left-1/2 top-2 h-10 w-24 -translate-x-1/2 rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/20 to-primary/10 shadow-sm"
-        style={{ transformOrigin: '50% 100%' }}
-        animate={
-          isOpened
-            ? { rotate: -18, x: -8, y: -12, scale: 0.98 }
-            : { rotate: 0, x: 0, y: 0, scale: 1 }
-        }
-        transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-      >
-        <div className="absolute left-1/2 top-0 h-full w-2 -translate-x-1/2 rounded-full bg-primary/40" />
-      </motion.div>
+      {/* Confetti bursting from box */}
+      {isOpening &&
+        Array.from({ length: confettiCount }).map((_, i) => (
+          <Confetti key={`confetti-${i}`} index={i} />
+        ))}
 
-      <div
-        aria-hidden="true"
-        className="absolute left-1/2 bottom-1 h-16 w-24 -translate-x-1/2 rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/15 to-primary/10 shadow-sm"
-      >
-        <div className="absolute left-1/2 top-0 h-full w-2 -translate-x-1/2 rounded-full bg-primary/40" />
-        <div className="absolute left-0 top-1/2 h-2 w-full -translate-y-1/2 rounded-full bg-primary/40" />
+      {/* Box container */}
+      <div className="relative">
+        {/* Ground shadow */}
+        <motion.div
+          className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-20 h-3 rounded-full"
+          style={{
+            background: 'radial-gradient(ellipse, rgba(0,0,0,0.15) 0%, transparent 70%)',
+          }}
+        />
+
+        {/* Box body */}
+        <div className="relative w-24 h-20 sm:w-28 sm:h-24">
+          {/* Box front face */}
+          <div
+            className="absolute inset-0 rounded-b-lg"
+            style={{
+              background: 'linear-gradient(180deg, var(--primary-400) 0%, var(--primary-500) 50%, var(--primary-600) 100%)',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            }}
+          >
+            {/* Top highlight */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1/3"
+              style={{
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 100%)',
+              }}
+            />
+          </div>
+
+          {/* Vertical ribbon on box */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-4 z-10"
+            style={{
+              background: 'linear-gradient(90deg, var(--primary-200) 0%, var(--primary-300) 50%, var(--primary-200) 100%)',
+            }}
+          />
+
+          {/* Horizontal ribbon on box */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-4 z-10"
+            style={{
+              background: 'linear-gradient(180deg, var(--primary-200) 0%, var(--primary-300) 50%, var(--primary-200) 100%)',
+            }}
+          />
+
+          {/* Inner glow when opened */}
+          <AnimatePresence>
+            {isOpened && (
+              <motion.div
+                className="absolute inset-x-4 top-0 h-6 rounded-t"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{
+                  background: 'linear-gradient(180deg, var(--primary-100) 0%, var(--primary-200) 50%, transparent 100%)',
+                }}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Lid - pops up in 2D */}
+        <motion.div
+          className="absolute -top-1 left-1/2 -translate-x-1/2 w-[104px] h-7 sm:w-[120px] sm:h-8 z-20"
+          animate={{
+            y: isOpened ? -50 : 0,
+            rotate: isOpened ? -8 : 0,
+            opacity: isOpened ? 0 : 1,
+          }}
+          transition={{
+            type: 'spring',
+            stiffness: 300,
+            damping: 20,
+          }}
+        >
+          {/* Lid surface */}
+          <div
+            className="absolute inset-0 rounded-lg"
+            style={{
+              background: 'linear-gradient(180deg, var(--primary-300) 0%, var(--primary-400) 50%, var(--primary-500) 100%)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+            }}
+          >
+            {/* Shine */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1/2 rounded-t-lg"
+              style={{
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%)',
+              }}
+            />
+          </div>
+
+          {/* Lid ribbon (vertical) */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-4"
+            style={{
+              background: 'linear-gradient(90deg, var(--primary-200) 0%, var(--primary-300) 50%, var(--primary-200) 100%)',
+            }}
+          />
+
+          {/* Ribbon bow on lid */}
+          <div className="absolute left-1/2 -translate-x-1/2 -top-5">
+            <svg width="36" height="24" viewBox="0 0 36 24" fill="none">
+              {/* Left loop */}
+              <ellipse cx="9" cy="10" rx="8" ry="6" fill="url(#bowGradient)" />
+              {/* Right loop */}
+              <ellipse cx="27" cy="10" rx="8" ry="6" fill="url(#bowGradient)" />
+              {/* Center knot */}
+              <circle cx="18" cy="11" r="5" fill="url(#knotGradient)" />
+              {/* Tails */}
+              <path d="M15 16 L12 23 L18 19 L24 23 L21 16" fill="url(#bowGradient)" />
+              <defs>
+                <linearGradient id="bowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="var(--primary-200)" />
+                  <stop offset="100%" stopColor="var(--primary-400)" />
+                </linearGradient>
+                <linearGradient id="knotGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="var(--primary-300)" />
+                  <stop offset="100%" stopColor="var(--primary-500)" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+        </motion.div>
       </div>
 
-      <motion.div
-        aria-hidden="true"
-        className="absolute left-1/2 top-1 h-7 w-7 -translate-x-1/2 rounded-full border border-primary/20 bg-primary/15 shadow-sm"
-        animate={isOpened ? { y: -6, rotate: 10 } : { y: 0, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      />
-
-      <motion.div
-        aria-hidden="true"
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        animate={isOpened ? { opacity: 1, scale: 1 } : { opacity: 0.85, scale: 0.95 }}
-        transition={{ duration: 0.35 }}
-      >
-        <Sparkles className={cn('h-8 w-8', isOpened ? 'text-primary' : 'text-muted-foreground')} />
-      </motion.div>
+      {/* Subtle pulse indicator in teaser state */}
+      {phase === 'teaser' && (
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{
+            border: '2px solid var(--primary-300)',
+            opacity: 0,
+          }}
+          animate={{
+            scale: [0.9, 1.05, 0.9],
+            opacity: [0, 0.4, 0],
+          }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -77,6 +245,8 @@ function PresentBox({ phase }: { phase: Phase }) {
 export default function GiftRecommendationReveal({ reveal }: { reveal: GiftRecommendationRevealData }) {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
+  const stickyTestMode =
+    process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_GIFT_REVEAL_STICKY === '1';
 
   const [visible, setVisible] = useState(true);
   const [phase, setPhase] = useState<Phase>('teaser');
@@ -90,6 +260,7 @@ export default function GiftRecommendationReveal({ reveal }: { reveal: GiftRecom
   }, [reveal.occasion, reveal.recipientName]);
 
   const markReadOnce = useCallback(async () => {
+    if (stickyTestMode) return;
     if (markedReadRef.current) return;
     markedReadRef.current = true;
     try {
@@ -101,12 +272,17 @@ export default function GiftRecommendationReveal({ reveal }: { reveal: GiftRecom
     } catch (error) {
       console.warn('Failed to mark recommendation notification read', error);
     }
-  }, [reveal.notificationId]);
+  }, [reveal.notificationId, stickyTestMode]);
 
   const handleOpen = useCallback(() => {
     if (phase !== 'teaser') return;
     setPhase('opening');
     void markReadOnce();
+
+    if (openingTimerRef.current != null) {
+      window.clearTimeout(openingTimerRef.current);
+      openingTimerRef.current = null;
+    }
 
     const delayMs = reduceMotion ? 0 : 700;
     openingTimerRef.current = window.setTimeout(() => {
@@ -115,8 +291,16 @@ export default function GiftRecommendationReveal({ reveal }: { reveal: GiftRecom
   }, [markReadOnce, phase, reduceMotion]);
 
   const handleClose = useCallback(() => {
+    if (openingTimerRef.current != null) {
+      window.clearTimeout(openingTimerRef.current);
+      openingTimerRef.current = null;
+    }
+    if (stickyTestMode) {
+      setPhase('teaser');
+      return;
+    }
     setVisible(false);
-  }, []);
+  }, [stickyTestMode]);
 
   const handleOpenDetail = useCallback(() => {
     void markReadOnce();
@@ -172,8 +356,11 @@ export default function GiftRecommendationReveal({ reveal }: { reveal: GiftRecom
                   <div className="flex items-center justify-center sm:justify-start gap-2">
                     <Badge className="bg-primary/10 text-primary border border-primary/20">NEW</Badge>
                     <span className="text-xs text-muted-foreground">新しい推薦が届きました</span>
+                    {stickyTestMode ? (
+                      <span className="text-[10px] text-muted-foreground">(テスト: 未開封のまま)</span>
+                    ) : null}
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-semibold tracking-tight break-words">
+                  <h2 className="text-xl sm:text-2xl font-semibold tracking-tight wrap-break-word">
                     {headline}
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">
