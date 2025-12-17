@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, Gift, ArrowLeft, Package, Check } from 'lucide-react';
@@ -70,6 +70,8 @@ export default function GiftResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [gift, setGift] = useState<GiftType | null>(null);
   const [offer, setOffer] = useState<PurchaseOffer | null>(null);
+  const hasMarkedReadRef = useRef(false);
+  const giftStatus = gift?.status;
 
   useEffect(() => {
     async function loadGiftResult() {
@@ -138,6 +140,29 @@ export default function GiftResultPage() {
       void supabase.removeChannel(channel);
     };
   }, [giftId]);
+
+  useEffect(() => {
+    hasMarkedReadRef.current = false;
+  }, [giftId]);
+
+  useEffect(() => {
+    if (!giftId || !giftStatus) return;
+    if (!['RECOMMEND_READY', 'NOTIFIED', 'CLOSED'].includes(giftStatus)) return;
+    if (hasMarkedReadRef.current) return;
+
+    hasMarkedReadRef.current = true;
+    void (async () => {
+      try {
+        await fetch('/api/notifications/mark-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ giftId }),
+        });
+      } catch (error) {
+        console.warn('Failed to mark gift recommendation notification read', error);
+      }
+    })();
+  }, [giftId, giftStatus]);
 
   if (isLoading) {
     return (

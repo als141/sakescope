@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { buildGiftShareText } from '@/lib/giftShareText';
 import type { CreateGiftRequest, CreateGiftResponse } from '@/types/gift';
 
 const budgetPresets = [
@@ -43,7 +44,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState<string>('');
   const [lineShareUrl, setLineShareUrl] = useState<string | null>(null);
-  const [copiedTarget, setCopiedTarget] = useState<'web' | 'line' | null>(null);
+  const [copiedTarget, setCopiedTarget] = useState<'web' | 'line' | 'message' | null>(null);
   const [formData, setFormData] = useState<CreateGiftRequest>({
     occasion: '',
     recipientFirstName: '',
@@ -51,6 +52,10 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     budgetMax: 3000,
     message: '',
   });
+
+  const shareText = shareUrl
+    ? buildGiftShareText({ webUrl: shareUrl, lineMiniAppUrl: lineShareUrl })
+    : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,8 +114,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
     }
   };
 
-  const handleCopy = async (target: 'web' | 'line') => {
-    const value = target === 'web' ? shareUrl : lineShareUrl;
+  const handleCopy = async (target: 'web' | 'line' | 'message') => {
+    const value = target === 'web' ? shareUrl : target === 'line' ? lineShareUrl : shareText;
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
@@ -346,7 +351,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
               <Alert>
                 <Check className="h-4 w-4" />
                 <AlertDescription>
-                  ギフトリンクが生成されました！LINE用をそのまま送るのが推奨です。
+                  ギフトリンクが生成されました！共有用メッセージをコピーして送るのが推奨です。
                 </AlertDescription>
               </Alert>
 
@@ -382,7 +387,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                           onClick={handleLineShare}
                         >
                           <Share2 className="h-4 w-4" />
-                          LINEで共有
+                          LINEで共有（URLのみ）
                         </Button>
                       </div>
                     </div>
@@ -415,11 +420,39 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                 </TabsContent>
               </Tabs>
 
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>共有用メッセージ（おすすめ）</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => handleCopy('message')}
+                  >
+                    {copiedTarget === 'message' ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    コピー
+                  </Button>
+                </div>
+                <textarea
+                  value={shareText}
+                  readOnly
+                  className="w-full rounded-xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 min-h-[160px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  このまま貼り付けて送れます（音声が流れる注意文つき）。
+                </p>
+              </div>
+
               <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                 <h4 className="font-semibold text-sm">使い方</h4>
                 <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
-                  <li>LINE用タブのURLをコピー、または「LINEで共有」で送信します</li>
-                  <li>相手がリンクを開き、好みについて会話します</li>
+                  <li>共有用メッセージをコピーして、LINEなどで送信します</li>
+                  <li>相手がリンクを開き、AIが好みを質問します</li>
                   <li>会話が終わると、あなたに推薦結果が届きます</li>
                   <li>結果はマイページから確認できます</li>
                 </ol>
