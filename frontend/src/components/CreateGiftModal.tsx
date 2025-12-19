@@ -163,7 +163,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[calc(100vh-2rem)] max-h-[calc(100svh-2rem)] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-primary/10 p-2">
@@ -228,8 +228,8 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2 sm:col-span-2">
                   <Label>よく使う予算帯</Label>
                   <div className="flex flex-wrap gap-2">
                     {budgetPresets.map((preset) => {
@@ -312,7 +312,7 @@ export default function CreateGiftModal({ isOpen, onClose, onCreated }: CreateGi
                 />
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4">
                 <Button
                   type="button"
                   variant="outline"
