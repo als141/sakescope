@@ -21,6 +21,7 @@ export default function GiftPage() {
   const [giftId, setGiftId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [audioNoticeConfirmed, setAudioNoticeConfirmed] = useState(false);
   const [isAgeConfirming, setIsAgeConfirming] = useState(false);
   const [ageConfirmError, setAgeConfirmError] = useState<string | null>(null);
   const lastValidatedTokenRef = useRef<string | null>(null);
@@ -212,6 +213,52 @@ export default function GiftPage() {
                   className="w-full"
                 >
                   いいえ
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Audio notice required
+  if (!audioNoticeConfirmed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="w-full max-w-md"
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-center">音声のご案内</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4 text-center">
+                <p className="text-lg font-medium">この先、音声が流れます</p>
+                <p className="text-sm text-muted-foreground">
+                  周囲の環境にご配慮のうえ、音量にご注意ください。
+                  <br />
+                  イヤホンのご利用をおすすめします。
+                </p>
+              </div>
+
+              <Alert>
+                <AlertDescription className="text-xs">
+                  音量は端末側で調整できます。周囲に配慮して進めてください。
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => setAudioNoticeConfirmed(true)}
+                  size="lg"
+                  className="w-full"
+                >
+                  OKして進む
                 </Button>
               </div>
             </CardContent>
