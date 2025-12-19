@@ -129,10 +129,6 @@ function TextChatCanvas() {
         enabled: false,
       },
     },
-    disclaimer: {
-      text: '必ず提案内のリンクを開いて確認してください。実在するストアページのみを案内します。',
-      highContrast: true,
-    },
   });
 
   return (

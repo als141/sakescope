@@ -190,10 +190,6 @@ export default function EmbedPageClient() {
         enabled: false,
       },
     },
-    disclaimer: {
-      text: '必ず提案内のリンクを開いて確認してください。実在するストアページのみを案内します。',
-      highContrast: true,
-    },
   });
 
   const isTextMode = mode === 'text';
