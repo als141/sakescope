@@ -121,3 +121,12 @@ export interface GiftDashboardItem {
   recommendationCreatedAt: string | null;
   recommendationModel: string | null;
 }
+
+export interface GiftRecommendationRevealData {
+  notificationId: number;
+  giftId: string;
+  recipientName: string | null;
+  occasion: string | null;
+  sakeName: string | null;
+  summary: string | null;
+}

@@ -1,10 +1,10 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { auth } from '@clerk/nextjs/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
 import { mapGiftRecommendationPayload } from '@/lib/giftRecommendation';
 import { normalizeIntakeSummary } from '@/lib/giftIntake';
 import GiftManager from '@/components/GiftManager';
-import type { GiftStatus, GiftDashboardItem } from '@/types/gift';
+import type { GiftStatus, GiftDashboardItem, GiftRecommendationRevealData } from '@/types/gift';
 
 type SupabaseGiftRecord = {
   id: string;
@@ -129,5 +129,46 @@ export default async function GiftDashboardPage() {
     };
   }) ?? [];
 
-  return <GiftManager gifts={gifts} />;
+  type NotificationRecord = {
+    id: number;
+    payload: unknown;
+    created_at: string;
+  };
+
+  const { data: unreadNotifications } = await supabase
+    .from('notifications')
+    .select('id, payload, created_at')
+    .eq('user_id', userId)
+    .eq('type', 'gift_recommend_ready')
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const latestUnread =
+    (Array.isArray(unreadNotifications) ? unreadNotifications[0] : null) as NotificationRecord | null;
+
+  let unreadRecommendation: GiftRecommendationRevealData | null = null;
+
+  if (latestUnread?.payload && typeof latestUnread.payload === 'object') {
+    const payload = latestUnread.payload as Record<string, unknown>;
+    const giftId = typeof payload.gift_id === 'string' ? payload.gift_id : null;
+
+    if (giftId) {
+      const gift = gifts.find((item) => item.id === giftId) ?? null;
+      unreadRecommendation = {
+        notificationId: latestUnread.id,
+        giftId,
+        recipientName:
+          typeof payload.recipient_name === 'string'
+            ? payload.recipient_name
+            : gift?.recipientFirstName ?? null,
+        occasion:
+          typeof payload.occasion === 'string' ? payload.occasion : gift?.occasion ?? null,
+        sakeName: gift?.recommendation?.sake.name ?? null,
+        summary: gift?.recommendation?.summary ?? null,
+      };
+    }
+  }
+
+  return <GiftManager gifts={gifts} unreadRecommendation={unreadRecommendation} />;
 }

@@ -12,14 +12,17 @@ import {
   Clock,
   ExternalLink,
   ListChecks,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { buildGiftShareText } from '@/lib/giftShareText';
 import CreateGiftModal from '@/components/CreateGiftModal';
-import type { GiftStatus, IntakeSummary, GiftDashboardItem } from '@/types/gift';
+import GiftRecommendationReveal from '@/components/GiftRecommendationReveal';
+import type { GiftStatus, IntakeSummary, GiftDashboardItem, GiftRecommendationRevealData } from '@/types/gift';
 import { PreferenceRadar } from '@/components/PreferenceRadar';
 import { summarizeIntake } from '@/lib/giftIntake';
 
@@ -31,7 +34,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat('ja-JP', {
 
 type LinkStatus = {
   loading: boolean;
-  copiedTarget: 'web' | 'line' | null;
+  copiedTarget: 'message' | null;
   error: string | null;
   expiresAt?: string | null;
   webShareUrl?: string;
@@ -90,9 +93,10 @@ const progressMessages: Partial<Record<GiftStatus, string>> = {
 
 interface GiftManagerProps {
   gifts: GiftDashboardItem[];
+  unreadRecommendation?: GiftRecommendationRevealData | null;
 }
 
-export default function GiftManager({ gifts }: GiftManagerProps) {
+export default function GiftManager({ gifts, unreadRecommendation }: GiftManagerProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshOnClose, setRefreshOnClose] = useState(false);
@@ -109,7 +113,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
   const readyGifts = useMemo(() => gifts.filter((gift) => isReadyGift(gift)), [gifts, isReadyGift]);
   const activeGifts = useMemo(() => gifts.filter((gift) => !isReadyGift(gift)), [gifts, isReadyGift]);
 
-  const scheduleCopyReset = (giftId: string, target: 'web' | 'line') => {
+  const scheduleCopyReset = (giftId: string, target: 'message') => {
     setTimeout(() => {
       setLinkStatus((prev) => {
         const current = prev[giftId];
@@ -124,29 +128,45 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
     }, 2000);
   };
 
-  const copyGeneratedLink = async (giftId: string, url: string, target: 'web' | 'line') => {
-    if (!url) return;
+  const copyShareText = async (
+    giftId: string,
+    input: { webShareUrl: string; lineShareUrl?: string | null },
+  ) => {
+    if (!input.webShareUrl) return;
+    const value = buildGiftShareText({ webUrl: input.webShareUrl, lineMiniAppUrl: input.lineShareUrl });
+    if (!value) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(value);
       setLinkStatus((prev) => ({
         ...prev,
         [giftId]: {
           ...(prev[giftId] ?? { loading: false, copiedTarget: null, error: null }),
-          copiedTarget: target,
+          webShareUrl: input.webShareUrl,
+          lineShareUrl: input.lineShareUrl ?? null,
+          copiedTarget: 'message',
           error: null,
         },
       }));
-      scheduleCopyReset(giftId, target);
+      scheduleCopyReset(giftId, 'message');
     } catch (err) {
       console.error('Failed to copy gift link', err);
       setLinkStatus((prev) => ({
         ...prev,
         [giftId]: {
           ...(prev[giftId] ?? { loading: false, copiedTarget: null, error: null }),
-          error: 'リンクのコピーに失敗しました。',
+          error: '共有文のコピーに失敗しました。',
         },
       }));
     }
+  };
+
+  const handleCopyExistingShareText = async (giftId: string) => {
+    const current = linkStatus[giftId];
+    if (!current?.webShareUrl) return;
+    await copyShareText(giftId, {
+      webShareUrl: current.webShareUrl,
+      lineShareUrl: current.lineShareUrl,
+    });
   };
 
   const handleGenerateLink = async (giftId: string) => {
@@ -183,7 +203,7 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
           lineShareUrl,
         },
       }));
-      await copyGeneratedLink(giftId, data.shareUrl, 'web');
+      await copyShareText(giftId, { webShareUrl: data.shareUrl, lineShareUrl });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'リンクの生成に失敗しました。';
       setLinkStatus((prev) => ({
@@ -248,6 +268,8 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
             </Link>
           </div>
         </header>
+
+        {unreadRecommendation ? <GiftRecommendationReveal reveal={unreadRecommendation} /> : null}
 
         {gifts.length === 0 ? (
           <Card className="border-dashed">
@@ -399,12 +421,12 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                     const linkInfo = linkStatus[gift.id];
                     const summaryLines = buildIntakeSummary(gift.intakeSummary);
                     const shareLabel = linkInfo?.loading
-                      ? 'リンクを生成中...'
+                      ? '共有文を生成中...'
                       : linkInfo?.copiedTarget
-                        ? 'リンクをコピーしました'
+                        ? '共有文をコピーしました'
                         : linkInfo?.webShareUrl
-                          ? 'リンクをコピー'
-                          : 'リンクを作成';
+                          ? '共有文をコピー'
+                          : '共有文を作成';
                     return (
                       <Card key={gift.id} className="border-border/60 rounded-2xl sm:rounded-3xl h-full flex flex-col">
                         <CardHeader className="space-y-3 pb-3 sm:pb-4">
@@ -446,7 +468,11 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                             <Button
                               variant="outline"
                               className="flex items-center gap-2 justify-center w-full sm:w-auto"
-                              onClick={() => handleGenerateLink(gift.id)}
+                              onClick={() =>
+                                linkInfo?.webShareUrl
+                                  ? void handleCopyExistingShareText(gift.id)
+                                  : void handleGenerateLink(gift.id)
+                              }
                               disabled={linkInfo?.loading}
                             >
                               {linkInfo?.loading ? (
@@ -458,7 +484,23 @@ export default function GiftManager({ gifts }: GiftManagerProps) {
                               )}
                               {shareLabel}
                             </Button>
-                            <Button asChild variant="ghost" className="flex items-center gap-2 justify-center w-full sm:w-auto">
+                            {linkInfo?.webShareUrl ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="flex items-center gap-2 justify-center w-full sm:w-auto"
+                                onClick={() => void handleGenerateLink(gift.id)}
+                                disabled={linkInfo?.loading}
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                                再発行
+                              </Button>
+                            ) : null}
+                            <Button
+                              asChild
+                              variant="ghost"
+                              className="flex items-center gap-2 justify-center w-full sm:w-auto"
+                            >
                               <Link href={`/gift/result/${gift.id}`}>
                                 進行状況を見る
                                 <ExternalLink className="h-4 w-4" />
