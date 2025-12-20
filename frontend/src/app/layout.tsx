@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Sans_JP } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { jaJP } from "@clerk/localizations";
+import ClerkBoundary from "./ClerkBoundary";
 import "./globals.css";
 
 const inter = Inter({
@@ -39,14 +38,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider localization={jaJP}>
-      <html lang="ja">
-        <body
-          className={`${inter.variable} ${notoSansJp.variable} antialiased`}
-        >
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="ja">
+      <body
+        className={`${inter.variable} ${notoSansJp.variable} antialiased`}
+      >
+        <ClerkBoundary>{children}</ClerkBoundary>
+      </body>
+    </html>
   );
 }
