@@ -1,5 +1,5 @@
+import { NextFetchEvent, NextRequest, NextResponse } from 'next/server';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextRequest, NextResponse } from 'next/server';
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -17,21 +17,30 @@ const isPublicRoute = createRouteMatcher([
   '/api/sake-recommendations(.*)',
   '/text-chat(.*)', // Text chat UI is public
   '/api/text-chatkit(.*)', // ChatKit backend for text chat is public
-  '/embed(.*)',
   '/api/line/webhook(.*)',
   '/api/webhooks/clerk(.*)',
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+const isEmbedRoute = createRouteMatcher(['/embed(.*)']);
+
+const clerk = clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect();
+  }
+});
+
+export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const rewrite = handleLiffStateRewrite(request);
   if (rewrite) {
     return rewrite;
   }
 
-  if (!isPublicRoute(request)) {
-    await auth.protect();
+  if (isEmbedRoute(request)) {
+    return NextResponse.next();
   }
-});
+
+  return clerk(request, event);
+}
 
 function handleLiffStateRewrite(request: NextRequest) {
   const url = request.nextUrl;
